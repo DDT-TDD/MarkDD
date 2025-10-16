@@ -1,0 +1,158 @@
+{
+  "name": "markdd-editor",
+  "version": "1.1.0",
+  "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, and TikZ/CircuiTikZ rendering",
+  "main": "src/main/main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps",
+    "generate-licenses": "node ./scripts/generate-licenses.js",
+  "generate-spdx-manifest": "node ./scripts/generate-spdx-manifest.js",
+  "generate-licenses:ps": "powershell -ExecutionPolicy Bypass -File ./scripts/generate-licenses.ps1",
+  "generate-license-manifests": "node ./scripts/generate-license-manifests.js"
+  },
+  "build": {
+    "appId": "com.markdd.editor",
+    "productName": "MarkDD Editor",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.wasm",
+      "node_modules/marked",
+      "node_modules/**/node-tikzjax/**",
+      "node_modules/**/tikzjax/**"
+    ],
+    "directories": {
+      "output": "dist-final"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "package-lock.json",
+      "LICENSE",
+      "README.md",
+      "THIRD-PARTY-LICENSES.md",
+      "third_party/**/*",
+      "resources/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "COMPREHENSIVE-FEATURES-SHOWCASE.md",
+        "to": "resources/COMPREHENSIVE-FEATURES-SHOWCASE.md"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico",
+      "fileAssociations": [
+        {
+          "ext": "md",
+          "name": "Markdown File",
+          "description": "Markdown Document",
+          "icon": "assets/icons/icon.ico",
+          "role": "Editor"
+        },
+        {
+          "ext": "markdown",
+          "name": "Markdown File",
+          "description": "Markdown Document",
+          "icon": "assets/icons/icon.ico",
+          "role": "Editor"
+        }
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icons/icon.icns",
+      "fileAssociations": [
+        {
+          "ext": "md",
+          "name": "Markdown File",
+          "description": "Markdown Document",
+          "icon": "assets/icons/icon.icns",
+          "role": "Editor"
+        },
+        {
+          "ext": "markdown",
+          "name": "Markdown File",
+          "description": "Markdown Document",
+          "icon": "assets/icons/icon.icns",
+          "role": "Editor"
+        }
+      ]
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/icon.png",
+      "fileAssociations": [
+        {
+          "ext": "md",
+          "mimeType": "text/markdown"
+        },
+        {
+          "ext": "markdown",
+          "mimeType": "text/markdown"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "archiver": "^5.3.2",
+    "electron": "^38.0.0",
+    "electron-builder": "^24.6.4",
+    "highlight.js": "^11.11.1",
+    "jsdom": "^27.0.0",
+    "katex": "^0.16.22",
+    "marked": "^16.3.0"
+  },
+  "dependencies": {
+    "@aduh95/viz.js": "^3.7.0",
+    "@cartamd/plugin-tikz": "^4.2.2",
+    "abcjs": "^6.5.2",
+    "chokidar": "^3.5.3",
+    "codemirror": "^5.65.2",
+    "d3": "^7.8.0",
+    "dompurify": "^3.2.6",
+    "electron-store": "^8.0.1",
+    "electron-window-state": "^5.0.3",
+    "fs-extra": "^11.0.0",
+    "latex.js": "^0.12.6",
+    "markdown-it": "^13.0.1",
+    "markdown-it-anchor": "^8.6.7",
+    "markdown-it-texmath": "^1.0.0",
+    "markdown-it-toc-done-right": "^4.2.0",
+    "markmap-lib": "^0.15.0",
+    "markmap-view": "^0.15.0",
+    "mathjax": "^4.0.0",
+    "mathjax-full": "^3.2.2",
+    "mermaid": "^11.4.1",
+    "node-tikzjax": "github:prinsss/node-tikzjax",
+    "plantuml-encoder": "^1.4.0",
+    "puppeteer": "^24.19.0",
+    "vega": "^5.33.0",
+    "vega-embed": "^6.29.0",
+    "vega-lite": "^5.23.0",
+    "viz.js": "^2.1.2"
+  },
+  "keywords": [
+    "markdown",
+    "editor",
+    "electron",
+    "wysiwyg",
+    "preview",
+    "export",
+    "markmap",
+    "tikz",
+    "circuitikz"
+  ],
+  "author": "MarkDD Team",
+  "license": "MIT"
+}

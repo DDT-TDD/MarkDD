@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html ng-app="kityminderDemo">
+<head>
+	<meta charset="utf-8">
+	<title>KityMinder Editor - Powered By FEX</title>
+	<link href="favicon.ico" type="image/x-icon" rel="shortcut icon">
+	
+	<!-- KityMinder Core Styles -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" />
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.css" />
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.css" />
+	
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+		h1.editor-title {
+			background: #333;
+			color: white;
+			margin: 0;
+			height: 40px;
+			font-size: 14px;
+			line-height: 40px;
+			font-family: 'Hiragino Sans GB', 'Arial', 'Microsoft Yahei';
+			font-weight: normal;
+			padding: 0 20px;
+		}
+		.export-controls {
+			float: right;
+		}
+		.export-controls button,
+		.export-controls label {
+			margin-top: 5px;
+			margin-right: 5px;
+			padding: 5px 10px;
+			background-color: #fff;
+			color: #333;
+			border: 1px solid #ccc;
+			cursor: pointer;
+			font-size: 12px;
+		}
+		.export-controls button:hover,
+		.export-controls label:hover {
+			background-color: #e9e9e9;
+		}
+		.export-controls input[type="file"] {
+			display: none;
+		}
+		div.minder-editor-container {
+			position: absolute;
+			top: 40px;
+			bottom: 0;
+			left: 0;
+			right: 0;
+		}
+	</style>
+</head>
+<body ng-controller="MainController">
+
+<h1 class="editor-title">
+	KityMinder Editor
+	<div class="export-controls">
+		<button onclick="exportKM()">Export KM</button>
+		<label for="fileInput">Import
+			<input type="file" id="fileInput" accept=".xmind,.mmap,.km,.json">
+		</label>
+	</div>
+</h1>
+
+<kityminder-editor on-init="initEditor(editor, minder)" data-theme="fresh-blue" style="top: 0px;"></kityminder-editor>
+<iframe name="frameFile" style="display:none;"></iframe>
+
+<!-- jQuery -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+    
+    <!-- Angular -->
+    <script src="https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.min.js"></script>
+    
+    <!-- JSZip for XMind import -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    
+    <!-- Kity -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kity.min.js"></script>
+    
+    <!-- Hotbox -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/hotbox.min.js"></script>
+    
+    <!-- KityMinder Core -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script>
+    
+    <!-- Language (English) -->
+    <script>
+        // English language support
+        if (typeof kityminder !== 'undefined' && kityminder.lang) {
+            kityminder.lang = {
+                name: 'en',
+                maintainer: 'MarkDD Team',
+                version: '1.0',
+                language: 'English'
+            };
+        }
+    </script>
+
+    <!-- Angular KityMinder Editor App -->
+    <script>
+        // Angular App Definition
+        angular.module('kityminderDemo', ['kityminderEditor'])
+        .controller('MainController', ['$scope', function($scope) {
+            // Initialize editor
+            $scope.initEditor = function(editor, minder) {
+                window.editor = editor;
+                window.minder = minder;
+                console.log('[KityMinder] Editor initialized');
+                
+                // Set up export functionality
+                setupExport();
+                
+                // Set up import functionality
+                setupImport();
+                
+                // Listen for messages from parent window
+                setupParentCommunication();
+                
+                // Auto-save periodically
+                startAutoSave();
+            };
+            
+            function setupExport() {
+                try {
+                    this.container = d3.select('#mindmap-editor');
+                    this.setupEditor();
+                    this.setupEventListeners();
+                    this.hideLoading();
+                    
+                    // Create default mind map
+                    this.createDefaultMindmap();
+                    
+                    console.log('[KityMinder] Editor initialized');
+                    
+                    // Notify parent that editor is ready
+                    this.notifyParent('mindmap-ready');
+                    
+                } catch (error) {
+                    console.error('[KityMinder] Initialization error:', error);
+                    this.showError('Failed to initialize mind map editor');
+                }
+            }
+            
+            setupEditor() {
+                const width = this.container.node().clientWidth;
+                const height = this.container.node().clientHeight;
+                
+                this.svg = this.container
+                    .append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .style('background', '#fff');
+                
+                this.zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on('zoom', (event) => {
+                        this.svg.select('.main-group').attr('transform', event.transform);
+                    });
+                
+                this.svg.call(this.zoom);
+                
+                const mainGroup = this.svg.append('g').attr('class', 'main-group');
+                
+                // Create groups for links and nodes
+                mainGroup.append('g').attr('class', 'links');
+                mainGroup.append('g').attr('class', 'nodes');
+            }
+            
+            setupEventListeners() {
+                // Toolbar buttons
+                document.getElementById('new-node').addEventListener('click', () => this.addNewNode());
+                document.getElementById('delete-node').addEventListener('click', () => this.deleteSelectedNode());
+                document.getElementById('edit-node').addEventListener('click', () => this.editSelectedNode());
+                document.getElementById('zoom-in').addEventListener('click', () => this.zoomIn());
+                document.getElementById('zoom-out').addEventListener('click', () => this.zoomOut());
+                document.getElementById('reset-zoom').addEventListener('click', () => this.resetZoom());
+                document.getElementById('export-data').addEventListener('click', () => this.exportData());
+                document.getElementById('export-svg').addEventListener('click', () => this.exportSVGWithPrompt());
+                document.getElementById('export-png').addEventListener('click', () => this.exportPNGWithPrompt());
+                document.getElementById('insert-markdown').addEventListener('click', () => this.insertImageInMarkdown());
+                document.getElementById('import-file').addEventListener('change', (e) => this.handleFileImport(e));
+                
+                // Parent window messages
+                window.addEventListener('message', (event) => {
+                    this.handleMessage(event.data);
+                });
+                
+                // Window resize
+                window.addEventListener('resize', () => {
+                    this.resize();
+                });
+            }
+            
+            handleMessage(data) {
+                try {
+                    if (!data || !data.type) return;
+                    
+                    switch (data.type) {
+                        case 'load-mindmap':
+                            this.loadMindmapData(data.data);
+                            break;
+                        case 'get-mindmap-data':
+                            this.sendMindmapData();
+                            break;
+                        case 'export-mindmap':
+                            this.exportData();
+                            break;
+                        case 'export-svg':
+                            this.exportSVG(data.filename);
+                            break;
+                        default:
+                            console.log('[KityMinder] Unknown message type:', data.type);
+                    }
+                } catch (error) {
+                    console.error('[KityMinder] Message handling error:', error);
+                }
+            }
+            
+            createDefaultMindmap() {
+                this.mindmapData = {
+                    data: { text: 'Main Topic' },
+                    children: [
+                        {
+                            data: { text: 'Subtopic 1' },
+                            children: [
+                                { data: { text: 'Detail 1.1' }, children: [] },
+                                { data: { text: 'Detail 1.2' }, children: [] }
+                            ]
+                        },
+                        {
+                            data: { text: 'Subtopic 2' },
+                            children: [
+                                { data: { text: 'Detail 2.1' }, children: [] }
+                            ]
+                        }
+                    ]
+                };
+                
+                this.renderMindmap();
+            }
+            
+            loadMindmapData(data) {
+                try {
+                    if (typeof data === 'string') {
+                        this.mindmapData = JSON.parse(data);
+                    } else {
+                        this.mindmapData = data;
+                    }
+                    
+                    if (!this.mindmapData) {
+                        this.createDefaultMindmap();
+                        return;
+                    }
+                    
+                    this.renderMindmap();
+                    console.log('[KityMinder] Mindmap data loaded');
+                    
+                } catch (error) {
+                    console.error('[KityMinder] Failed to load mindmap data:', error);
+                    this.createDefaultMindmap();
+                }
+            }
+            
+            renderMindmap() {
+                if (!this.mindmapData) return;
+                
+                try {
+                    // Flatten tree structure for D3
+                    const root = d3.hierarchy(this.mindmapData);
+                    const nodes = root.descendants();
+                    const links = root.links();
+                    
+                    // Create tree layout
+                    const width = this.container.node().clientWidth;
+                    const height = this.container.node().clientHeight;
+                    
+                    const treeLayout = d3.tree().size([height - 100, width - 200]);
+                    treeLayout(root);
+                    
+                    // Update links
+                    const linkSelection = this.svg.select('.links')
+                        .selectAll('.link')
+                        .data(links, d => d.target.id);
+                    
+                    linkSelection.exit().remove();
+                    
+                    const linkEnter = linkSelection.enter()
+                        .append('path')
+                        .attr('class', 'link')
+                        .attr('fill', 'none')
+                        .attr('stroke', '#ccc')
+                        .attr('stroke-width', 2);
+                    
+                    linkSelection.merge(linkEnter)
+                        .attr('d', d3.linkHorizontal()
+                            .x(d => d.y)
+                            .y(d => d.x));
+                    
+                    // Update nodes
+                    const nodeSelection = this.svg.select('.nodes')
+                        .selectAll('.node')
+                        .data(nodes, d => d.id);
+                    
+                    nodeSelection.exit().remove();
+                    
+                    const nodeEnter = nodeSelection.enter()
+                        .append('g')
+                        .attr('class', 'node')
+                        .style('cursor', 'pointer');
+                    
+                    // Add circles for nodes
+                    nodeEnter.append('circle')
+                        .attr('r', 8)
+                        .attr('fill', d => d.depth === 0 ? '#007bff' : '#28a745')
+                        .attr('stroke', '#fff')
+                        .attr('stroke-width', 2);
+                    
+                    // Add text labels
+                    nodeEnter.append('text')
+                        .attr('dy', '0.31em')
+                        .attr('x', d => d.children ? -12 : 12)
+                        .attr('text-anchor', d => d.children ? 'end' : 'start')
+                        .text(d => d.data.data ? d.data.data.text : d.data.text)
+                        .style('font-size', '12px')
+                        .style('fill', '#333');
+                    
+                    // Update positions
+                    const nodeUpdate = nodeSelection.merge(nodeEnter);
+                    nodeUpdate.attr('transform', d => `translate(${d.y + 100},${d.x + 50})`);
+                    
+                    // Add click events
+                    nodeUpdate.on('click', (event, d) => {
+                        this.selectNode(d);
+                    });
+                    
+                    // Update text content
+                    nodeUpdate.select('text')
+                        .text(d => d.data.data ? d.data.data.text : d.data.text);
+                    
+                    this.nodes = nodes;
+                    this.links = links;
+                    
+                } catch (error) {
+                    console.error('[KityMinder] Render error:', error);
+                    this.showError('Failed to render mind map');
+                }
+            }
+            
+            selectNode(node) {
+                // Clear previous selection
+                this.svg.selectAll('.node circle').attr('stroke', '#fff');
+                
+                // Highlight selected node
+                const selectedNode = this.svg.selectAll('.node')
+                    .filter(d => d === node);
+                
+                selectedNode.select('circle').attr('stroke', '#ffc107').attr('stroke-width', 3);
+                
+                this.currentNode = node;
+                console.log('[KityMinder] Node selected:', node.data);
+            }
+            
+            addNewNode() {
+                if (!this.currentNode) {
+                    alert('Please select a parent node first');
+                    return;
+                }
+                
+                const text = prompt('Enter text for new node:', 'New Node');
+                if (!text) return;
+                
+                const newNodeData = {
+                    data: { text: text },
+                    children: []
+                };
+                
+                // Add to current node's children
+                if (!this.currentNode.data.children) {
+                    this.currentNode.data.children = [];
+                }
+                this.currentNode.data.children.push(newNodeData);
+                
+                // Re-render
+                this.renderMindmap();
+                this.sendMindmapData();
+            }
+            
+            deleteSelectedNode() {
+                if (!this.currentNode || this.currentNode.depth === 0) {
+                    alert('Cannot delete root node or no node selected');
+                    return;
+                }
+                
+                if (!confirm('Delete this node and all its children?')) return;
+                
+                // Find and remove from parent
+                const parent = this.currentNode.parent;
+                if (parent && parent.data.children) {
+                    const index = parent.data.children.findIndex(child => 
+                        (child.data && child.data.text) === (this.currentNode.data.data ? this.currentNode.data.data.text : this.currentNode.data.text)
+                    );
+                    if (index !== -1) {
+                        parent.data.children.splice(index, 1);
+                    }
+                }
+                
+                this.currentNode = null;
+                this.renderMindmap();
+                this.sendMindmapData();
+            }
+            
+            editSelectedNode() {
+                if (!this.currentNode) {
+                    alert('Please select a node first');
+                    return;
+                }
+                
+                const currentText = this.currentNode.data.data ? this.currentNode.data.data.text : this.currentNode.data.text;
+                const newText = prompt('Edit node text:', currentText);
+                if (!newText) return;
+                
+                // Update node text
+                if (this.currentNode.data.data) {
+                    this.currentNode.data.data.text = newText;
+                } else {
+                    this.currentNode.data.text = newText;
+                }
+                
+                this.renderMindmap();
+                this.sendMindmapData();
+            }
+            
+            zoomIn() {
+                this.svg.transition().call(this.zoom.scaleBy, 1.2);
+            }
+            
+            zoomOut() {
+                this.svg.transition().call(this.zoom.scaleBy, 1 / 1.2);
+            }
+            
+            resetZoom() {
+                this.svg.transition().call(this.zoom.transform, d3.zoomIdentity);
+            }
+            
+            resize() {
+                const width = this.container.node().clientWidth;
+                const height = this.container.node().clientHeight;
+                this.svg.attr('width', width).attr('height', height);
+                this.renderMindmap();
+            }
+            
+            sendMindmapData() {
+                const data = JSON.stringify(this.mindmapData);
+                this.notifyParent('mindmap-data', { json: data, png: this.exportPNG() });
+            }
+            
+            exportData() {
+                this.sendMindmapData();
+            }
+            
+            exportSVG(filename) {
+                try {
+                    const svgElement = this.svg.node();
+                    const serializer = new XMLSerializer();
+                    const svgString = serializer.serializeToString(svgElement);
+                    
+                    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename || 'mindmap.svg';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                } catch (error) {
+                    console.error('[KityMinder] SVG export error:', error);
+                }
+            }
+            
+            exportPNG() {
+                try {
+                    const svgElement = this.svg.node();
+                    const svgData = new XMLSerializer().serializeToString(svgElement);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    return new Promise((resolve) => {
+                        img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            const pngData = canvas.toDataURL('image/png');
+                            resolve(pngData);
+                        };
+                        img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+                    });
+                } catch (error) {
+                    console.error('[KityMinder] PNG export error:', error);
+                    return null;
+                }
+            }
+            
+            async exportSVGWithPrompt() {
+                const filename = prompt('Enter filename for SVG:', 'mindmap.svg');
+                if (!filename) return;
+                this.exportSVG(filename);
+            }
+            
+            async exportPNGWithPrompt() {
+                try {
+                    const svgElement = this.svg.node();
+                    const svgData = new XMLSerializer().serializeToString(svgElement);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    const filename = prompt('Enter filename for PNG:', 'mindmap.png');
+                    if (!filename) return;
+                    
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        
+                        canvas.toBlob((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        });
+                    };
+                    
+                    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                } catch (error) {
+                    console.error('[KityMinder] PNG export error:', error);
+                    alert('Failed to export PNG: ' + error.message);
+                }
+            }
+            
+            async insertImageInMarkdown() {
+                try {
+                    // Generate PNG as base64
+                    const svgElement = this.svg.node();
+                    const svgData = new XMLSerializer().serializeToString(svgElement);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        canvas.width = img.width || 800;
+                        canvas.height = img.height || 600;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        
+                        const pngData = canvas.toDataURL('image/png');
+                        
+                        // Notify parent to insert the image
+                        this.notifyParent('insert-mindmap-image', {
+                            imageData: pngData,
+                            format: 'png',
+                            mindmapData: JSON.stringify(this.mindmapData)
+                        });
+                        
+                        alert('Mind map image will be inserted into your markdown document');
+                    };
+                    
+                    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                } catch (error) {
+                    console.error('[KityMinder] Insert image error:', error);
+                    alert('Failed to generate image: ' + error.message);
+                }
+            }
+            
+            async handleFileImport(event) {
+                try {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const fileName = file.name.toLowerCase();
+                    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+                    
+                    console.log('[KityMinder] Importing file:', fileName, 'type:', fileExtension);
+                    
+                    if (fileExtension === '.xmind') {
+                        await this.importXMindFile(file);
+                    } else if (fileExtension === '.mmap') {
+                        await this.importMindManagerFile(file);
+                    } else if (fileExtension === '.json' || fileExtension === '.km') {
+                        await this.importJSONFile(file);
+                    } else {
+                        alert('Unsupported file format. Please use .xmind, .mmap, .json, or .km files.');
+                        return;
+                    }
+                    
+                    // Clear file input for next import
+                    event.target.value = '';
+                    
+                } catch (error) {
+                    console.error('[KityMinder] File import error:', error);
+                    alert('Failed to import file: ' + error.message);
+                }
+            }
+            
+            async importXMindFile(file) {
+                try {
+                    console.log('[KityMinder] Importing XMind file...');
+                    
+                    // Check if JSZip is available
+                    if (typeof JSZip === 'undefined') {
+                        throw new Error('JSZip library not loaded. Cannot import XMind files.');
+                    }
+                    
+                    // XMind files are ZIP archives containing XML content
+                    const zip = await JSZip.loadAsync(file);
+                    
+                    // XMind 8/2020 uses content.xml or content.json
+                    let contentFile = zip.file('content.xml') || zip.file('content.json');
+                    
+                    if (!contentFile) {
+                        throw new Error('Invalid XMind file: content.xml or content.json not found');
+                    }
+                    
+                    const content = await contentFile.async('string');
+                    
+                    // Parse XMind content
+                    let mindmapData;
+                    if (contentFile.name.endsWith('.json')) {
+                        // XMind 2020+ uses JSON format
+                        const xmindData = JSON.parse(content);
+                        mindmapData = this.convertXMindJSONToKityMinder(xmindData);
+                    } else {
+                        // XMind 8 uses XML format
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(content, 'text/xml');
+                        mindmapData = this.convertXMindXMLToKityMinder(xmlDoc);
+                    }
+                    
+                    this.mindmapData = mindmapData;
+                    this.renderMindmap();
+                    console.log('[KityMinder] XMind file imported successfully');
+                    alert('XMind file imported successfully!');
+                    
+                } catch (error) {
+                    console.error('[KityMinder] XMind import error:', error);
+                    throw new Error('Failed to import XMind file: ' + error.message);
+                }
+            }
+            
+            async importMindManagerFile(file) {
+                try {
+                    console.log('[KityMinder] Importing MindManager file...');
+                    
+                    const reader = new FileReader();
+                    const content = await new Promise((resolve, reject) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsText(file);
+                    });
+                    
+                    // MindManager files are XML format
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(content, 'text/xml');
+                    
+                    // Check for parsing errors
+                    const parseError = xmlDoc.querySelector('parsererror');
+                    if (parseError) {
+                        throw new Error('Invalid MindManager XML: ' + parseError.textContent);
+                    }
+                    
+                    const mindmapData = this.convertMindManagerToKityMinder(xmlDoc);
+                    this.mindmapData = mindmapData;
+                    this.renderMindmap();
+                    console.log('[KityMinder] MindManager file imported successfully');
+                    alert('MindManager file imported successfully!');
+                    
+                } catch (error) {
+                    console.error('[KityMinder] MindManager import error:', error);
+                    throw new Error('Failed to import MindManager file: ' + error.message);
+                }
+            }
+            
+            async importJSONFile(file) {
+                try {
+                    console.log('[KityMinder] Importing JSON/KM file...');
+                    
+                    const reader = new FileReader();
+                    const content = await new Promise((resolve, reject) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsText(file);
+                    });
+                    
+                    const jsonData = JSON.parse(content);
+                    
+                    // Check if it's KityMinder format or simple format
+                    if (jsonData.root) {
+                        // KityMinder format
+                        this.mindmapData = this.convertKityMinderToSimple(jsonData.root);
+                    } else if (jsonData.data || jsonData.text) {
+                        // Simple format
+                        this.mindmapData = jsonData;
+                    } else {
+                        throw new Error('Unrecognized JSON format');
+                    }
+                    
+                    this.renderMindmap();
+                    console.log('[KityMinder] JSON file imported successfully');
+                    alert('File imported successfully!');
+                    
+                } catch (error) {
+                    console.error('[KityMinder] JSON import error:', error);
+                    throw new Error('Failed to import JSON file: ' + error.message);
+                }
+            }
+            
+            convertXMindJSONToKityMinder(xmindData) {
+                // Convert XMind 2020+ JSON format to KityMinder format
+                const rootTopic = xmindData[0]?.rootTopic;
+                if (!rootTopic) {
+                    throw new Error('Invalid XMind JSON structure');
+                }
+                
+                return this.convertXMindTopicToNode(rootTopic);
+            }
+            
+            convertXMindTopicToNode(topic) {
+                const node = {
+                    data: { text: topic.title || 'Topic' },
+                    children: []
+                };
+                
+                if (topic.children && topic.children.attached) {
+                    node.children = topic.children.attached.map(child => 
+                        this.convertXMindTopicToNode(child)
+                    );
+                }
+                
+                return node;
+            }
+            
+            convertXMindXMLToKityMinder(xmlDoc) {
+                // Convert XMind 8 XML format to KityMinder format
+                const rootTopic = xmlDoc.querySelector('topic[id="root"]') || 
+                                 xmlDoc.querySelector('sheet > topic');
+                
+                if (!rootTopic) {
+                    throw new Error('Invalid XMind XML structure: root topic not found');
+                }
+                
+                return this.convertXMindXMLTopicToNode(rootTopic);
+            }
+            
+            convertXMindXMLTopicToNode(topicElement) {
+                const titleElement = topicElement.querySelector(':scope > title');
+                const text = titleElement ? titleElement.textContent : 'Topic';
+                
+                const node = {
+                    data: { text: text },
+                    children: []
+                };
+                
+                // Get child topics
+                const childrenElement = topicElement.querySelector(':scope > children');
+                if (childrenElement) {
+                    const childTopics = childrenElement.querySelectorAll(':scope > topics > topic');
+                    node.children = Array.from(childTopics).map(child => 
+                        this.convertXMindXMLTopicToNode(child)
+                    );
+                }
+                
+                return node;
+            }
+            
+            convertMindManagerToKityMinder(xmlDoc) {
+                // Convert MindManager XML format to KityMinder format
+                const rootTopic = xmlDoc.querySelector('map > topic') || 
+                                 xmlDoc.querySelector('ap > topic');
+                
+                if (!rootTopic) {
+                    throw new Error('Invalid MindManager XML structure: root topic not found');
+                }
+                
+                return this.convertMindManagerTopicToNode(rootTopic);
+            }
+            
+            convertMindManagerTopicToNode(topicElement) {
+                const text = topicElement.getAttribute('text') || 
+                            topicElement.querySelector('text')?.textContent || 
+                            'Topic';
+                
+                const node = {
+                    data: { text: text },
+                    children: []
+                };
+                
+                // Get child topics (direct children with topic tag)
+                const childTopics = topicElement.querySelectorAll(':scope > topic');
+                node.children = Array.from(childTopics).map(child => 
+                    this.convertMindManagerTopicToNode(child)
+                );
+                
+                return node;
+            }
+            
+            convertKityMinderToSimple(rootNode) {
+                // Convert KityMinder format to simple format
+                const node = {
+                    data: { text: rootNode.data?.text || 'Main Topic' },
+                    children: []
+                };
+                
+                if (rootNode.children) {
+                    node.children = rootNode.children.map(child => 
+                        this.convertKityMinderToSimple(child)
+                    );
+                }
+                
+                return node;
+            }
+            
+            notifyParent(type, data = {}) {
+                // Only send message if we have a valid parent and it's not same window
+                if (!window.parent || window.parent === window) {
+                    return; // No parent to notify (standalone mode)
+                }
+                
+                try {
+                    // Check if parent is accessible before sending
+                    if (window.parent.postMessage) {
+                        window.parent.postMessage({ type, ...data }, '*');
+                    }
+                } catch (error) {
+                    // Silently fail if cross-origin or permission issues
+                    // This is expected in some iframe scenarios
+                    if (error.name !== 'DataCloneError' && error.name !== 'SecurityError') {
+                        console.warn('[KityMinder] Parent notification skipped:', error.name);
+                    }
+                }
+            }
+            
+            hideLoading() {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+            
+            showError(message) {
+                const container = document.querySelector('.editor-container');
+                const existing = container.querySelector('.error');
+                if (existing) existing.remove();
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.innerHTML = `
+                    <h3>Error</h3>
+                    <p>${message}</p>
+                `;
+                container.appendChild(errorDiv);
+            }
+        }
+        
+        // Initialize editor when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.kityMinderEditor = new SimpleKityMinderEditor();
+        });
+    </script>
+</body>
+</html>

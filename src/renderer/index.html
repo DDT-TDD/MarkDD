@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarkDD Editor</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Menu Bar -->
+        <div id="menu-bar" class="menu-bar">
+            <div class="menu-item">
+                <span class="menu-label">File</span>
+                <div class="menu-dropdown">
+                    <button id="menu-new" class="menu-option">New File <span class="shortcut">Ctrl+N</span></button>
+                    <button id="menu-open" class="menu-option">Open <span class="shortcut">Ctrl+O</span></button>
+                    <button id="menu-save" class="menu-option">Save <span class="shortcut">Ctrl+S</span></button>
+                    <button id="menu-save-as" class="menu-option">Save As <span class="shortcut">Ctrl+Shift+S</span></button>
+                    <hr>
+                    <button id="menu-export-html" class="menu-option">Export as HTML</button>
+                    <button id="menu-export-pdf" class="menu-option">Export as PDF</button>
+                    <hr>
+                    <button id="menu-exit" class="menu-option">Exit <span class="shortcut">Ctrl+Q</span></button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Edit</span>
+                <div class="menu-dropdown">
+                    <button id="menu-undo" class="menu-option">Undo <span class="shortcut">Ctrl+Z</span></button>
+                    <button id="menu-redo" class="menu-option">Redo <span class="shortcut">Ctrl+Y</span></button>
+                    <hr>
+                    <button id="menu-cut" class="menu-option">Cut <span class="shortcut">Ctrl+X</span></button>
+                    <button id="menu-copy" class="menu-option">Copy <span class="shortcut">Ctrl+C</span></button>
+                    <button id="menu-paste" class="menu-option">Paste <span class="shortcut">Ctrl+V</span></button>
+                    <hr>
+                    <button id="menu-select-all" class="menu-option">Select All <span class="shortcut">Ctrl+A</span></button>
+                    <hr>
+                    <button id="menu-bold" class="menu-option">Bold <span class="shortcut">Ctrl+B</span></button>
+                    <button id="menu-italic" class="menu-option">Italic <span class="shortcut">Ctrl+I</span></button>
+                    <button id="menu-highlight" class="menu-option">Highlight <span class="shortcut">Ctrl+U</span></button>
+                    <button id="menu-strikethrough" class="menu-option">Strikethrough <span class="shortcut">Ctrl+Alt+S</span></button>
+                    <button id="menu-superscript" class="menu-option">Superscript</button>
+                    <button id="menu-subscript" class="menu-option">Subscript</button>
+                    <button id="menu-keyboard-key" class="menu-option">Keyboard Key</button>
+                    <hr>
+                    <button id="menu-find" class="menu-option">Find <span class="shortcut">Ctrl+F</span></button>
+                    <button id="menu-replace" class="menu-option">Replace <span class="shortcut">Ctrl+H</span></button>
+                    <button id="menu-find-next" class="menu-option">Find Next <span class="shortcut">F3</span></button>
+                    <button id="menu-find-previous" class="menu-option">Find Previous <span class="shortcut">Shift+F3</span></button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">View</span>
+                <div class="menu-dropdown">
+                    <button id="menu-toggle-sidebar" class="menu-option">Toggle Sidebar <span class="shortcut">Ctrl+\\</span></button>
+                    <button id="menu-toggle-preview" class="menu-option">Toggle Preview <span class="shortcut">Ctrl+Shift+P</span></button>
+                    <button id="menu-fullscreen-preview" class="menu-option">Fullscreen Preview <span class="shortcut">F11</span></button>
+                    <hr>
+                    <button id="menu-zoom-in" class="menu-option">Zoom In <span class="shortcut">Ctrl++</span></button>
+                    <button id="menu-zoom-out" class="menu-option">Zoom Out <span class="shortcut">Ctrl+-</span></button>
+                    <button id="menu-zoom-reset" class="menu-option">Reset Zoom <span class="shortcut">Ctrl+0</span></button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Tools</span>
+                <div class="menu-dropdown">
+                    <button id="menu-plugins" class="menu-option">Plugins & Options <span class="shortcut">Ctrl+,</span></button>
+                    <button id="menu-settings" class="menu-option">Settings</button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Help</span>
+                <div class="menu-dropdown">
+                    <button id="menu-about" class="menu-option">About MarkDD Editor</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div id="toolbar" class="toolbar">
+            <div class="toolbar-group">
+                <button id="newBtn" class="toolbar-btn" title="New File (Ctrl+N)">
+                    <span class="icon">📄</span>
+                </button>
+                <button id="openBtn" class="toolbar-btn" title="Open File (Ctrl+O)">
+                    <span class="icon">📁</span>
+                </button>
+                <button id="saveBtn" class="toolbar-btn" title="Save File (Ctrl+S)">
+                    <span class="icon">💾</span>
+                </button>
+            </div>
+            
+            <div class="toolbar-group">
+                <button id="boldBtn" class="toolbar-btn" title="Bold (Ctrl+B)">
+                    <span class="icon"><strong>B</strong></span>
+                </button>
+                <button id="italicBtn" class="toolbar-btn" title="Italic (Ctrl+I)">
+                    <span class="icon"><em>I</em></span>
+                </button>
+                <button id="highlightBtn" class="toolbar-btn" title="Highlight (Ctrl+U)">
+                    <span class="icon">⭐</span>
+                </button>
+                <button id="strikethroughBtn" class="toolbar-btn" title="Strikethrough (Ctrl+Alt+S)">
+                    <span class="icon"><s>S</s></span>
+                </button>
+                <button id="codeBtn" class="toolbar-btn" title="Inline Code">
+                    <span class="icon">{ }</span>
+                </button>
+            </div>
+            
+            <div class="toolbar-group">
+                <button id="headingBtn" class="toolbar-btn" title="Heading">
+                    <span class="icon">H1</span>
+                </button>
+                <button id="linkBtn" class="toolbar-btn" title="Insert Link">
+                    <span class="icon">🔗</span>
+                </button>
+                <button id="imageBtn" class="toolbar-btn" title="Insert Image">
+                    <span class="icon">🖼️</span>
+                </button>
+                <button id="tableBtn" class="toolbar-btn" title="Insert Table">
+                    <span class="icon">📊</span>
+                </button>
+            </div>
+            
+            <div class="toolbar-group">
+                <button id="mathBtn" class="toolbar-btn" title="Insert Math">
+                    <span class="icon">∑</span>
+                </button>
+                <button id="mermaidBtn" class="toolbar-btn" title="Insert Mermaid Diagram">
+                    <span class="icon">📈</span>
+                </button>
+                <button id="plantumlBtn" class="toolbar-btn" title="Insert PlantUML Diagram">
+                    <span class="icon">🔧</span>
+                </button>
+                <button id="vegaBtn" class="toolbar-btn" title="Insert Vega-Lite Chart">
+                    <span class="icon">📊</span>
+                </button>
+                <!-- Markmap button removed as per user request -->
+                <!-- <button id="markmapBtn" class="toolbar-btn" title="Show Markmap">
+                    <span class="icon">🗺️</span>
+                </button> -->
+                <button id="kityMinderBtn" class="toolbar-btn" title="Create Mind Map with KityMinder">
+                    <span class="icon">🧠</span>
+                </button>
+                <button id="tikzBtn" class="toolbar-btn" title="Insert TikZ">
+                    <span class="icon">⚡</span>
+                </button>
+                <!-- LaTeX.js button removed - TikZ/math handled separately via node-tikzjax and MathJax/KaTeX -->
+                <!-- <button id="latexBtn" class="toolbar-btn" title="Insert LaTeX Document">
+                    <span class="icon">📝</span>
+                </button> -->
+            </div>
+            
+            <div class="toolbar-group">
+                <button id="viewToggleBtn" class="toolbar-btn" title="Toggle View Mode">
+                    <span class="icon">👁️</span>
+                </button>
+                <button id="previewToggleBtn" class="toolbar-btn active" title="Toggle Live Preview (Auto-refresh)">
+                    <span class="icon">⚡</span>
+                </button>
+                <button id="manualRefreshBtn" class="toolbar-btn" title="Manual Refresh Preview (Ctrl+R)">
+                    <span class="icon">🔄</span>
+                </button>
+                <button id="scrollSyncBtn" class="toolbar-btn active" title="Toggle Scroll Sync">
+                    <span class="icon">�</span>
+                </button>
+            </div>
+            
+            <div class="toolbar-group">
+                <button id="exportHtmlBtn" class="toolbar-btn" title="Export as HTML">
+                    <span class="icon">🌐</span>
+                </button>
+                <button id="exportPdfBtn" class="toolbar-btn" title="Export as PDF">
+                    <span class="icon">📄</span>
+                </button>
+                <button id="pluginsBtn" class="toolbar-btn" title="Plugins & Options">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        <!-- Plugins/Options Modal -->
+        <div id="plugins-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h3>Plugins & Options</h3>
+                <button id="plugins-close" class="modal-close">&times;</button>
+                <div id="plugins-tabs" class="modal-tabs">
+                    <button id="enabled-plugins-tab" class="tab-button active">Enabled Plugins</button>
+                    <button id="install-plugins-tab" class="tab-button">Install Plugins</button>
+                </div>
+                <div id="plugins-list" class="tab-content active">
+                    <!-- Dynamically filled with plugin toggles and feature options -->
+                    <div style="margin:18px 0 8px 0;">
+                        <label style="font-size:1em;">
+                            <input type="checkbox" id="export-enabled-plugins-only" checked>
+                            Export with <b>only enabled plugins</b>
+                        </label>
+                    </div>
+                    <div id="scroll-sync-status" style="margin:8px 0 12px 0;font-size:0.98em;color:#007acc;"></div>
+                    <div style="margin:10px 0 0 0;">
+                        <button id="discover-plugins-btn" style="font-size:0.98em;padding:4px 12px;">Discover More Plugins</button>
+                        <span style="font-size:0.93em;color:#888;">(Carta, remarkjs, etc.)</span>
+                    </div>
+                </div>
+                <div id="install-plugins-list" class="tab-content">
+                    <!-- Plugin Installation Instructions -->
+                    <div class="plugin-instructions" style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:15px; margin-bottom:15px;">
+                        <h4 style="margin:0 0 10px 0; color:#495057;">📦 Plugin Installation Guide</h4>
+                        <div style="font-size:0.9em; color:#6c757d; line-height:1.5;">
+                            <p style="margin:0 0 8px 0;"><strong>How to install plugins:</strong></p>
+                            <ol style="margin:0 0 10px 0; padding-left:20px;">
+                                <li>Browse available plugins below</li>
+                                <li>Click "Install" button next to desired plugin</li>
+                                <li>Wait for installation to complete</li>
+                                <li><strong>Restart the application</strong> to activate plugins</li>
+                            </ol>
+                            <p style="margin:0; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; font-size:0.85em;">
+                                ⚠️ <strong>Important:</strong> Application restart is required for plugins to take effect.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Dynamically filled with available plugins for installation -->
+                    <div id="plugin-install-loading" style="text-align:center;padding:20px;color:#666;">
+                        Loading available plugins...
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content" class="main-content">
+            <!-- File Browser Sidebar - MarkText Style -->
+            <div id="sidebar" class="side-bar collapsed">
+                <div class="left-column">
+                    <ul class="sidebar-icons">
+                        <li class="sidebar-icon active" data-panel="files" title="File Explorer">
+                            <span class="icon">📁</span>
+                        </li>
+                        <li class="sidebar-icon" data-panel="search" title="Search">
+                            <span class="icon">🔍</span>
+                        </li>
+                        <li class="sidebar-icon" data-panel="toc" title="Table of Contents">
+                            <span class="icon">📜</span>
+                        </li>
+                        <li class="sidebar-icon" data-panel="bookmarks" title="Bookmarks">
+                            <span class="icon">⭐</span>
+                        </li>
+                    </ul>
+                    <ul class="sidebar-icons bottom">
+                        <li class="sidebar-icon" data-panel="settings" title="Settings">
+                            <span class="icon">⚙️</span>
+                        </li>
+                        <li class="sidebar-icon sidebar-toggle" title="Toggle Sidebar">
+                            <span class="icon">◀</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="right-column" id="sidebar-content">
+                    <div id="files-panel" class="sidebar-panel active">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Files</h3>
+                            <div class="sidebar-controls">
+                                <button id="newFileBtn" class="sidebar-btn" title="New File">
+                                    <span class="icon">📄</span>
+                                </button>
+                                <button id="newFolderBtn" class="sidebar-btn" title="New Folder">
+                                    <span class="icon">📁</span>
+                                </button>
+                                <button id="refreshBtn" class="sidebar-btn" title="Refresh">
+                                    <span class="icon">🔄</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="file-tree" class="file-tree">
+                            <div class="file-tree-section">
+                                <h4>Recent Files</h4>
+                                <div id="recent-files" class="recent-files">
+                                    <p class="recent-placeholder">No recent files</p>
+                                </div>
+                            </div>
+                            <div class="file-tree-empty">
+                                <p>No files to display</p>
+                                <button id="openFolderBtn" class="open-folder-btn">Open Folder</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="search-panel" class="sidebar-panel">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Search</h3>
+                        </div>
+                        <div class="search-content">
+                            <input type="text" id="search-input" placeholder="Search in files..." class="search-input">
+                            <div id="search-results" class="search-results">
+                                <p class="search-placeholder">Enter text to search</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="toc-panel" class="sidebar-panel">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Table of Contents</h3>
+                        </div>
+                        <div id="toc-content" class="toc-content">
+                            <p class="toc-placeholder">No headings found</p>
+                        </div>
+                    </div>
+                    <div id="bookmarks-panel" class="sidebar-panel">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Bookmarks</h3>
+                            <div class="sidebar-controls">
+                                <button id="addBookmarkBtn" class="sidebar-btn" title="Add Bookmark">
+                                    <span class="icon">➕</span>
+                                </button>
+                                <button id="clearBookmarksBtn" class="sidebar-btn" title="Clear All">
+                                    <span class="icon">🗑️</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="bookmarks-content" class="bookmarks-content">
+                            <p class="bookmarks-placeholder">No bookmarks saved</p>
+                        </div>
+                    </div>
+                    <div id="settings-panel" class="sidebar-panel">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Settings</h3>
+                        </div>
+                        <div class="settings-content">
+                            <div class="setting-group">
+                                <label>Math Engine:</label>
+                                <select id="math-engine-select" class="setting-select">
+                                    <option value="mathjax">MathJax (Primary)</option>
+                                    <option value="katex">KaTeX (Fallback)</option>
+                                </select>
+                                <small style="color:#666;margin-top:4px;display:block;">MathJax provides better chemistry support</small>
+                            </div>
+                            <div class="setting-group">
+                                <label>Theme:</label>
+                                <select id="theme-select" class="setting-select">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="blue">Blue</option>
+                                    <option value="green">Green</option>
+                                    <option value="purple">Purple</option>
+                                    <option value="orange">Orange</option>
+                                    <option value="monochrome">Monochrome</option>
+                                    <option value="auto">Auto</option>
+                                </select>
+                            </div>
+                            <div class="setting-group">
+                                <label>Font Size:</label>
+                                <input type="range" id="font-size-slider" min="12" max="20" value="14" class="setting-slider">
+                                <span id="font-size-display">14px</span>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="autosave-enabled">
+                                    Enable Autosave (30s)
+                                </label>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="spellcheck-enabled" checked>
+                                    Enable Spellcheck
+                                </label>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="live-preview-enabled" checked>
+                                    Enable Live Preview
+                                </label>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="sync-scroll-enabled" checked>
+                                    Enable Scroll Sync
+                                </label>
+                            </div>
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="word-wrap-enabled">
+                                    Enable Word Wrap
+                                </label>
+                            </div>
+                            <div class="setting-group version-info">
+                                <label>Version:</label>
+                                <span id="app-version">1.1.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="drag-bar" id="sidebar-splitter"></div>
+            </div>
+
+            <!-- Editor Panel -->
+            <div id="editor-panel" class="panel editor-panel">
+                <!-- Tab Bar -->
+                <div id="tab-bar" class="tab-bar">
+                    <div id="tab-list" class="tab-list">
+                        <!-- Tabs will be dynamically inserted here -->
+                    </div>
+                    <button id="new-tab-btn" class="new-tab-btn" title="New Tab (Ctrl+T)">
+                        <span class="icon">+</span>
+                    </button>
+                </div>
+                
+                <div class="panel-header">
+                    <span class="panel-title">Editor</span>
+                    <div class="panel-controls">
+                        <span id="editor-status" class="status-text">Ready</span>
+                    </div>
+                </div>
+                <div id="editor-container" class="editor-container">
+                    <!-- In-Editor Search & Replace Bar -->
+                    <div id="editor-search-bar" class="editor-search-bar" style="display:none;">
+                        <input type="text" id="editor-search-input" class="editor-search-input" placeholder="Find..." autocomplete="off">
+                        <input type="text" id="editor-replace-input" class="editor-replace-input" placeholder="Replace..." autocomplete="off" style="display:none;">
+                        <button id="editor-search-prev" title="Previous match">⬆️</button>
+                        <button id="editor-search-next" title="Next match">⬇️</button>
+                        <button id="editor-replace-btn" title="Replace" style="display:none;">Replace</button>
+                        <button id="editor-replace-all-btn" title="Replace All" style="display:none;">Replace All</button>
+                        <button id="editor-search-close" title="Close">✖️</button>
+                    </div>
+                    <textarea id="editor" class="editor" placeholder="Start typing your markdown here..." spellcheck="true"></textarea>
+                </div>
+            </div>
+
+            <!-- Splitter -->
+            <div id="splitter" class="splitter"></div>
+
+            <!-- Preview Panel -->
+            <div id="preview-panel" class="panel preview-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Preview</span>
+                    <div class="panel-controls">
+                        <button id="syncScrollBtn" class="control-btn active" title="Sync Scroll">
+                            <span class="icon">🔄</span>
+                        </button>
+                        <button id="fullscreenPreviewBtn" class="control-btn" title="Fullscreen Preview">
+                            <span class="icon">⛶</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="preview-container" class="preview-container">
+                    <div id="preview" class="preview">
+                        <div class="preview-placeholder">
+                            <h2>Welcome to MarkDD Editor</h2>
+                            <p>A fully-featured Markdown editor with advanced capabilities:</p>
+                            <ul>
+                                <li>Real-time preview with syntax highlighting</li>
+                                <li>Math rendering with KaTeX</li>
+                                <li>Mermaid diagrams support</li>
+                                <li>Markmap mind mapping</li>
+                                <li>TikZ and CircuiTikZ diagrams</li>
+                                <li>Multiple export formats</li>
+                            </ul>
+                            <p>Start typing in the editor to see the magic happen!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Markmap Modal -->
+        <div id="markmap-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Markmap Visualization</h3>
+                    <button id="markmap-close" class="modal-close">&times;</button>
+                </div>
+                <div id="markmap-container" class="markmap-container"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="status-bar" class="status-bar">
+            <div class="status-left">
+                <span id="cursor-position">Ln 1, Col 1</span>
+            </div>
+            <div class="status-center">
+                <span id="file-path-display" class="file-path-status">No file opened</span>
+            </div>
+            <div class="status-right">
+                <span id="word-count">0 words</span>
+                <span id="char-count">0 characters</span>
+                <span id="encoding">UTF-8</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Library Loader (must be first) -->
+    <script src="js/library-loader.js"></script>
+    <script src="js/local-graphviz.js"></script>
+    
+    <!-- Professional Search/Replace Modal -->
+    <script src="js/search-replace-modal.js"></script>
+    
+    <!-- App Scripts (will be loaded after libraries) -->
+    <script src="js/tikzjax-loader.js"></script>
+    <script src="js/obsidian-tikzjax-enhanced.js"></script>
+    <script src="js/node-tikzjax-integration.js"></script>
+    <script src="js/obsidian-tikzjax.js"></script>
+    <script src="js/tikz-integration.js"></script>
+    <script src="js/markdown-renderer.js"></script>
+    <script src="js/tabs.js"></script>
+    <script src="js/tab-ui.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/file-browser.js"></script>
+    <script src="js/latex-fallback.js"></script>
+    <script src="js/latex-integration.js"></script>
+    <script src="js/enhanced-markmap-integration.js"></script>
+    <script src="js/kityminder-integration.js"></script>
+    
+    <!-- Initialize everything after DOM is ready -->
+    <script>
+        console.log('[Main] ===== SCRIPT TAG EXECUTING =====');
+        console.log('[Main] window.libraryLoader exists:', !!window.libraryLoader);
+        console.log('[Main] window.TabManager exists:', !!window.TabManager);
+        console.log('[Main] document.readyState:', document.readyState);
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('[Main] ===== DOMContentLoaded EVENT FIRED =====');
+            console.log('[Main] DOM loaded, starting library loading...');
+            
+            try {
+                // Load all libraries first (with extended timeout for comprehensive loading)
+                console.log('[Main] Loading libraries...');
+                const libraryPromise = window.libraryLoader ? window.libraryLoader.loadAllLibraries() : Promise.resolve(0);
+                const timeoutPromise = new Promise(resolve => setTimeout(() => {
+                    console.warn('[Main] Library loading timeout (10s) - continuing anyway');
+                    return resolve(-1);
+                }, 10000));
+                const librariesLoaded = await Promise.race([libraryPromise, timeoutPromise]);
+                
+                if (librariesLoaded === -1) {
+                    console.warn('[Main] Library loading timed out after 10 seconds - continuing with partial libraries');
+                } else if (librariesLoaded > 0) {
+                    console.log(`[Main] ${librariesLoaded} libraries loaded successfully`);
+                } else {
+                    console.warn('[Main] Library loading failed - continuing with basic functionality');
+                }
+                
+                console.log('[Main] Waiting briefly for integration scripts...');
+                
+                // Wait for integration classes to be available (with reduced timeout)
+                await waitForIntegrationScripts();
+                
+                console.log('[Main] Integration scripts check complete, loading app...');
+                
+                // Load app.js dynamically after everything is ready
+                // GUARD: Prevent multiple initialization if app.js is already loaded
+                if (window.markddApp || window.__markddAppInstance) {
+                    console.warn('[Main] MarkDDApp already exists - skipping duplicate initialization');
+                    console.warn('[Main] This prevents the "two tabs but only one real" issue');
+                    return;
+                }
+                
+                const appScript = document.createElement('script');
+                appScript.src = 'js/app.js';
+                appScript.onload = () => {
+                    console.log('[Main] App script loaded, initializing...');
+                    
+                    // GUARD: Check again before instantiation (race condition protection)
+                    if (window.markddApp || window.__markddAppInstance) {
+                        console.warn('[Main] MarkDDApp created during script load - skipping duplicate instantiation');
+                        return;
+                    }
+                    
+                    // Initialize the main app
+                    window.markddApp = new MarkDDApp();
+                    console.log('[Main] MarkDDApp instantiation completed');
+                    
+                    // Test script disabled to prevent sample content from appearing
+                    // Uncomment below to run automated tests
+                    /*
+                    const testScript = document.createElement('script');
+                    testScript.src = 'js/markdd-test.js';
+                    testScript.onload = () => {
+                        console.log('[Main] Test script loaded successfully');
+                        // Tests will run automatically when loaded
+                    };
+                    testScript.onerror = () => {
+                        console.warn('[Main] Test script failed to load - skipping automated tests');
+                    };
+                    document.head.appendChild(testScript);
+                    */
+                };
+                appScript.onerror = () => {
+                    throw new Error('Failed to load app.js');
+                };
+                document.head.appendChild(appScript);
+                
+            } catch (error) {
+                console.error('[Main] Failed to initialize application:', error);
+                
+                // Show user-friendly error
+                const preview = document.getElementById('preview');
+                if (preview) {
+                    preview.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #d63031;">
+                            <h3>Failed to Initialize MarkDD Editor</h3>
+                            <p>Error: ${error.message}</p>
+                            <p>Please check your internet connection and refresh the page.</p>
+                            <button onclick="location.reload()" style="padding: 8px 16px; margin-top: 12px; background: #007acc; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Refresh Page
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        async function waitForIntegrationScripts() {
+            let attempts = 0;
+            const maxAttempts = 20; // 2 seconds total
+            
+            while (attempts < maxAttempts) {
+                const hasMarkmap = window.EnhancedMarkmapIntegration;
+                const hasTikz = window.NodeTikZIntegration || window.TikZIntegration;
+                const hasTabManager = window.TabManager;
+                const hasTabUI = window.TabUI;
+                
+                if (hasMarkmap && hasTikz && hasTabManager && hasTabUI) {
+                    console.log('[Main] All integration classes are ready');
+                    return;
+                }
+                
+                console.log(`[Main] Waiting for integrations... Markmap: ${!!hasMarkmap}, TikZ: ${!!hasTikz}, TabManager: ${!!hasTabManager}, TabUI: ${!!hasTabUI}`);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            console.warn('[Main] Timeout waiting for integration scripts, but continuing anyway...');
+        }
+    </script>
+</body>
+<script>
+    // auto-export snippet removed to use manual export flow
+</script>
+</html>

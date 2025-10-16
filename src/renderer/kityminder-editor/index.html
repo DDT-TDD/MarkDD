@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>KityMinder Editor - MarkDD</title>
+
+	<!-- Bootstrap CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" />
+	
+	<!-- CodeMirror CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.css" />
+	
+	<!-- Hotbox CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/hotbox.min.css" />
+	
+	<!-- KityMinder Core CSS -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.css" />
+	
+	<!-- KityMinder Editor CSS -->
+	<link rel="stylesheet" href="kityminder.editor.css">
+
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+		h1.editor-title {
+			background: #526aad;
+			color: white;
+			margin: 0;
+			height: 30px;
+			font-size: 12px;
+			line-height: 29.5px;
+			font-family: 'Hiragino Sans GB', 'Arial', 'Microsoft Yahei';
+			font-weight: normal;
+			position: relative;
+			-webkit-app-region: drag;
+		}
+		.title-info {
+			float: right;
+			color: #fff;
+			padding: 0 10px 0 10px;
+			-webkit-app-region: no-drag;
+		}
+		.window-controls {
+			float: right;
+			height: 30px;
+			display: flex;
+			align-items: center;
+			-webkit-app-region: no-drag;
+		}
+		.window-controls button {
+			background: transparent;
+			border: none;
+			color: white;
+			width: 40px;
+			height: 30px;
+			font-size: 14px;
+			cursor: pointer;
+			transition: background-color 0.2s;
+			outline: none;
+			padding: 0;
+			margin: 0;
+		}
+		.window-controls button:hover {
+			background-color: rgba(255, 255, 255, 0.1);
+		}
+		.window-controls button.close-btn:hover {
+			background-color: #e81123;
+		}
+		.window-controls button:active {
+			background-color: rgba(255, 255, 255, 0.2);
+		}
+		.fullscreen-btn {
+			margin-right: 5px;
+			padding: 2px 8px;
+			background-color: rgba(255, 255, 255, 0.15);
+			border: 1px solid rgba(255, 255, 255, 0.3);
+			border-radius: 3px;
+			color: white;
+			font-size: 11px;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		.fullscreen-btn:hover {
+			background-color: rgba(255, 255, 255, 0.25);
+			border-color: rgba(255, 255, 255, 0.5);
+		}
+		.editor-title-text {
+			padding: 0 20px;
+		}
+		.hidden-iframe {
+			display: none;
+		}
+		
+		/* Enhanced Export/Import Menu Styling */
+		.km-btn-item {
+			border-radius: 6px !important;
+			padding: 6px 10px !important;
+			margin: 0 4px !important;
+			transition: all 0.2s ease !important;
+			background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+			border: 1px solid #dee2e6 !important;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+		}
+		
+		.km-btn-item:hover:not([disabled]) {
+			background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%) !important;
+			transform: translateY(-1px) !important;
+			box-shadow: 0 3px 8px rgba(0,0,0,0.15) !important;
+			border-color: #adb5bd !important;
+		}
+		
+		.km-btn-item:active:not([disabled]) {
+			background: linear-gradient(135deg, #dee2e6 0%, #ced4da 100%) !important;
+			transform: translateY(0) !important;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.1) inset !important;
+		}
+		
+		.km-btn-item .km-btn-caption {
+			color: #495057 !important;
+			font-weight: 500 !important;
+			font-size: 13px !important;
+			letter-spacing: 0.2px !important;
+		}
+		
+		.km-btn-item[disabled] {
+			opacity: 0.45 !important;
+			cursor: not-allowed !important;
+			background: #f8f9fa !important;
+		}
+		
+		.km-btn-group {
+			padding: 0 8px !important;
+			margin: 8px 0 !important;
+			border-right: 1px solid #e1e5e9 !important;
+		}
+		
+		.top-tab .tab-content {
+			background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%) !important;
+			border-bottom: 2px solid #e1e5e9 !important;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+		}
+		
+		/* Special styling for Export/Import buttons */
+		.km-btn-item:has(.km-btn-caption:contains("Export")),
+		.km-btn-item:has(.km-btn-caption:contains("Import")) {
+			background: linear-gradient(135deg, #e7f3ff 0%, #cfe7ff 100%) !important;
+			border-color: #b3d9ff !important;
+		}
+		
+		.km-btn-item:has(.km-btn-caption:contains("Export")):hover:not([disabled]),
+		.km-btn-item:has(.km-btn-caption:contains("Import")):hover:not([disabled]) {
+			background: linear-gradient(135deg, #cfe7ff 0%, #b3d9ff 100%) !important;
+			border-color: #80c5ff !important;
+		}
+		
+		/* Add icons to text */
+		.km-btn-caption::before {
+			margin-right: 4px;
+			font-size: 14px;
+		}
+	</style>
+</head>
+
+<body ng-app="kityminderDemo" ng-controller="MainController">
+	<h1 class="editor-title">
+		<span class="editor-title-text">KityMinder Editor - MarkDD</span>
+		<div class="window-controls">
+			<button class="close-btn" ng-click="closeWindow()" title="Close">✕</button>
+			<button ng-click="maximizeWindow()" title="Maximize/Restore">{{ isMaximized ? '❐' : '□' }}</button>
+			<button ng-click="minimizeWindow()" title="Minimize">−</button>
+			<button class="fullscreen-btn" ng-click="toggleFullscreen()" title="Fullscreen (F11)">{{ isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}</button>
+		</div>
+		<span class="title-info">Zoom: Ctrl+Scroll | Pan: Drag | Add Node: Enter | Edit: F2</span>
+	</h1>
+	
+	<kityminder-editor on-init="initEditor(editor, minder)" data-theme="fresh-blue"></kityminder-editor>
+	
+	<iframe name="frameFile" class="hidden-iframe"></iframe>
+
+	<!-- jQuery -->
+	<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+	
+	<!-- Bootstrap JS -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+	
+	<!-- Angular -->
+	<script src="https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.min.js"></script>
+	
+	<!-- Angular UI Bootstrap -->
+	<script src="https://cdn.jsdelivr.net/npm/angular-ui-bootstrap@2.5.0/dist/ui-bootstrap-tpls.min.js"></script>
+	
+	<!-- CodeMirror -->
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/xml/xml.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/javascript/javascript.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/css/css.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/htmlmixed/htmlmixed.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/markdown/markdown.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/addon/mode/overlay.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/gfm/gfm.js"></script>
+	
+	<!-- Angular UI CodeMirror -->
+	<script src="https://cdn.jsdelivr.net/npm/angular-ui-codemirror@0.3.0/ui-codemirror.min.js"></script>
+	
+	<!-- Marked (Markdown parser) -->
+	<script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+	
+	<!-- Kity -->
+	<script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kity.min.js"></script>
+	
+	<!-- Hotbox -->
+	<script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/hotbox.min.js"></script>
+	
+	<!-- JSON Diff -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jsondiffpatch/0.4.1/jsondiffpatch.umd.min.js"></script>
+	
+	<!-- KityMinder Core -->
+	<script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script>
+	
+	<!-- Color Picker (optional, but referenced in editor CSS) -->
+	<!-- If needed, add: <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5.5.2/dist/iro.min.js"></script> -->
+	
+	<!-- JSZip for import/export -->
+	<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+	
+	<!-- Language Support -->
+	<script src="language.js"></script>
+	
+	<!-- KityMinder Editor (Angular directive) -->
+	<script src="https://cdn.jsdelivr.net/npm/kityminder-editor@1.4.50/dist/kityminder.editor.min.js"></script>
+	
+	<!-- DIY Export/Import functionality -->
+	<script src="diy.js"></script>
+
+	<script>
+		angular.module('kityminderDemo', ['kityminderEditor'])
+		.controller('MainController', function($scope) {
+			const { ipcRenderer } = require('electron');
+			
+			// Window state tracking
+			$scope.isMaximized = false;
+			$scope.isFullscreen = false;
+			
+			// Window control functions
+			$scope.minimizeWindow = function() {
+				ipcRenderer.send('window-minimize');
+			};
+			
+			$scope.maximizeWindow = function() {
+				ipcRenderer.send('window-maximize');
+			};
+			
+			$scope.closeWindow = function() {
+				ipcRenderer.send('window-close');
+			};
+			
+			$scope.toggleFullscreen = function() {
+				ipcRenderer.send('window-fullscreen');
+			};
+			
+			// Listen for window state changes
+			ipcRenderer.on('window-maximized', function() {
+				$scope.$apply(function() {
+					$scope.isMaximized = true;
+				});
+			});
+			
+			ipcRenderer.on('window-unmaximized', function() {
+				$scope.$apply(function() {
+					$scope.isMaximized = false;
+				});
+			});
+			
+			ipcRenderer.on('window-fullscreen-changed', function(event, isFullscreen) {
+				$scope.$apply(function() {
+					$scope.isFullscreen = isFullscreen;
+				});
+			});
+			
+			// F11 key for fullscreen
+			document.addEventListener('keydown', function(event) {
+				if (event.key === 'F11') {
+					event.preventDefault();
+					$scope.toggleFullscreen();
+				}
+			});
+			
+			$scope.initEditor = function(editor, minder) {
+				window.editor = editor;
+				window.minder = minder;
+				
+				console.log('[KityMinder] Editor initialized');
+				
+				// Enhance Export/Import buttons with better styling
+				setTimeout(function() {
+					// Add icons and enhance button text
+					$('.km-btn-caption').each(function() {
+						var text = $(this).text().trim();
+						var icon = '';
+						
+						// Add appropriate icons
+						if (text.includes('Export')) {
+							icon = '📤 ';
+						} else if (text.includes('Import')) {
+							icon = '📥 ';
+						} else if (text.includes('Json') || text.includes('JSON')) {
+							icon = '{ } ';
+						} else if (text.includes('PNG') || text.includes('png')) {
+							icon = '🖼️ ';
+						} else if (text.includes('MD') || text.includes('Markdown')) {
+							icon = '📝 ';
+						}
+						
+						if (icon && !text.startsWith(icon)) {
+							$(this).html(icon + text);
+						}
+					});
+					
+					console.log('[KityMinder] Export/Import buttons enhanced');
+				}, 500);
+				
+				// Load default mindmap data
+				var defaultData = {
+					"root": {
+						"data": {
+							"id": "root",
+							"created": Date.now(),
+							"text": "Central Topic"
+						},
+						"children": [
+							{
+								"data": {
+									"id": "child1",
+									"created": Date.now(),
+									"text": "Topic 1"
+								},
+								"children": []
+							},
+							{
+								"data": {
+									"id": "child2",
+									"created": Date.now(),
+									"text": "Topic 2"
+								},
+								"children": []
+							},
+							{
+								"data": {
+									"id": "child3",
+									"created": Date.now(),
+									"text": "Topic 3"
+								},
+								"children": []
+							}
+						]
+					},
+					"template": "default",
+					"theme": "fresh-blue",
+					"version": "1.4.50"
+				};
+				
+				minder.importData('json', JSON.stringify(defaultData)).then(function() {
+					console.log('[KityMinder] Default data loaded');
+				});
+				
+				// Setup Ctrl+Scroll zoom
+				$('.minder-editor').on('mousewheel DOMMouseScroll', function(event) {
+					if (event.ctrlKey) {
+						event.preventDefault();
+						if (event.originalEvent.wheelDelta > 0) {
+							minder.execCommand('zoomIn');
+						} else {
+							minder.execCommand('zoomOut');
+						}
+					}
+				});
+			};
+		});
+	</script>
+</body>
+</html>

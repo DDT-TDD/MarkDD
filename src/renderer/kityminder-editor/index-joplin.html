@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>KityMinder Editor</title>
+
+	<!-- Local bower components CSS -->
+	<link rel="stylesheet" href="./bower_components/bootstrap/dist/css/bootstrap.css" />
+	<link rel="stylesheet" href="./bower_components/codemirror/lib/codemirror.css" />
+	<link rel="stylesheet" href="./bower_components/hotbox/hotbox.css" />
+	<link rel="stylesheet" href="./bower_components/kityminder-core/dist/kityminder.core.css" />
+	<link rel="stylesheet" href="./bower_components/color-picker/dist/color-picker.min.css" />
+
+	<link rel="stylesheet" href="kityminder.editor.mini.css">
+
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		h1.editor-title {
+			background: #526aad;
+			color: white;
+			margin: 0;
+			height: 40px;
+			font-size: 14px;
+			line-height: 40px;
+			font-family: 'Segoe UI', 'Arial', 'Microsoft Yahei', sans-serif;
+			font-weight: normal;
+			padding: 0 15px;
+		}
+
+		div.minder-editor-container {
+			position: absolute;
+			top: 40px;
+			bottom: 0;
+			left: 0;
+			right: 0;
+		}
+		
+		/* Enhanced styling for Export/Import buttons (.diy class) */
+		a.diy.export, button.diy.input {
+			background: linear-gradient(to bottom, #ffffff 0%, #f5f7fa 100%) !important;
+			border: 1px solid #d1d5db !important;
+			border-radius: 4px !important;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+			color: #374151 !important;
+			font-weight: 500 !important;
+			font-size: 13px !important;
+			letter-spacing: 0.3px !important;
+			padding: 8px 14px !important;
+			margin: 6px 4px !important;
+			transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+			text-decoration: none !important;
+			display: inline-block !important;
+			vertical-align: middle !important;
+		}
+		
+		a.diy.export:hover, button.diy.input:hover {
+			background: linear-gradient(to bottom, #f8fafc 0%, #e5e9f0 100%) !important;
+			transform: translateY(-1px) !important;
+			box-shadow: 0 2px 6px rgba(0,0,0,0.12) !important;
+			border-color: #9ca3af !important;
+			color: #1f2937 !important;
+		}
+		
+		a.diy.export:active, button.diy.input:active {
+			background: linear-gradient(to bottom, #e5e9f0 0%, #d1d5db 100%) !important;
+			transform: translateY(0) !important;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.05) inset !important;
+		}
+		
+		/* Special styling for Import button */
+		button.diy.input {
+			position: relative !important;
+			overflow: hidden !important;
+		}
+		
+		/* Hide the file input visually but keep it functional */
+		button.diy.input input[type="file"] {
+			position: absolute !important;
+			top: 0 !important;
+			left: 0 !important;
+			width: 100% !important;
+			height: 100% !important;
+			opacity: 0 !important;
+			cursor: pointer !important;
+		}
+		
+		/* Remove the inline styles that diy.js adds by overriding with !important */
+		.editor-title {
+			display: flex !important;
+			align-items: center !important;
+			gap: 4px !important;
+		}
+		
+		.editor-title > span:first-child {
+			margin-right: auto !important;
+		}
+		
+		.editor-title > span:last-child {
+			float: right !important;
+			font-size: 12px !important;
+		}
+		
+		.editor-title-hint {
+			float: right;
+			font-size: 12px;
+		}
+		
+		.hidden-frame {
+			display: none;
+		}
+	</style>
+</head>
+
+<body ng-app="kityminderWindow" ng-controller="MainController">
+	<h1 class="editor-title">
+		<span>KityMinder Mind Map Editor</span>
+		<span class="editor-title-hint">Zoom: Ctrl+Scroll | Pan: Drag | Add Node: Enter | Edit: F2</span>
+	</h1>
+	<kityminder-editor on-init="initEditor(editor, minder)" data-theme="fresh-green"></kityminder-editor>
+	<iframe name="frameFile" class="hidden-frame"></iframe>
+</body>
+
+<!-- Local bower components JS -->
+<script src="./bower_components/jquery/dist/jquery.js"></script>
+<script src="./bower_components/bootstrap/dist/js/bootstrap.js"></script>
+<script src="./bower_components/angular/angular.js"></script>
+<script src="./bower_components/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+<script src="./bower_components/codemirror/lib/codemirror.js"></script>
+<script src="./bower_components/codemirror/mode/xml/xml.js"></script>
+<script src="./bower_components/codemirror/mode/javascript/javascript.js"></script>
+<script src="./bower_components/codemirror/mode/css/css.js"></script>
+<script src="./bower_components/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+<script src="./bower_components/codemirror/mode/markdown/markdown.js"></script>
+<script src="./bower_components/codemirror/addon/mode/overlay.js"></script>
+<script src="./bower_components/codemirror/mode/gfm/gfm.js"></script>
+<script src="./bower_components/angular-ui-codemirror/ui-codemirror.js"></script>
+<script src="./bower_components/marked/lib/marked.js"></script>
+<script src="./bower_components/kity/dist/kity.min.js"></script>
+<script src="./bower_components/hotbox/hotbox.js"></script>
+<script src="./bower_components/json-diff/json-diff.js"></script>
+<script src="./bower_components/kityminder-core/dist/kityminder.core.min.js"></script>
+<script src="./bower_components/color-picker/dist/color-picker.min.js"></script>
+
+<!-- Editor files -->
+<script src="language.js"></script>
+<script src="kityminder.editor.js"></script>
+<script src="diy.js"></script>
+
+<script>
+	angular.module('kityminderWindow', ['kityminderEditor'])
+		.controller('MainController', function ($scope) {
+			$scope.initEditor = function (editor, minder) {
+				window.editor = editor;
+				window.minder = minder;
+				
+				// Notify parent window that editor is ready
+				if (window.parent && window.parent !== window) {
+					window.parent.postMessage({ type: 'mindmap-ready' }, '*');
+				}
+				
+				// Listen for commands from parent
+				window.addEventListener('message', function(event) {
+					if (!event.data || !event.data.type) return;
+					
+					switch (event.data.type) {
+						case 'load-mindmap':
+							if (event.data.data) {
+								try {
+									const data = typeof event.data.data === 'string' ?
+										JSON.parse(event.data.data) : event.data.data;
+									minder.importJson(data);
+								} catch (error) {
+									console.error('[KityMinder] Load error:', error);
+								}
+							}
+							break;
+						case 'get-mindmap-data':
+							// Export both JSON and PNG (following Joplin diy.js pattern)
+							// Note: Local bower KityMinder returns Promise-like but without .catch()
+							try {
+								var jsonPromise = minder.exportData('json');
+								if (jsonPromise && jsonPromise.then) {
+									jsonPromise.then(function(jsonContent) {
+										try {
+											var pngPromise = minder.exportData('png');
+											if (pngPromise && pngPromise.then) {
+												pngPromise.then(function(pngContent) {
+													if (window.parent && window.parent !== window) {
+														window.parent.postMessage({
+															type: 'mindmap-data',
+															json: jsonContent,
+															png: pngContent
+														}, '*');
+													}
+												});
+											}
+										} catch (pngError) {
+											console.error('[KityMinder] PNG export error:', pngError);
+											// Send JSON anyway even if PNG fails
+											if (window.parent && window.parent !== window) {
+												window.parent.postMessage({
+													type: 'mindmap-data',
+													json: jsonContent,
+													png: ''
+												}, '*');
+											}
+										}
+									});
+								}
+							} catch (error) {
+								console.error('[KityMinder] Export error:', error);
+							}
+							break;
+					}
+				});
+			};
+		});
+</script>
+
+</html>

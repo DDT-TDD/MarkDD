@@ -1,0 +1,108 @@
+{
+  "@aduh95/viz.js": {
+    "requested": "^3.7.0"
+  },
+  "@cartamd/plugin-tikz": {
+    "requested": "^4.2.2"
+  },
+  "abcjs": {
+    "requested": "^6.5.2"
+  },
+  "chokidar": {
+    "requested": "^3.5.3"
+  },
+  "codemirror": {
+    "requested": "^5.65.2"
+  },
+  "d3": {
+    "requested": "^7.8.0"
+  },
+  "dompurify": {
+    "requested": "^3.2.6"
+  },
+  "electron-store": {
+    "requested": "^8.0.1"
+  },
+  "electron-window-state": {
+    "requested": "^5.0.3"
+  },
+  "fs-extra": {
+    "requested": "^11.0.0"
+  },
+  "latex.js": {
+    "requested": "^0.12.6"
+  },
+  "markdown-it": {
+    "requested": "^13.0.1"
+  },
+  "markdown-it-anchor": {
+    "requested": "^8.6.7"
+  },
+  "markdown-it-texmath": {
+    "requested": "^1.0.0"
+  },
+  "markdown-it-toc-done-right": {
+    "requested": "^4.2.0"
+  },
+  "markmap-lib": {
+    "requested": "^0.15.0"
+  },
+  "markmap-view": {
+    "requested": "^0.15.0"
+  },
+  "mathjax": {
+    "requested": "^4.0.0"
+  },
+  "mathjax-full": {
+    "requested": "^3.2.2"
+  },
+  "mermaid": {
+    "requested": "^11.4.1"
+  },
+  "node-tikzjax": {
+    "requested": "github:prinsss/node-tikzjax",
+    "vendoredLicenseFile": "third_party\\node-tikzjax\\LICENSE"
+  },
+  "plantuml-encoder": {
+    "requested": "^1.4.0"
+  },
+  "puppeteer": {
+    "requested": "^24.19.0"
+  },
+  "vega": {
+    "requested": "^5.33.0"
+  },
+  "vega-embed": {
+    "requested": "^6.29.0"
+  },
+  "vega-lite": {
+    "requested": "^5.23.0"
+  },
+  "viz.js": {
+    "requested": "^2.1.2"
+  },
+  "archiver": {
+    "requested": "^5.3.2"
+  },
+  "electron": {
+    "requested": "^38.0.0"
+  },
+  "electron-builder": {
+    "requested": "^24.6.4"
+  },
+  "highlight.js": {
+    "requested": "^11.11.1"
+  },
+  "jsdom": {
+    "requested": "^27.0.0"
+  },
+  "katex": {
+    "requested": "^0.16.22"
+  },
+  "marked": {
+    "requested": "^16.3.0"
+  },
+  "prinsss-node-tikzjax": {
+    "vendoredLicenseFile": "third_party\\prinsss-node-tikzjax\\LICENSE"
+  }
+}
