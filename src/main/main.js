@@ -983,6 +983,44 @@ ipcMain.handle('get-package-data', async () => {
   }
 });
 
+// Read LICENSE file handler
+ipcMain.handle('read-license', async () => {
+  try {
+    const licensePath = path.join(__dirname, '..', '..', 'LICENSE');
+    const licenseContent = fs.readFileSync(licensePath, 'utf8');
+    return {
+      success: true,
+      content: licenseContent
+    };
+  } catch (error) {
+    console.error('Failed to read LICENSE file:', error);
+    return {
+      success: false,
+      error: error.message,
+      content: 'MIT License - See LICENSE file in application directory'
+    };
+  }
+});
+
+// Read third-party licenses handler
+ipcMain.handle('read-third-party-licenses', async () => {
+  try {
+    const licensesPath = path.join(__dirname, '..', '..', 'THIRD-PARTY-LICENSES.md');
+    const licensesContent = fs.readFileSync(licensesPath, 'utf8');
+    return {
+      success: true,
+      content: licensesContent
+    };
+  } catch (error) {
+    console.error('Failed to read THIRD-PARTY-LICENSES.md:', error);
+    return {
+      success: false,
+      error: error.message,
+      content: 'Third-party licenses information not available'
+    };
+  }
+});
+
 // Plugin installation handlers
 ipcMain.handle('get-available-plugins', async () => {
   const { execSync } = require('child_process');
