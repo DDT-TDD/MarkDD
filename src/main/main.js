@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { getVersion } = require('../version');
 
 let mainWindow;
 let currentFile = null;
@@ -157,7 +158,7 @@ function showAboutWindow() {
     // Fallback data
     packageData = {
       name: 'MarkDD Editor',
-      version: '1.1.0',
+      version: getVersion(),
       description: 'A fully-featured Markdown editor',
       author: 'MarkDD Team'
     };
@@ -178,7 +179,7 @@ function showAboutWindow() {
 
   const aboutMessage = `${packageData.name || 'MarkDD Editor'}
 
-Version: ${packageData.version || '1.1.0'}
+Version: ${packageData.version || getVersion()}
 Author: ${packageData.author || 'MarkDD Team'}
 
 ${packageData.description || 'A fully-featured Markdown editor with advanced preview and export capabilities.'}
@@ -975,7 +976,7 @@ ipcMain.handle('get-package-data', async () => {
       success: false,
       data: {
         name: 'MarkDD Editor',
-        version: '1.1.0',
+        version: getVersion(),
         description: 'A fully-featured Markdown editor',
         author: 'MarkDD Team'
       }

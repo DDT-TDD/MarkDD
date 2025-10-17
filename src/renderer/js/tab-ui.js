@@ -93,6 +93,30 @@ class TabUI {
     }
 
     /**
+     * Remove all tab elements from the DOM
+     * Used when clearing restored session tabs to prevent visual delay
+     * Only removes if tabListElement exists to prevent errors
+     */
+    clearAllTabs() {
+        if (!this.tabListElement) {
+            console.warn('[TabUI] tabListElement not available, cannot clear tabs');
+            return;
+        }
+        
+        try {
+            const allTabElements = this.tabListElement.querySelectorAll('.tab-item');
+            let clearedCount = 0;
+            allTabElements.forEach(element => {
+                element.remove();
+                clearedCount++;
+            });
+            console.log(`[TabUI] Cleared ${clearedCount} tab elements from DOM`);
+        } catch (error) {
+            console.error('[TabUI] Error clearing tabs:', error);
+        }
+    }
+
+    /**
      * Handle new tab button click
      */
     handleNewTabClick() {

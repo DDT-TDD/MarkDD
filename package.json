@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, and TikZ/CircuiTikZ rendering",
   "main": "src/main/main.js",
   "homepage": "./",
@@ -47,6 +47,18 @@
       {
         "from": "COMPREHENSIVE-FEATURES-SHOWCASE.md",
         "to": "resources/COMPREHENSIVE-FEATURES-SHOWCASE.md"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "THIRD-PARTY-LICENSES.md",
+        "to": "THIRD-PARTY-LICENSES.md"
+      },
+      {
+        "from": "third_party",
+        "to": "third_party"
       }
     ],
     "win": {

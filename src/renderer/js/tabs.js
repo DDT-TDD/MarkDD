@@ -10,6 +10,7 @@ class TabManager {
         this.activeTabId = null;
         this.nextTabId = 1;
         this.maxTabs = 50; // Maximum number of open tabs
+        this.restoredFromSession = false; // Track if tabs were restored from session
         
         // Event listeners
         this.listeners = {
@@ -438,6 +439,7 @@ class TabManager {
             this.tabs = new Map(state.tabs);
             this.activeTabId = state.activeTabId;
             this.nextTabId = state.nextTabId || this.tabs.size + 1;
+            this.restoredFromSession = true; // Mark that tabs were restored from session
 
             console.log(`[TabManager] Restored ${this.tabs.size} tabs from localStorage`);
 
@@ -515,6 +517,41 @@ class TabManager {
         const currentIndex = tabIds.indexOf(this.activeTabId);
         const prevIndex = currentIndex === 0 ? tabIds.length - 1 : currentIndex - 1;
         return tabIds[prevIndex];
+    }
+
+    /**
+     * Silently clear all restored session tabs WITHOUT triggering events or switching
+     * Used when opening a startup file to prevent tab-switched events from loading wrong content
+     * @returns {number} - Number of tabs cleared
+     */
+    clearRestoredTabs() {
+        if (!this.restoredFromSession || this.tabs.size === 0) {
+            return 0;
+        }
+
+        const tabIdsToClear = Array.from(this.tabs.keys());
+        const clearedCount = tabIdsToClear.length;
+
+        // Directly clear all tabs from the map WITHOUT triggering closeTab logic
+        this.tabs.clear();
+        this.activeTabId = null;
+        this.restoredFromSession = false;
+
+        console.log(`[TabManager] Silently cleared ${clearedCount} restored tabs`);
+
+        // DO NOT persist or emit events - we're just removing old session state
+        // The new startup file will be added as a fresh tab
+
+        return clearedCount;
+    }
+
+    /**
+     * Check if tabs were restored from previous session
+     * Used to clear restored tabs when opening a startup file
+     * @returns {boolean} - True if tabs were restored from session
+     */
+    hasRestoredTabs() {
+        return this.restoredFromSession && this.tabs.size > 0;
     }
 }
 

@@ -22,6 +22,8 @@ class MarkDDApp {
         // Tab system
         this.tabManager = null;
         this.tabUI = null;
+        this._restoredTabsCleared = false; // Track if we've already cleared restored tabs
+        this._appInitializing = true; // Track if app is still initializing (skip animation delays)
         
         this.viewMode = 'split'; // 'split', 'editor', 'preview'
         this.isLivePreview = localStorage.getItem('live-preview-enabled') !== 'false'; // Default to true
@@ -93,6 +95,9 @@ class MarkDDApp {
         
         this.logInfo('App', 'MarkDD Editor initialized successfully');
         
+        // Mark initialization as complete - allow animation delays for future operations
+        this._appInitializing = false;
+        
         // Check for startup file (from file association or command line)
         this.checkStartupFile();
             
@@ -119,7 +124,8 @@ class MarkDDApp {
                         const fs = require('fs');
                         const content = fs.readFileSync(filePath, 'utf-8');
                         console.log('[App] File read successfully, length:', content.length);
-                        await this.openFile(filePath, content);
+                        // This is from system event, treat as startup file
+                        await this.openFile(filePath, content, true);
                     } catch (error) {
                         console.error('[App] Error reading file:', error);
                         this.showError('Failed to open file: ' + error.message);
@@ -133,20 +139,18 @@ class MarkDDApp {
                 console.log('[App] checkStartupFile: IPC result:', result);
                 
                 if (result.success && result.filePath) {
-                    console.log('[App] checkStartupFile: File found, will open after 500ms delay:', result.filePath);
-                    setTimeout(async () => {
-                        console.log('[App] checkStartupFile: Opening file now:', result.filePath);
-                        try {
-                            // Read the file content using Node.js fs module
-                            const fs = require('fs');
-                            const content = fs.readFileSync(result.filePath, 'utf-8');
-                            console.log('[App] File read successfully, length:', content.length);
-                            await this.openFile(result.filePath, content);
-                        } catch (error) {
-                            console.error('[App] Error reading startup file:', error);
-                            this.showError('Failed to open startup file: ' + error.message);
-                        }
-                    }, 500); // Small delay to ensure UI is fully ready
+                    console.log('[App] checkStartupFile: File found, opening immediately:', result.filePath);
+                    try {
+                        // Read the file content using Node.js fs module
+                        const fs = require('fs');
+                        const content = fs.readFileSync(result.filePath, 'utf-8');
+                        console.log('[App] File read successfully, length:', content.length);
+                        // This is the startup file from Electron, pass isStartupFile=true
+                        await this.openFile(result.filePath, content, true);
+                    } catch (error) {
+                        console.error('[App] Error reading startup file:', error);
+                        this.showError('Failed to open startup file: ' + error.message);
+                    }
                 } else {
                     console.log('[App] checkStartupFile: No startup file to open');
                 }
@@ -1182,8 +1186,8 @@ class MarkDDApp {
         }
     }
 
-    async openFile(filePath = null, content = null) {
-        console.log('[App] openFile called with filePath:', filePath, 'content length:', content ? content.length : 'null');
+    async openFile(filePath = null, content = null, isStartupFile = false) {
+        console.log('[App] openFile called with filePath:', filePath, 'isStartupFile:', isStartupFile, 'content length:', content ? content.length : 'null');
         
         if (!this.tabManager) {
             console.log('[App] openFile: tabManager not initialized, using fallback');
@@ -1206,6 +1210,22 @@ class MarkDDApp {
         
         if (filePath && content !== null) {
             console.log('[App] openFile: tabManager available, checking for existing tab');
+            
+            // Clear restored session tabs ONLY on startup file opens
+            // This prevents delay from rendering old tabs from previous session
+            // Normal file opens (dialog, drag-drop) should NOT clear tabs
+            if (isStartupFile && !this._restoredTabsCleared && this.tabManager.hasRestoredTabs && this.tabManager.hasRestoredTabs()) {
+                this._restoredTabsCleared = true; // Mark that we've done this
+                console.log('[App] openFile: Clearing restored session tabs on startup');
+                // Clear TabUI DOM elements first to prevent visual delay
+                if (this.tabUI && this.tabUI.clearAllTabs) {
+                    this.tabUI.clearAllTabs();
+                }
+                // Then clear the internal tab data
+                this.tabManager.clearRestoredTabs();
+                this.logInfo('App', 'Cleared restored session tabs');
+            }
+            
             // Check if file is already open in a tab
             const existingTab = this.tabManager.findTabByFilepath(filePath);
             if (existingTab) {
@@ -2028,6 +2048,7 @@ Bob -> Alice: Hi there
         
         const tabData = event.tabData;
         const previousTabId = event.previousTabId;
+        const isRestored = event.restored || false;  // Check if this is from session restoration
         this.logInfo('App', 'Switching to tab: ' + tabData.id + ' - ' + tabData.title);
         
         // Save scroll position of previous tab before switching
@@ -2068,17 +2089,22 @@ Bob -> Alice: Hi there
             }
         }
         
-        // Force preview update after tab switch to ensure preview renders with new content
-        // This is critical even if live preview is enabled - tab switch requires explicit update
+        // Force preview update after tab switch
+        // For restored tabs or initial app loading, update immediately without delay to prevent visible lag
+        // For normal tab switches, use requestAnimationFrame to ensure editor content is set
         if (this.preview && this.editor) {
-            // Use a small delay to ensure editor content is fully set before preview update
-            // Arrow function preserves 'this' context
             const self = this;
-            requestAnimationFrame(() => {
-                // Trigger content change to update preview (proper method, not updatePreview)
+            if (isRestored || this._appInitializing) {
+                // Restored tab or initial tab during app startup: update preview immediately, no animation frame delay
                 self.editor.triggerContentChange();
-                self.logInfo('App', 'Preview updated after tab switch');
-            });
+                self.logInfo('App', 'Preview updated immediately (restored or initializing)');
+            } else {
+                // Normal tab switch: use requestAnimationFrame for smooth transition
+                requestAnimationFrame(() => {
+                    self.editor.triggerContentChange();
+                    self.logInfo('App', 'Preview updated after tab switch');
+                });
+            }
         }
         
         this.logInfo('App', 'Tab switch completed');
@@ -2212,7 +2238,7 @@ Bob -> Alice: Hi there
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '1.1.0',
+            version: '1.0.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -2330,15 +2356,49 @@ Bob -> Alice: Hi there
     isSyncScrollEnabled() {
         return this.preview ? this.preview.isSyncScrollEnabled() : this.syncScroll;
     }
+
+    /**
+     * Populate version info in the UI from package data
+     * Called after app initialization to display the version dynamically
+     */
+    async populateVersionInfo() {
+        try {
+            const versionElement = document.getElementById('app-version');
+            if (!versionElement) return; // Element not yet in DOM
+            
+            // Try to get version from main process via IPC
+            if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('get-package-data');
+                if (result.success && result.data && result.data.version) {
+                    versionElement.textContent = result.data.version;
+                    return;
+                }
+            }
+            
+            // Fallback: keep the "Loading..." text or set a default
+            versionElement.textContent = '1.0.0';
+        } catch (error) {
+            console.error('Failed to populate version info:', error);
+            const versionElement = document.getElementById('app-version');
+            if (versionElement) {
+                versionElement.textContent = '1.0.0';
+            }
+        }
+    }
 }
 
 // If loaded after libs (index.html dynamic load), initialize immediately when script executes
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         if (!window.markddApp) window.markddApp = new MarkDDApp();
+        // Populate version from package data after app init
+        window.markddApp.populateVersionInfo();
     });
 } else {
     if (!window.markddApp) window.markddApp = new MarkDDApp();
+    // Populate version from package data after app init
+    window.markddApp.populateVersionInfo();
 }
 
 // Export for use in other modules
