@@ -45,12 +45,11 @@ class Editor {
         this.setupShortcuts();
         this.updateStatus();
         
-        // Initialize professional search/replace modal
-        this.searchReplaceModal = new SearchReplaceModal();
+    // Initialize professional search/replace modal
+    this.searchReplaceModal = new SearchReplaceModal();
 
-        // Always load the actual showcase file from disk, don't use hardcoded content
-        console.log('[Editor] Forcing load of actual COMPREHENSIVE-FEATURES-SHOWCASE.md file...');
-        this.loadComprehensiveShowcase();
+    // Start with a clean, empty document on launch
+    this.setContent('');
     }
 
     setupEventListeners() {

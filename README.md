@@ -74,6 +74,15 @@ A fully-featured Markdown editor with advanced capabilities, combining the best 
 - **GraphViz** support (placeholder for future implementation)
 - **PlantUML** support (placeholder for future implementation)
 
+### Presentation System (NEW in v1.2.0)
+- **Beamer-style presentations** - Create PowerPoint/LaTeX Beamer-style slides in Markdown
+- **28 professional themes** - Classic Beamer themes plus modern variants
+- **Live preview** - Real-time presentation preview in separate window
+- **Multiple exports** - Export to standalone HTML or PDF
+- **YAML front-matter** - Configure theme, title, author, and date
+- **Speaker notes** - Add notes that don't appear in slides
+- **Theme categories** - Classic Beamer, Color Variants, and Modern themes
+
 ### Advanced Code Features
 - **Syntax highlighting** for 100+ languages
 - **Line numbers** in code blocks
@@ -173,6 +182,47 @@ graph TD
 ### Sub-branch 2.1
 \```
 ```
+
+### Creating Presentations (NEW in v1.2.0)
+```markdown
+---
+theme: berkeley
+title: My Presentation
+author: Your Name
+date: 2025-11-08
+---
+
+# Welcome Slide
+
+This is your first slide.
+
+---
+
+## Slide 2
+
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+
+---
+
+## Conclusion
+
+Thank you!
+
+<!-- Speaker notes: These won't appear in the presentation -->
+```
+
+**Available Themes:**
+- **Classic Beamer:** berkeley, berlin, copenhagen, darmstadt, warsaw, madrid, annarbor, cambridgeus, pittsburgh, rochester, boadilla, antibes, juanlespins, montpellier, malmoe, singapore, szeged, hannover, marburg, goettingen
+- **Color Variants:** berkeley-dark, berlin-light, copenhagen-blue, madrid-green
+- **Modern:** simple-light, simple-dark, minimal-gray, corporate-blue
+
+**Presentation Controls:**
+- `Ctrl+Shift+N` - New Presentation
+- `Ctrl+Shift+V` - Preview Slides
+- Menu: Presentation → Export Presentation as HTML/PDF
+- Menu: Presentation → Choose Theme
 
 ## Architecture
 

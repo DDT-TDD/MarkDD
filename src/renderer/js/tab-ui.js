@@ -132,10 +132,13 @@ class TabUI {
     }
 
     /**
-     * Render a tab element
+     * Render a tab element - optimized for instant display
      * @param {Object} tabData - Tab data
      */
     renderTab(tabData) {
+        // Use DocumentFragment for faster DOM manipulation
+        const fragment = document.createDocumentFragment();
+        
         const tabElement = document.createElement('div');
         tabElement.className = 'tab-item';
         tabElement.id = `tab-ui-${tabData.id}`;
@@ -145,15 +148,13 @@ class TabUI {
         const icon = document.createElement('span');
         icon.className = 'tab-icon';
         icon.textContent = '📄';
-        tabElement.appendChild(icon);
-
+        
         // Tab title
         const title = document.createElement('span');
         title.className = 'tab-title';
         title.textContent = tabData.title;
         title.title = tabData.filepath || tabData.title;
-        tabElement.appendChild(title);
-
+        
         // Close button
         const closeBtn = document.createElement('button');
         closeBtn.className = 'tab-close';
@@ -163,21 +164,26 @@ class TabUI {
             e.stopPropagation();
             this.tabManager.closeTab(tabData.id);
         });
-        tabElement.appendChild(closeBtn);
-
+        
         // Click to switch tab
         tabElement.addEventListener('click', () => {
             this.tabManager.switchTab(tabData.id);
         });
 
+        // Append children to tab element
+        tabElement.appendChild(icon);
+        tabElement.appendChild(title);
+        tabElement.appendChild(closeBtn);
+        
         // Add dirty class if needed
         if (tabData.isDirty) {
             tabElement.classList.add('dirty');
         }
 
-        // Add to tab list
-        this.tabListElement.appendChild(tabElement);
-
+        // Add to fragment, then to tab list in one operation
+        fragment.appendChild(tabElement);
+        this.tabListElement.appendChild(fragment);
+        
         // Scroll to show new tab
         this.scrollToTab(tabData.id);
 

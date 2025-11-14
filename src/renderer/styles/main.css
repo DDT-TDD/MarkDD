@@ -13,6 +13,7 @@
     --error-color: #d63031;
     --input-bg: #ffffff;
     --button-bg: #ffffff;
+    --submenu-gutter: clamp(180px, 34vw, 420px);
 }
 
 [data-theme="dark"] {
@@ -143,9 +144,40 @@
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 200px;
+    width: max-content;
+    max-width: min(90vw, 360px);
     z-index: 10000;
     display: none;
     padding: 4px 0;
+    max-height: min(75vh, 520px);
+    overflow-y: auto;
+    overflow-x: visible;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.menu-dropdown.has-submenus {
+    position: absolute;
+    padding-right: calc(var(--submenu-gutter) + 12px);
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    max-width: calc(min(90vw, 360px) + var(--submenu-gutter));
+}
+
+.menu-dropdown.has-submenus::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: calc(var(--submenu-gutter) + 12px);
+    bottom: 0;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    z-index: -1;
 }
 
 .menu-item:hover .menu-dropdown,
@@ -191,6 +223,186 @@
     border: none;
     border-top: 1px solid var(--border-color);
     margin: 4px 0;
+}
+
+/* Nested submenu for Presentation themes */
+.menu-submenu {
+    position: relative;
+}
+
+.menu-submenu.open .menu-dropdown-nested,
+.menu-submenu:hover .menu-dropdown-nested,
+.menu-dropdown-nested:hover,
+.menu-dropdown-nested:focus-within {
+    display: block;
+}
+
+.menu-dropdown-nested {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    width: max-content;
+    max-width: min(92vw, 440px);
+    display: none;
+    padding: 4px 0;
+    margin-left: 0;
+    z-index: 10002;
+    max-height: min(70vh, 480px);
+    overflow-y: auto;
+    overflow-x: visible;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.menu-submenu .menu-option {
+    cursor: pointer;
+}
+
+.menu-submenu .menu-option:hover {
+    background: var(--hover-bg);
+}
+
+.menu-dropdown-nested.align-left {
+    left: auto;
+    right: calc(100% + 4px);
+}
+
+.theme-option {
+    cursor: pointer !important;
+}
+
+.theme-category {
+    padding: 8px 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--secondary-color);
+    background: var(--hover-bg);
+    border-left: 3px solid var(--secondary-color);
+    cursor: default;
+    user-select: none;
+}
+
+.theme-mega-panel {
+    width: clamp(320px, 55vw, 560px);
+    max-height: min(70vh, 520px);
+    overflow: hidden;
+}
+
+.theme-groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 4px 8px 8px;
+    max-height: min(70vh, 500px);
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.theme-group-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.theme-group-column hr {
+    margin: 6px 0;
+}
+
+
+/* Lightweight input dialog used for header/footer prompts */
+.input-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20000;
+    backdrop-filter: blur(2px);
+}
+
+.input-dialog {
+    background: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 8px;
+    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.25);
+    padding: 20px 22px 18px;
+    width: 360px;
+    max-width: 90vw;
+    border: 1px solid var(--border-color);
+}
+
+.input-dialog h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.05em;
+    font-weight: 600;
+}
+
+.input-dialog p {
+    margin: 0 0 14px 0;
+    font-size: 0.92em;
+    color: var(--text-muted);
+}
+
+.input-dialog input,
+.input-dialog textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: inherit;
+    font-size: 0.95em;
+    box-sizing: border-box;
+}
+
+.input-dialog textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.input-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.input-dialog-actions button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 0.92em;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.input-dialog-actions .cancel-btn {
+    background: var(--button-bg);
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.input-dialog-actions .cancel-btn:hover {
+    background: var(--hover-bg);
+}
+
+.input-dialog-actions .confirm-btn {
+    background: var(--primary-color);
+    color: #ffffff;
+    border-color: var(--primary-color-dark);
+}
+
+.input-dialog-actions .confirm-btn:hover {
+    background: var(--primary-color-dark);
 }
 
 /* In-Editor Search & Replace Bar */
@@ -478,8 +690,6 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-color);
     color: var(--text-color);
-    overflow: hidden;
-    height: 100vh;
 }
 
 #app {
@@ -2569,13 +2779,43 @@ figcaption {
 }
 
 .youtube-embed {
-    margin: 20px 0;
-    text-align: center;
+    margin: 24px 0;
+    background: #000;
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
 }
 
-.youtube-embed iframe {
-    max-width: 100%;
-    border-radius: 8px;
+.youtube-embed-frame {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+}
+
+.youtube-embed-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.youtube-embed-fallback {
+    padding: 8px 12px;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.youtube-embed-fallback a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.youtube-embed-fallback a:hover {
+    text-decoration: underline;
 }
 
 /* Enhanced Tables */

@@ -33,6 +33,7 @@ class MarkDDApp {
         this._openingFile = false;
         this._exportingHTML = false;
         this._exportingPDF = false;
+    this._lastNavigationPosition = null;
         
         // Prevent multiple initialization calls
         this.initialUpdateTriggered = false;
@@ -530,10 +531,11 @@ class MarkDDApp {
                 return;
             }
             
-            // Restore previous session or create initial tab
-            const restored = this.tabManager.restore();
-            // Only create initial tab if restore failed AND no tabs exist
-            if (!restored && this.tabManager.getAllTabs().length === 0) {
+            // Always start with a clean slate; session restore is handled manually via Open Recent
+            if (typeof this.tabManager.clearPersistedState === 'function') {
+                this.tabManager.clearPersistedState();
+            }
+            if (this.tabManager.getAllTabs().length === 0) {
                 this.tabManager.createTab({
                     title: 'Untitled',
                     content: '',
@@ -583,6 +585,9 @@ class MarkDDApp {
                 e.returnValue = '';
             }
         });
+
+        // Ensure the recent files submenu reflects the latest state when the menu initializes
+        this.updateRecentFilesMenu();
     }
 
     setupElectronListeners() {
@@ -652,9 +657,568 @@ class MarkDDApp {
     }
 
     setupMenuHandlers() {
-        // Removed all document event listeners as they duplicate IPC menu handlers
-        // IPC listeners in setupElectronListeners() handle all menu actions
-        console.log('[App] Menu handlers setup - using IPC only');
+        if (this._menuHandlersInitialized) {
+            return;
+        }
+        this._menuHandlersInitialized = true;
+
+        const menuBar = document.getElementById('menu-bar');
+        if (!menuBar) {
+            console.warn('[App] Menu bar not found - skipping handler setup');
+            return;
+        }
+
+        console.log('[Menu] Initializing comprehensive menu system');
+
+        // Track pointer type for touch vs mouse handling
+        let lastPointerType = 'mouse';
+        const rememberPointerType = (event) => {
+            if (event.pointerType) {
+                lastPointerType = event.pointerType;
+            }
+        };
+
+        menuBar.addEventListener('pointerdown', rememberPointerType, true);
+        menuBar.addEventListener('pointermove', rememberPointerType, true);
+
+        // Get all menu items and submenus
+        const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+        const submenus = Array.from(menuBar.querySelectorAll('.menu-submenu'));
+        const dropdowns = Array.from(menuBar.querySelectorAll('.menu-dropdown'));
+
+        const menuCloseTimers = new WeakMap();
+        const submenuCloseTimers = new WeakMap();
+        const MENU_CLOSE_DELAY = 220;
+        const SUBMENU_CLOSE_DELAY = 160;
+
+        const cancelPendingClose = (store, target) => {
+            if (!target) return;
+            const timerId = store.get(target);
+            if (timerId) {
+                clearTimeout(timerId);
+                store.delete(target);
+            }
+        };
+
+        const schedulePendingClose = (store, target, callback, delay) => {
+            if (!target) return;
+            cancelPendingClose(store, target);
+            const timerId = window.setTimeout(() => {
+                store.delete(target);
+                callback();
+            }, delay);
+            store.set(target, timerId);
+        };
+
+        dropdowns.forEach(dropdown => {
+            if (dropdown.querySelector('.menu-submenu')) {
+                dropdown.classList.add('has-submenus');
+            }
+        });
+
+        console.log(`[Menu] Found ${menuItems.length} menu items and ${submenus.length} submenus`);
+
+        // Helper functions
+        const getMenuLabel = (item) => item.querySelector('.menu-label');
+
+        const resetDropdownPosition = (dropdown) => {
+            if (!dropdown) return;
+            dropdown.style.left = '';
+            dropdown.style.right = '';
+            dropdown.style.maxHeight = '';
+        };
+
+        const adjustDropdownPosition = (dropdown) => {
+            if (!dropdown) return;
+            dropdown.style.left = '';
+            dropdown.style.right = '';
+            dropdown.style.maxHeight = '';
+
+            const rect = dropdown.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportPadding = 8;
+            const availableHeight = Math.max(220, window.innerHeight - rect.top - viewportPadding);
+
+            if (rect.right > viewportWidth - viewportPadding) {
+                dropdown.style.left = 'auto';
+                dropdown.style.right = '0';
+            }
+
+            dropdown.style.maxHeight = `${Math.min(520, availableHeight)}px`;
+        };
+
+        const resetNestedPosition = (submenu) => {
+            const nested = submenu.querySelector('.menu-dropdown-nested');
+            if (!nested) return;
+            nested.classList.remove('align-left');
+            nested.style.top = '';
+            nested.style.maxHeight = '';
+        };
+
+        const adjustNestedPosition = (submenu) => {
+            const nested = submenu.querySelector('.menu-dropdown-nested');
+            if (!nested) return;
+
+            nested.classList.remove('align-left');
+            nested.style.top = '';
+            nested.style.maxHeight = '';
+
+            const viewportPadding = 8;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let rect = nested.getBoundingClientRect();
+            if (rect.right > viewportWidth - viewportPadding) {
+                nested.classList.add('align-left');
+                rect = nested.getBoundingClientRect();
+            }
+
+            const constrainedHeight = Math.min(480, Math.max(220, viewportHeight - (2 * viewportPadding)));
+            nested.style.maxHeight = `${constrainedHeight}px`;
+
+            rect = nested.getBoundingClientRect();
+            let offset = 0;
+
+            if (rect.bottom > viewportHeight - viewportPadding) {
+                offset -= rect.bottom - (viewportHeight - viewportPadding);
+            }
+
+            if (rect.top + offset < viewportPadding) {
+                offset += viewportPadding - (rect.top + offset);
+            }
+
+            nested.style.top = offset ? `${offset}px` : '';
+        };
+
+        const setExpanded = (item, expanded) => {
+            const label = getMenuLabel(item);
+            if (label) {
+                label.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            }
+        };
+
+        const closeSubmenu = (submenu) => {
+            if (!submenu) return;
+            cancelPendingClose(submenuCloseTimers, submenu);
+            submenu.classList.remove('open');
+            const trigger = submenu.querySelector(':scope > .menu-option');
+            if (trigger) {
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+            resetNestedPosition(submenu);
+        };
+
+        const closeSubmenus = (container) => {
+            if (!container) return;
+            const openSubmenus = container.querySelectorAll('.menu-submenu.open');
+            openSubmenus.forEach(opened => closeSubmenu(opened));
+        };
+
+        const closeMenu = (item) => {
+            if (!item) return;
+            cancelPendingClose(menuCloseTimers, item);
+            item.classList.remove('active');
+            setExpanded(item, false);
+            closeSubmenus(item);
+            const dropdown = item.querySelector('.menu-dropdown');
+            resetDropdownPosition(dropdown);
+        };
+
+        const closeAllMenus = (excludeItem = null) => {
+            menuItems.forEach(menuItem => {
+                if (menuItem !== excludeItem) {
+                    closeMenu(menuItem);
+                }
+            });
+        };
+
+        const focusMenuLabel = (item) => {
+            const label = getMenuLabel(item);
+            if (label) {
+                label.focus({ preventScroll: true });
+            }
+        };
+
+        const focusAdjacentMenuItem = (currentItem, offset) => {
+            const index = menuItems.indexOf(currentItem);
+            if (index === -1) return;
+            const nextIndex = (index + offset + menuItems.length) % menuItems.length;
+            focusMenuLabel(menuItems[nextIndex]);
+        };
+
+        const getFocusableOptions = (dropdown) => {
+            if (!dropdown) return [];
+            // Get direct child buttons and submenu triggers, excluding nested dropdown buttons
+            const directButtons = Array.from(dropdown.querySelectorAll(':scope > button.menu-option:not([disabled])'));
+            const submenuTriggers = Array.from(dropdown.querySelectorAll(':scope > .menu-submenu > .menu-option:not([disabled])'));
+            return [...directButtons, ...submenuTriggers];
+        };
+
+        const openMenu = (item, options = {}) => {
+            if (!item) return;
+            const { focusFirstOption = false } = options;
+            if (!item.classList.contains('active')) {
+                closeAllMenus(item);
+                item.classList.add('active');
+                setExpanded(item, true);
+            }
+            cancelPendingClose(menuCloseTimers, item);
+            const dropdown = item.querySelector('.menu-dropdown');
+            adjustDropdownPosition(dropdown);
+            if (focusFirstOption) {
+                const focusable = getFocusableOptions(dropdown);
+                if (focusable.length > 0) {
+                    focusable[0].focus({ preventScroll: true });
+                }
+            }
+        };
+
+        const toggleMenu = (item, options = {}) => {
+            if (item.classList.contains('active')) {
+                closeMenu(item);
+            } else {
+                openMenu(item, options);
+            }
+        };
+
+        // Setup main menu items
+        menuItems.forEach(item => {
+            const label = getMenuLabel(item);
+            const dropdown = item.querySelector('.menu-dropdown');
+            if (!label || !dropdown) return;
+
+            label.setAttribute('role', 'menuitem');
+            label.setAttribute('tabindex', '0');
+            label.setAttribute('aria-haspopup', 'true');
+            label.setAttribute('aria-expanded', 'false');
+            dropdown.setAttribute('role', 'menu');
+
+            // Click handler for menu label
+            label.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleMenu(item);
+            });
+
+            // Keyboard navigation for menu labels
+            label.addEventListener('keydown', (event) => {
+                switch (event.key) {
+                    case 'Enter':
+                    case ' ':
+                        event.preventDefault();
+                        toggleMenu(item, { focusFirstOption: true });
+                        break;
+                    case 'ArrowDown':
+                        event.preventDefault();
+                        openMenu(item, { focusFirstOption: true });
+                        break;
+                    case 'ArrowRight':
+                        event.preventDefault();
+                        focusAdjacentMenuItem(item, 1);
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        focusAdjacentMenuItem(item, -1);
+                        break;
+                    case 'Escape':
+                        closeAllMenus();
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            // Mouse hover for menu items
+            item.addEventListener('mouseenter', () => {
+                cancelPendingClose(menuCloseTimers, item);
+                if (lastPointerType !== 'touch') {
+                    // Only auto-open if another menu is already open
+                    const anyMenuOpen = menuItems.some(mi => mi.classList.contains('active'));
+                    if (anyMenuOpen) {
+                        openMenu(item);
+                    }
+                }
+            });
+
+            item.addEventListener('mouseleave', (event) => {
+                if (lastPointerType !== 'touch' && !item.contains(event.relatedTarget)) {
+                    schedulePendingClose(menuCloseTimers, item, () => closeMenu(item), MENU_CLOSE_DELAY);
+                }
+            });
+
+            dropdown.addEventListener('mouseenter', () => {
+                cancelPendingClose(menuCloseTimers, item);
+            });
+
+            dropdown.addEventListener('mouseleave', (event) => {
+                if (lastPointerType !== 'touch' && !item.contains(event.relatedTarget)) {
+                    schedulePendingClose(menuCloseTimers, item, () => closeMenu(item), MENU_CLOSE_DELAY);
+                }
+            });
+
+            // Keyboard navigation within dropdown
+            dropdown.addEventListener('keydown', (event) => {
+                const focusable = getFocusableOptions(dropdown);
+                if (!focusable.length) return;
+                const currentIndex = focusable.indexOf(document.activeElement);
+                
+                switch (event.key) {
+                    case 'ArrowDown':
+                        event.preventDefault();
+                        if (currentIndex >= 0) {
+                            focusable[(currentIndex + 1) % focusable.length].focus({ preventScroll: true });
+                        } else {
+                            focusable[0].focus({ preventScroll: true });
+                        }
+                        break;
+                    case 'ArrowUp':
+                        event.preventDefault();
+                        if (currentIndex >= 0) {
+                            focusable[(currentIndex - 1 + focusable.length) % focusable.length].focus({ preventScroll: true });
+                        } else {
+                            focusable[focusable.length - 1].focus({ preventScroll: true });
+                        }
+                        break;
+                    case 'Home':
+                        event.preventDefault();
+                        focusable[0].focus({ preventScroll: true });
+                        break;
+                    case 'End':
+                        event.preventDefault();
+                        focusable[focusable.length - 1].focus({ preventScroll: true });
+                        break;
+                    case 'Escape':
+                        event.preventDefault();
+                        closeMenu(item);
+                        focusMenuLabel(item);
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        closeMenu(item);
+                        focusAdjacentMenuItem(item, -1);
+                        break;
+                    case 'ArrowRight':
+                        // Check if current element is a submenu trigger
+                        const currentElement = document.activeElement;
+                        const parentSubmenu = currentElement ? currentElement.closest('.menu-submenu') : null;
+                        if (parentSubmenu) {
+                            event.preventDefault();
+                            openSubmenu(parentSubmenu, { focusFirstOption: true });
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            });
+        });
+
+        // Helper functions for submenus
+        const closeSiblingSubmenus = (submenu) => {
+            if (!submenu || !submenu.parentElement) return;
+            const siblings = submenu.parentElement.querySelectorAll('.menu-submenu.open');
+            siblings.forEach(opened => {
+                if (opened !== submenu) {
+                    closeSubmenu(opened);
+                }
+            });
+        };
+
+        const openSubmenu = (submenu, options = {}) => {
+            if (!submenu) return;
+            const { focusFirstOption = false } = options;
+            
+            // Close sibling submenus
+            closeSiblingSubmenus(submenu);
+            
+            // Open this submenu
+            submenu.classList.add('open');
+            cancelPendingClose(submenuCloseTimers, submenu);
+            adjustNestedPosition(submenu);
+            const trigger = submenu.querySelector(':scope > .menu-option');
+            if (trigger) {
+                trigger.setAttribute('aria-expanded', 'true');
+            }
+            
+            // Focus first option if requested
+            if (focusFirstOption) {
+                const nested = submenu.querySelector('.menu-dropdown-nested');
+                const focusable = getFocusableOptions(nested);
+                if (focusable.length > 0) {
+                    focusable[0].focus({ preventScroll: true });
+                }
+            }
+        };
+
+        const toggleSubmenu = (submenu) => {
+            if (!submenu) return;
+            if (submenu.classList.contains('open')) {
+                closeSubmenu(submenu);
+            } else {
+                openSubmenu(submenu);
+            }
+        };
+
+        // Setup submenus
+        submenus.forEach(submenu => {
+            const trigger = submenu.querySelector(':scope > .menu-option');
+            const nested = submenu.querySelector('.menu-dropdown-nested');
+            
+            if (!trigger || !nested) {
+                console.warn('[Menu] Submenu missing trigger or nested dropdown:', submenu);
+                return;
+            }
+
+            // Set ARIA attributes
+            trigger.setAttribute('role', 'menuitem');
+            trigger.setAttribute('tabindex', '-1');
+            trigger.setAttribute('aria-haspopup', 'true');
+            trigger.setAttribute('aria-expanded', 'false');
+            nested.setAttribute('role', 'menu');
+
+            // Click handler for submenu trigger
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggleSubmenu(submenu);
+            });
+
+            // Keyboard navigation for submenu triggers
+            trigger.addEventListener('keydown', (event) => {
+                switch (event.key) {
+                    case 'Enter':
+                    case ' ':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleSubmenu(submenu);
+                        break;
+                    case 'ArrowRight':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openSubmenu(submenu, { focusFirstOption: true });
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeSubmenu(submenu);
+                        trigger.focus({ preventScroll: true });
+                        break;
+                    case 'Escape':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeSubmenu(submenu);
+                        trigger.focus({ preventScroll: true });
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            // Mouse hover for submenu
+            submenu.addEventListener('mouseenter', () => {
+                cancelPendingClose(submenuCloseTimers, submenu);
+                if (lastPointerType !== 'touch') {
+                    openSubmenu(submenu);
+                }
+            });
+
+            submenu.addEventListener('mouseleave', (event) => {
+                if (lastPointerType !== 'touch' && !submenu.contains(event.relatedTarget)) {
+                    schedulePendingClose(submenuCloseTimers, submenu, () => closeSubmenu(submenu), SUBMENU_CLOSE_DELAY);
+                }
+            });
+
+            // Keyboard navigation within nested dropdown
+            nested.addEventListener('keydown', (event) => {
+                const focusable = getFocusableOptions(nested);
+                if (!focusable.length) return;
+                const currentIndex = focusable.indexOf(document.activeElement);
+                
+                switch (event.key) {
+                    case 'ArrowDown':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (currentIndex >= 0) {
+                            focusable[(currentIndex + 1) % focusable.length].focus({ preventScroll: true });
+                        } else {
+                            focusable[0].focus({ preventScroll: true });
+                        }
+                        break;
+                    case 'ArrowUp':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (currentIndex >= 0) {
+                            focusable[(currentIndex - 1 + focusable.length) % focusable.length].focus({ preventScroll: true });
+                        } else {
+                            focusable[focusable.length - 1].focus({ preventScroll: true });
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeSubmenu(submenu);
+                        trigger.focus({ preventScroll: true });
+                        break;
+                    case 'Escape':
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeSubmenu(submenu);
+                        trigger.focus({ preventScroll: true });
+                        break;
+                    case 'Home':
+                        event.preventDefault();
+                        focusable[0].focus({ preventScroll: true });
+                        break;
+                    case 'End':
+                        event.preventDefault();
+                        focusable[focusable.length - 1].focus({ preventScroll: true });
+                        break;
+                    default:
+                        break;
+                }
+            });
+        });
+
+        // Close menus on outside click
+        const closeOnOutsideClick = (event) => {
+            if (!menuBar.contains(event.target)) {
+                closeAllMenus();
+            }
+        };
+
+        // Close menus on Escape key
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') {
+                closeAllMenus();
+            }
+        };
+
+        document.addEventListener('click', closeOnOutsideClick);
+        document.addEventListener('keydown', closeOnEscape);
+
+        // Close menus when clicking regular menu options (not submenu triggers)
+        menuBar.querySelectorAll('.menu-dropdown > button.menu-option').forEach(button => {
+            // Only add to direct children, not submenu triggers
+            if (!button.parentElement.classList.contains('menu-submenu')) {
+                button.addEventListener('click', () => {
+                    window.requestAnimationFrame(() => closeAllMenus());
+                });
+            }
+        });
+
+        // Also handle nested dropdown option clicks
+        menuBar.querySelectorAll('.menu-dropdown-nested > button.menu-option').forEach(button => {
+            button.addEventListener('click', () => {
+                window.requestAnimationFrame(() => closeAllMenus());
+            });
+        });
+
+        // Cleanup function
+        this._menuCleanup = () => {
+            document.removeEventListener('click', closeOnOutsideClick);
+            document.removeEventListener('keydown', closeOnEscape);
+        };
+
+        console.log('[Menu] Menu system initialization complete');
     }
 
     setupToolbar() {
@@ -690,6 +1254,7 @@ class MarkDDApp {
         this.bindButton('linkBtn', () => this.insertLink());
         this.bindButton('imageBtn', () => this.insertImage());
         this.bindButton('tableBtn', () => this.editor.insertTable());
+        this.bindButton('tocBtn', () => this.insertTOC());
         
         // Special content buttons
         this.bindButton('mathBtn', () => this.editor.insertMath());
@@ -945,6 +1510,14 @@ class MarkDDApp {
         this.bindButton('menu-open', () => this.openFileDialog());
         this.bindButton('menu-save', () => this.saveFile());
         this.bindButton('menu-save-as', () => this.saveAsFile());
+        const clearRecentBtn = document.getElementById('menu-clear-recent');
+        if (clearRecentBtn) {
+            clearRecentBtn.addEventListener('click', () => this.clearRecentFiles());
+        }
+        const recentMenu = document.getElementById('menu-recent-files');
+        if (recentMenu) {
+            recentMenu.addEventListener('mouseenter', () => this.updateRecentFilesMenu());
+        }
         this.bindButton('menu-export-html', () => this.exportHTML());
         this.bindButton('menu-export-pdf', () => this.exportPDF());
         this.bindButton('menu-exit', () => {
@@ -1013,8 +1586,145 @@ class MarkDDApp {
             this.bindButton('menu-settings', () => this.showSettingsModal());
         }
         
+        // Markdown numbering toggles
+        const headingNumberToggle = document.getElementById('heading-number-toggle');
+        if (headingNumberToggle) {
+            headingNumberToggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.toggleHeadingNumbering(e.target.checked);
+            });
+        }
+
+        const figureTableNumberToggle = document.getElementById('figure-table-number-toggle');
+        if (figureTableNumberToggle) {
+            figureTableNumberToggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.toggleFigureTableNumbering(e.target.checked);
+            });
+        }
+
+        this.bindButton('heading-number-start-btn', () => this.setHeadingNumberStart());
+        this.bindButton('figure-table-number-start-btn', () => this.setFigureTableNumberStart());
+
+        // ========== PRESENTATION MENU HANDLERS ==========
+        // Initialize presentation manager if not already initialized
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        // Presentation menu handlers
+        this.bindButton('menu-presentation-new', () => this.newPresentation());
+        this.bindButton('menu-presentation-preview', () => this.previewPresentation());
+        this.bindButton('menu-presentation-export-html', () => this.exportPresentationHTML());
+        this.bindButton('menu-presentation-export-pdf', () => this.exportPresentationPDF());
+        
+        // Classic Beamer theme selection handlers
+        this.bindButton('menu-theme-berkeley', () => this.setPresentationTheme('berkeley'));
+        this.bindButton('menu-theme-berlin', () => this.setPresentationTheme('berlin'));
+        this.bindButton('menu-theme-copenhagen', () => this.setPresentationTheme('copenhagen'));
+        this.bindButton('menu-theme-darmstadt', () => this.setPresentationTheme('darmstadt'));
+        this.bindButton('menu-theme-warsaw', () => this.setPresentationTheme('warsaw'));
+        this.bindButton('menu-theme-madrid', () => this.setPresentationTheme('madrid'));
+        this.bindButton('menu-theme-annarbor', () => this.setPresentationTheme('annarbor'));
+        this.bindButton('menu-theme-cambridgeus', () => this.setPresentationTheme('cambridgeus'));
+        this.bindButton('menu-theme-pittsburgh', () => this.setPresentationTheme('pittsburgh'));
+        this.bindButton('menu-theme-rochester', () => this.setPresentationTheme('rochester'));
+        this.bindButton('menu-theme-boadilla', () => this.setPresentationTheme('boadilla'));
+        this.bindButton('menu-theme-antibes', () => this.setPresentationTheme('antibes'));
+        this.bindButton('menu-theme-juanlespins', () => this.setPresentationTheme('juanlespins'));
+        this.bindButton('menu-theme-montpellier', () => this.setPresentationTheme('montpellier'));
+        this.bindButton('menu-theme-malmoe', () => this.setPresentationTheme('malmoe'));
+        this.bindButton('menu-theme-singapore', () => this.setPresentationTheme('singapore'));
+        this.bindButton('menu-theme-szeged', () => this.setPresentationTheme('szeged'));
+        this.bindButton('menu-theme-hannover', () => this.setPresentationTheme('hannover'));
+        this.bindButton('menu-theme-marburg', () => this.setPresentationTheme('marburg'));
+        this.bindButton('menu-theme-goettingen', () => this.setPresentationTheme('goettingen'));
+        
+        // Color variant theme handlers
+        this.bindButton('menu-theme-berkeley-dark', () => this.setPresentationTheme('berkeley-dark'));
+        this.bindButton('menu-theme-berlin-light', () => this.setPresentationTheme('berlin-light'));
+        this.bindButton('menu-theme-copenhagen-blue', () => this.setPresentationTheme('copenhagen-blue'));
+        this.bindButton('menu-theme-madrid-green', () => this.setPresentationTheme('madrid-green'));
+        
+        // Modern theme handlers
+        this.bindButton('menu-theme-simple-light', () => this.setPresentationTheme('simple-light'));
+        this.bindButton('menu-theme-simple-dark', () => this.setPresentationTheme('simple-dark'));
+        this.bindButton('menu-theme-minimal-gray', () => this.setPresentationTheme('minimal-gray'));
+        this.bindButton('menu-theme-corporate-blue', () => this.setPresentationTheme('corporate-blue'));
+        this.bindButton('menu-theme-aurora-forge', () => this.setPresentationTheme('aurora-forge'));
+        this.bindButton('menu-theme-ddt-signature', () => this.setPresentationTheme('ddt-signature'));
+        this.bindButton('menu-theme-strata-pulse', () => this.setPresentationTheme('strata-pulse'));
+        
+        // Color customization handlers
+        this.bindButton('menu-presentation-customize-colors', () => this.customizePresentationColors());
+        this.bindButton('menu-color-preset-blue', () => this.applyColorPreset('blue'));
+        this.bindButton('menu-color-preset-red', () => this.applyColorPreset('red'));
+        this.bindButton('menu-color-preset-green', () => this.applyColorPreset('green'));
+        this.bindButton('menu-color-preset-purple', () => this.applyColorPreset('purple'));
+        this.bindButton('menu-color-preset-orange', () => this.applyColorPreset('orange'));
+    this.bindButton('menu-color-preset-dark', () => this.applyColorPreset('dark'));
+    this.bindButton('menu-color-preset-crimson-horizon', () => this.applyColorPreset('crimsonHorizon'));
+        
+        // Navigation toggle handler
+        const navigationToggleCheckbox = document.getElementById('navigation-toggle-checkbox');
+        if (navigationToggleCheckbox) {
+            navigationToggleCheckbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.togglePresentationNavigation(e.target.checked);
+            });
+        }
+        
+        // Navigation position handlers
+        this.bindButton('menu-navigation-left', () => this.setNavigationPosition('left'));
+        this.bindButton('menu-navigation-top', () => this.setNavigationPosition('top'));
+        this.bindButton('menu-navigation-none', () => this.setNavigationPosition('none'));
+        
+        // TOC toggle handler
+        const tocToggleCheckbox = document.getElementById('toc-toggle-checkbox');
+        if (tocToggleCheckbox) {
+            tocToggleCheckbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.togglePresentationTOC(e.target.checked);
+            });
+        }
+        
+        // Tab delay handlers
+        this.bindButton('menu-tab-delay-none', () => this.setTabDelay(0));
+        this.bindButton('menu-tab-delay-300', () => this.setTabDelay(300));
+        this.bindButton('menu-tab-delay-500', () => this.setTabDelay(500));
+        this.bindButton('menu-tab-delay-1000', () => this.setTabDelay(1000));
+        
+        // Header/Footer handlers
+        this.bindButton('menu-presentation-set-header', () => this.setHeaderText());
+        this.bindButton('menu-presentation-set-footer', () => this.setFooterText());
+        
+        // Insert slide separator handler
+        this.bindButton('menu-presentation-insert-slide', () => this.insertSlideSeparator());
+        
+        // Page numbers toggle handler
+        const pageNumbersToggleCheckbox = document.getElementById('page-numbers-toggle-checkbox');
+        if (pageNumbersToggleCheckbox) {
+            pageNumbersToggleCheckbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.togglePageNumbers(e.target.checked);
+            });
+        }
+        
+        // Transition handlers
+        this.bindButton('menu-transition-none', () => this.setTransition('none'));
+        this.bindButton('menu-transition-fade', () => this.setTransition('fade'));
+        this.bindButton('menu-transition-slide', () => this.setTransition('slide'));
+        this.bindButton('menu-transition-zoom', () => this.setTransition('zoom'));
+        
+        // ========== END PRESENTATION MENU HANDLERS ==========
+        
         // Help menu handlers
+        this.bindButton('menu-help-showcase', () => this.openHelpShowcase());
+        this.bindButton('menu-help-presentation', () => this.openHelpPresentation());
         this.bindButton('menu-about', () => this.showAboutDialog());
+
+        // Ensure Markdown menu toggles reflect current front-matter state
+        this.refreshMarkdownMenuStates();
 
         // Global keyboard shortcuts (non-conflicting with file operations)
         document.addEventListener('keydown', (e) => {
@@ -1028,31 +1738,6 @@ class MarkDDApp {
                         break;
                     case 'p':
                         if (e.shiftKey && !e.altKey) {
-                            e.preventDefault();
-                            this.toggleLivePreview();
-                        }
-                        break;
-                    case '=':
-                    case '+':
-                        if (!e.shiftKey && !e.altKey) {
-                            e.preventDefault();
-                            this.zoomIn();
-                        }
-                        break;
-                    case '-':
-                        if (!e.shiftKey && !e.altKey) {
-                            e.preventDefault();
-                            this.zoomOut();
-                        }
-                        break;
-                    case '0':
-                        if (!e.shiftKey && !e.altKey) {
-                            e.preventDefault();
-                            this.resetZoom();
-                        }
-                        break;
-                    case ',':
-                        if (!e.shiftKey && !e.altKey) {
                             e.preventDefault();
                             this.showPluginsModal();
                         }
@@ -1200,6 +1885,7 @@ class MarkDDApp {
             if (filePath && content !== null) {
                 console.log('[App] openFile: Opening file in editor:', filePath);
                 this.editor.openFile(filePath, content);
+                this.recordRecentFile(filePath);
             } else {
                 if (typeof require !== 'undefined') {
                     console.log('[App] openFile: No file path provided, opening dialog...');
@@ -1210,6 +1896,7 @@ class MarkDDApp {
         
         if (filePath && content !== null) {
             console.log('[App] openFile: tabManager available, checking for existing tab');
+            const fileName = this.getFileNameFromPath(filePath);
             
             // Clear restored session tabs ONLY on startup file opens
             // This prevents delay from rendering old tabs from previous session
@@ -1235,7 +1922,6 @@ class MarkDDApp {
                 this.logInfo('App', 'Switched to existing tab for: ' + filePath);
             } else {
                 // Create new tab for this file - extract clean filename
-                const fileName = filePath.split(/[\\\/]/).pop() || 'Untitled';
                 console.log('[App] openFile: Creating new tab for file:', fileName);
                 this.tabManager.createTab({
                     title: fileName,
@@ -1245,6 +1931,8 @@ class MarkDDApp {
                 });
                 this.logInfo('App', 'Opened file in new tab: ' + fileName);
             }
+
+            this.recordRecentFile(filePath, fileName);
         } else {
             console.log('[App] openFile: No file path or content provided');
             // Trigger file dialog through Electron
@@ -1307,20 +1995,85 @@ class MarkDDApp {
     }
 
     // Content insertion helpers
-    insertLink() {
-        const url = prompt('Enter URL:');
-        if (url) {
-            const title = prompt('Enter link text (optional):') || 'link';
-            this.editor.insertLink(url, title);
+    async insertLink() {
+        try {
+            const selection = this.editor && typeof this.editor.getSelectedText === 'function'
+                ? this.editor.getSelectedText()
+                : '';
+            const result = await this.showFormDialog({
+                title: 'Insert Link',
+                message: 'Provide the target URL and optional display text.',
+                fields: [
+                    {
+                        id: 'url',
+                        label: 'URL',
+                        type: 'url',
+                        required: true,
+                        placeholder: 'https://example.com'
+                    },
+                    {
+                        id: 'text',
+                        label: 'Link text (optional)',
+                        type: 'text',
+                        defaultValue: selection || ''
+                    }
+                ],
+                confirmLabel: 'Insert'
+            });
+
+            if (!result) {
+                return;
+            }
+
+            const urlValue = result.url.trim();
+            const linkText = result.text ? result.text.trim() : (selection || 'link');
+            this.editor.insertLink(urlValue, linkText || 'link');
+        } catch (error) {
+            this.showError('Failed to insert link: ' + error.message);
         }
     }
 
-    insertImage() {
-        const url = prompt('Enter image URL:');
-        if (url) {
-            const alt = prompt('Enter alt text (optional):') || 'image';
-            this.editor.insertImage(url, alt);
+    async insertImage() {
+        try {
+            const result = await this.showFormDialog({
+                title: 'Insert Image',
+                message: 'Provide the image source URL and optional description.',
+                fields: [
+                    {
+                        id: 'url',
+                        label: 'Image URL',
+                        type: 'url',
+                        required: true,
+                        placeholder: 'https://example.com/image.png'
+                    },
+                    {
+                        id: 'alt',
+                        label: 'Alt text (optional)',
+                        type: 'text'
+                    }
+                ],
+                confirmLabel: 'Insert'
+            });
+
+            if (!result) {
+                return;
+            }
+
+            const altText = result.alt ? result.alt.trim() : 'image';
+            this.editor.insertImage(result.url.trim(), altText || 'image');
+        } catch (error) {
+            this.showError('Failed to insert image: ' + error.message);
         }
+    }
+
+    /**
+     * Insert Table of Contents marker
+     */
+    insertTOC() {
+        const cursor = this.editor.getCursor();
+        const tocMarker = '\n[TOC]\n\n';
+        this.editor.insertText(tocMarker, cursor);
+        this.showMessage('Table of Contents marker inserted. It will generate TOC from your headings.');
     }
 
     async insertImageFile(file) {
@@ -1639,6 +2392,1035 @@ Bob -> Alice: Hi there
             this._exportingPDF = false;
         }
     }
+
+    // ========== PRESENTATION ADDON METHODS ==========
+    
+    /**
+     * Create a new presentation from current markdown content
+     */
+    newPresentation() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        // Presentation template
+        const template = `---
+theme: berkeley
+title: My Presentation
+author: Your Name
+date: ${new Date().toISOString().split('T')[0]}
+---
+
+# Welcome Slide
+
+This is your first slide.
+
+---
+
+## Slide 2
+
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+
+---
+
+## Slide 3
+
+Add your content here.
+
+<!-- Speaker notes: These notes won't appear in the presentation -->
+
+---
+
+# Thank You
+
+Questions?
+`;
+        
+        // Create a new tab with presentation template (like newFile does)
+        console.log('[App] Creating new presentation tab...');
+        
+        // Create new tab via tab manager
+        const tabId = this.tabManager.createTab('Untitled Presentation.md', template);
+        
+        // Switch to the new tab
+        this.tabManager.switchTab(tabId);
+        
+        // Set editor content
+        this.editor.setContent(template);
+        
+        // Update preview
+        if (this.preview) {
+            this.preview.updatePreview(template);
+        }
+        
+        this.showMessage('New presentation created. Edit and use Presentation menu to preview or export.');
+    }
+    
+    /**
+     * Preview current presentation in separate window
+     */
+    async previewPresentation() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        try {
+            // Get current editor content
+            const markdown = this.editor.getContent();
+            
+            // Parse markdown into slides
+            const presentation = this.presentationManager.parseMarkdown(markdown);
+            
+            if (presentation.slides.length === 0) {
+                this.showError('No slides found. Use "---" to separate slides.');
+                return;
+            }
+            
+            // Preview presentation
+            const result = await this.presentationManager.previewPresentation();
+            
+            if (result.success) {
+                this.showMessage(`Presentation preview opened (${presentation.slides.length} slides)`);
+            } else if (!result.canceled) {
+                this.showError('Failed to preview presentation: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('Preview failed: ' + error.message);
+        }
+    }
+    
+    /**
+     * Export presentation as HTML
+     */
+    async exportPresentationHTML() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        try {
+            // Get current editor content
+            const markdown = this.editor.getContent();
+            
+            // Parse markdown into slides
+            const presentation = this.presentationManager.parseMarkdown(markdown);
+            
+            if (presentation.slides.length === 0) {
+                this.showError('No slides found. Use "---" to separate slides.');
+                return;
+            }
+            
+            // Export as HTML
+            const result = await this.presentationManager.exportHTML();
+            
+            if (result.success) {
+                this.showMessage(`Presentation exported to: ${result.filePath}`);
+            } else if (!result.canceled) {
+                this.showError('Failed to export presentation: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('Export failed: ' + error.message);
+        }
+    }
+    
+    /**
+     * Export presentation as PDF
+     */
+    async exportPresentationPDF() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        try {
+            // Get current editor content
+            const markdown = this.editor.getContent();
+            
+            // Parse markdown into slides
+            const presentation = this.presentationManager.parseMarkdown(markdown);
+            
+            if (presentation.slides.length === 0) {
+                this.showError('No slides found. Use "---" to separate slides.');
+                return;
+            }
+            
+            // Export as PDF
+            const result = await this.presentationManager.exportPDF();
+            
+            if (result.success) {
+                this.showMessage(`Presentation PDF exported to: ${result.filePath}`);
+            } else if (!result.canceled) {
+                this.showError('Failed to export PDF: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('PDF export failed: ' + error.message);
+        }
+    }
+    
+    /**
+     * Set presentation theme
+     */
+    setPresentationTheme(theme) {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+        
+        const success = this.presentationManager.setTheme(theme);
+        
+        if (success) {
+            this.showMessage(`Presentation theme set to: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`);
+            
+            // Update the front-matter in the editor if present
+            const content = this.editor.getContent();
+            const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+            const match = content.match(frontMatterRegex);
+            
+            if (match) {
+                const frontMatter = match[1];
+                let updatedFrontMatter = frontMatter;
+                
+                // Check if theme already exists in front-matter
+                if (/^theme:/m.test(frontMatter)) {
+                    // Replace existing theme
+                    updatedFrontMatter = frontMatter.replace(/^theme:.*$/m, `theme: ${theme}`);
+                } else {
+                    // Add theme as first line
+                    updatedFrontMatter = `theme: ${theme}\n${frontMatter}`;
+                }
+                
+                const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+                this.editor.setContent(updatedContent);
+            }
+        } else {
+            this.showError(`Invalid theme: ${theme}`);
+        }
+    }
+
+    /**
+     * Customize presentation colors
+     */
+    async customizePresentationColors() {
+        const colorInputs = [
+            { key: 'primary', label: 'Primary color', example: '#1976d2' },
+            { key: 'secondary', label: 'Secondary color', example: '#64b5f6' },
+            { key: 'background', label: 'Background color', example: '#ffffff' },
+            { key: 'text', label: 'Text color', example: '#212121' }
+        ];
+
+        const hexPattern = /^#?[0-9A-Fa-f]{6}$/;
+
+        const normalizeHex = (hex) => {
+            const stripped = hex.replace(/^#/, '');
+            return `#${stripped.toUpperCase()}`;
+        };
+
+        const normalizeColorMap = (map) => {
+            const normalized = {};
+            Object.entries(map || {}).forEach(([key, value]) => {
+                if (typeof value !== 'string') {
+                    return;
+                }
+                const trimmed = value.trim();
+                if (hexPattern.test(trimmed)) {
+                    normalized[key] = normalizeHex(trimmed);
+                }
+            });
+            return normalized;
+        };
+
+        const content = this.editor.getContent();
+        const currentColorsRaw = this.getCurrentFrontMatterColors(content);
+        const normalizedExisting = normalizeColorMap(currentColorsRaw);
+        const updatedColors = { ...normalizedExisting };
+
+        for (const { key, label, example } of colorInputs) {
+            const response = await this.promptForText({
+                title: 'Customize Presentation Colors',
+                message: `${label} (hex format, e.g., ${example})`,
+                defaultValue: updatedColors[key] || '',
+                placeholder: example,
+                confirmText: 'Save',
+                cancelText: 'Cancel'
+            });
+
+            if (response === null) {
+                this.showMessage('Custom color update canceled');
+                return;
+            }
+
+            const trimmed = response.trim();
+
+            if (trimmed === '') {
+                delete updatedColors[key];
+                continue;
+            }
+
+            if (!hexPattern.test(trimmed)) {
+                this.showError(`Invalid hex color format for ${key}. Please use format like ${example}`);
+                return;
+            }
+
+            updatedColors[key] = normalizeHex(trimmed);
+        }
+
+        const normalizedUpdated = normalizeColorMap(updatedColors);
+
+        const existingEntries = Object.entries(normalizedExisting).sort((a, b) => a[0].localeCompare(b[0]));
+        const updatedEntries = Object.entries(normalizedUpdated).sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (JSON.stringify(existingEntries) === JSON.stringify(updatedEntries)) {
+            this.showMessage('Custom colors unchanged');
+            return;
+        }
+
+        this.updateFrontMatterColors(normalizedUpdated);
+
+        if (Object.keys(normalizedUpdated).length === 0) {
+            this.showMessage('Custom colors removed; theme defaults restored');
+        } else {
+            this.showMessage('Custom colors applied to presentation');
+        }
+    }
+
+    /**
+     * Apply color preset
+     */
+    applyColorPreset(preset) {
+        const presets = {
+            blue: {
+                primary: '#1976d2',
+                secondary: '#64b5f6',
+                background: '#ffffff',
+                text: '#212121'
+            },
+            red: {
+                primary: '#d32f2f',
+                secondary: '#ef5350',
+                background: '#ffffff',
+                text: '#212121'
+            },
+            green: {
+                primary: '#388e3c',
+                secondary: '#66bb6a',
+                background: '#ffffff',
+                text: '#212121'
+            },
+            purple: {
+                primary: '#7b1fa2',
+                secondary: '#ba68c8',
+                background: '#ffffff',
+                text: '#212121'
+            },
+            orange: {
+                primary: '#e64a19',
+                secondary: '#ff7043',
+                background: '#ffffff',
+                text: '#212121'
+            },
+            dark: {
+                primary: '#90caf9',
+                secondary: '#ffab91',
+                background: '#212121',
+                text: '#e0e0e0'
+            },
+            crimsonHorizon: {
+                primary: '#ff1f1b',
+                secondary: '#101820',
+                background: '#f5f5f5',
+                text: '#141414'
+            }
+        };
+        
+        const colors = presets[preset];
+        if (!colors) {
+            this.showError(`Unknown color preset: ${preset}`);
+            return;
+        }
+        
+        this.updateFrontMatterColors(colors);
+        this.showMessage(`${preset.charAt(0).toUpperCase() + preset.slice(1)} color preset applied`);
+    }
+
+    /**
+     * Update front-matter with colors
+     */
+    updateFrontMatterColors(colors) {
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+
+        const hasColors = colors && Object.keys(colors).length > 0;
+        let updatedContent = content;
+
+        if (match) {
+            let updatedFrontMatter = match[1];
+
+            updatedFrontMatter = updatedFrontMatter.replace(/^colors:\s*\n(?:  .*\n)*/m, '').trim();
+
+            if (hasColors) {
+                const colorsLines = Object.entries(colors)
+                    .map(([key, value]) => `  ${key}: ${value}`);
+                const colorsBlock = ['colors:', ...colorsLines].join('\n');
+                updatedFrontMatter = updatedFrontMatter ? `${updatedFrontMatter}\n${colorsBlock}` : colorsBlock;
+            }
+
+            const replacement = updatedFrontMatter ? `---\n${updatedFrontMatter}\n---` : `---\n---`;
+            updatedContent = content.replace(frontMatterRegex, replacement);
+        } else if (hasColors) {
+            const colorsLines = Object.entries(colors)
+                .map(([key, value]) => `  ${key}: ${value}`);
+            const colorsBlock = ['colors:', ...colorsLines].join('\n');
+            updatedContent = `---\n${colorsBlock}\n---\n\n${content}`;
+        }
+
+        this.editor.setContent(updatedContent);
+        
+        if (this.presentationManager && this.previewPanel) {
+            this.updatePreview();
+        }
+    }
+
+    /**
+     * Toggle presentation navigation in front-matter
+     */
+    togglePresentationNavigation(enabled) {
+        const navToggle = document.getElementById('menu-presentation-toggle-navigation');
+        const content = this.editor.getContent();
+        const rawValue = this.getCurrentFrontMatterValue(content, 'navigation');
+        const resolvedValue = this.resolveNavigationValue(rawValue, content);
+
+        if (!enabled) {
+            if (resolvedValue === 'left' || resolvedValue === 'top') {
+                this._lastNavigationPosition = resolvedValue;
+            }
+            this.updateFrontMatterField(content, 'navigation', 'none');
+            if (navToggle) {
+                navToggle.checked = false;
+            }
+            this.showMessage('Navigation disabled');
+            return;
+        }
+
+        if (resolvedValue === 'left' || resolvedValue === 'top') {
+            this._lastNavigationPosition = resolvedValue;
+        }
+
+        let targetPosition = this._lastNavigationPosition;
+        if (targetPosition !== 'left' && targetPosition !== 'top') {
+            targetPosition = resolvedValue;
+        }
+        if (targetPosition !== 'left' && targetPosition !== 'top') {
+            targetPosition = this.determineDefaultNavigationPosition(content);
+        }
+        if (targetPosition !== 'left' && targetPosition !== 'top') {
+            targetPosition = 'left';
+        }
+
+        this._lastNavigationPosition = targetPosition;
+        this.updateFrontMatterField(content, 'navigation', targetPosition);
+        if (navToggle) {
+            navToggle.checked = true;
+        }
+        const label = targetPosition === 'top' ? 'top bar' : 'left sidebar';
+        this.showMessage(`Navigation enabled (${label})`);
+    }
+
+    setNavigationPosition(position) {
+        const normalized = typeof position === 'string' ? position.trim().toLowerCase() : 'none';
+        const validPositions = ['left', 'top', 'none'];
+        if (!validPositions.includes(normalized)) {
+            this.showError(`Unknown navigation position: ${position}`);
+            return;
+        }
+
+        const content = this.editor.getContent();
+        if (normalized === 'left' || normalized === 'top') {
+            this._lastNavigationPosition = normalized;
+        }
+
+        this.updateFrontMatterField(content, 'navigation', normalized);
+
+        const navToggle = document.getElementById('menu-presentation-toggle-navigation');
+        if (navToggle) {
+            navToggle.checked = normalized !== 'none';
+        }
+
+        const positionName = normalized === 'none' ? 'disabled' : (normalized === 'left' ? 'left sidebar' : 'top bar');
+        this.showMessage(`Navigation set to ${positionName}`);
+    }
+
+    togglePresentationTOC(enabled) {
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        let updatedContent;
+        
+        if (match) {
+            // Front-matter exists, update it
+            let frontMatter = match[1];
+            
+            // Remove existing toc line if present
+            frontMatter = frontMatter.replace(/^toc:\s*.+$/m, '');
+            
+            // Add toc line
+            frontMatter = frontMatter.trim() + `\ntoc: ${enabled}`;
+            
+            updatedContent = content.replace(frontMatterRegex, `---\n${frontMatter}\n---`);
+        } else {
+            // No front-matter, create it
+            updatedContent = `---\ntoc: ${enabled}\n---\n\n${content}`;
+        }
+        
+        this.editor.setContent(updatedContent);
+        
+        // Refresh preview
+        if (this.presentationManager && this.previewPanel) {
+            this.updatePreview();
+        }
+        
+        this.showMessage(`Table of Contents ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    setTabDelay(delay) {
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        let updatedContent;
+        
+        if (match) {
+            // Front-matter exists, update it
+            let frontMatter = match[1];
+            
+            // Remove existing tabDelay line if present
+            frontMatter = frontMatter.replace(/^tabDelay:\s*.+$/m, '');
+            
+            // Add tabDelay line (only if not 0)
+            if (delay > 0) {
+                frontMatter = frontMatter.trim() + `\ntabDelay: ${delay}`;
+            }
+            
+            updatedContent = content.replace(frontMatterRegex, `---\n${frontMatter}\n---`);
+        } else {
+            // No front-matter, create it (only if delay > 0)
+            if (delay > 0) {
+                updatedContent = `---\ntabDelay: ${delay}\n---\n\n${content}`;
+            } else {
+                updatedContent = content;
+            }
+        }
+        
+        this.editor.setContent(updatedContent);
+        
+        // Refresh preview
+        if (this.presentationManager && this.previewPanel) {
+            this.updatePreview();
+        }
+        
+        const delayText = delay === 0 ? 'disabled' : `${delay}ms`;
+        this.showMessage(`Tab reveal delay set to ${delayText}`);
+    }
+
+    promptForText(options = {}) {
+        const {
+            title = 'Input Required',
+            message = '',
+            defaultValue = '',
+            placeholder = '',
+            multiline = false,
+            confirmText = 'Save',
+            cancelText = 'Cancel'
+        } = options;
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'input-dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'input-dialog';
+
+            if (title) {
+                const heading = document.createElement('h3');
+                heading.textContent = title;
+                dialog.appendChild(heading);
+            }
+
+            if (message) {
+                const description = document.createElement('p');
+                description.textContent = message;
+                dialog.appendChild(description);
+            }
+
+            const input = multiline ? document.createElement('textarea') : document.createElement('input');
+            if (!multiline) {
+                input.type = 'text';
+            }
+            input.value = defaultValue || '';
+            input.placeholder = placeholder || '';
+
+            dialog.appendChild(input);
+
+            const actions = document.createElement('div');
+            actions.className = 'input-dialog-actions';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-btn';
+            cancelBtn.textContent = cancelText;
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'confirm-btn';
+            confirmBtn.textContent = confirmText;
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(confirmBtn);
+            dialog.appendChild(actions);
+
+            const cleanup = (result) => {
+                window.removeEventListener('keydown', handleWindowKeydown);
+                input.removeEventListener('keydown', handleInputKeydown);
+                overlay.remove();
+                resolve(result);
+            };
+
+            const handleWindowKeydown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+
+            const handleInputKeydown = (event) => {
+                if (!multiline && event.key === 'Enter') {
+                    event.preventDefault();
+                    cleanup(input.value);
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+
+            confirmBtn.addEventListener('click', () => cleanup(input.value));
+            cancelBtn.addEventListener('click', () => cleanup(null));
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) {
+                    cleanup(null);
+                }
+            });
+
+            input.addEventListener('keydown', handleInputKeydown);
+            window.addEventListener('keydown', handleWindowKeydown);
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            requestAnimationFrame(() => {
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            });
+        });
+    }
+
+    async setHeaderText() {
+        const currentContent = this.editor.getContent();
+        const currentHeader = this.getCurrentFrontMatterValue(currentContent, 'header');
+
+        const headerText = await this.promptForText({
+            title: 'Set Header Text',
+            message: 'Enter header text (leave empty to remove):',
+            defaultValue: currentHeader || '',
+            placeholder: 'Presentation header'
+        });
+
+        if (headerText === null) {
+            return;
+        }
+
+        const trimmed = headerText.trim();
+        const latestContent = this.editor.getContent();
+        this.updateFrontMatterField(latestContent, 'header', trimmed);
+        this.showMessage(trimmed ? 'Header updated' : 'Header removed');
+    }
+
+    async setFooterText() {
+        const currentContent = this.editor.getContent();
+        const currentFooter = this.getCurrentFrontMatterValue(currentContent, 'footer');
+
+        const footerText = await this.promptForText({
+            title: 'Set Footer Text',
+            message: 'Enter footer text (leave empty to remove):',
+            defaultValue: currentFooter || '',
+            placeholder: 'Presentation footer'
+        });
+
+        if (footerText === null) {
+            return;
+        }
+
+        const trimmed = footerText.trim();
+        const latestContent = this.editor.getContent();
+        this.updateFrontMatterField(latestContent, 'footer', trimmed);
+        this.showMessage(trimmed ? 'Footer updated' : 'Footer removed');
+    }
+
+    togglePageNumbers(enabled) {
+        const content = this.editor.getContent();
+        this.updateFrontMatterField(content, 'pageNumbers', enabled);
+        this.showMessage(`Page numbers ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    toggleHeadingNumbering(enabled) {
+        if (!this.editor) {
+            console.warn('[App] Heading numbering toggle ignored - editor not ready');
+            return;
+        }
+
+        const content = this.editor.getContent();
+        this.updateFrontMatterField(content, 'numberHeadings', enabled ? true : '');
+        if (enabled) {
+            const latestContent = this.editor.getContent();
+            const rawStart = this.getCurrentFrontMatterValue(latestContent, 'headingNumberStart');
+            if (this.normalizeStartNumber(rawStart) === null) {
+                this.updateFrontMatterField(latestContent, 'headingNumberStart', 1);
+            }
+        }
+
+        this.showMessage(enabled ? 'Heading numbering enabled' : 'Heading numbering disabled');
+        this.refreshMarkdownMenuStates();
+    }
+
+    toggleFigureTableNumbering(enabled) {
+        if (!this.editor) {
+            console.warn('[App] Figure/Table numbering toggle ignored - editor not ready');
+            return;
+        }
+
+        const content = this.editor.getContent();
+        this.updateFrontMatterField(content, 'numberFiguresTables', enabled ? true : '');
+        if (enabled) {
+            const latestContent = this.editor.getContent();
+            const rawStart = this.getCurrentFrontMatterValue(latestContent, 'figureTableNumberStart');
+            if (this.normalizeStartNumber(rawStart) === null) {
+                this.updateFrontMatterField(latestContent, 'figureTableNumberStart', 1);
+            }
+        }
+
+        this.showMessage(enabled ? 'Figure & table numbering enabled' : 'Figure & table numbering disabled');
+        this.refreshMarkdownMenuStates();
+    }
+
+    async setHeadingNumberStart() {
+        if (!this.editor) {
+            console.warn('[App] Heading numbering start prompt ignored - editor not ready');
+            return;
+        }
+
+        const content = this.editor.getContent();
+        const currentValue = this.getCurrentFrontMatterValue(content, 'headingNumberStart');
+        const defaultValue = this.getStartNumberOrDefault(currentValue, 1);
+
+        const input = await this.promptForText({
+            title: 'Heading Numbering Start',
+            message: 'Enter the starting value for heading numbering (must be at least 1):',
+            defaultValue: String(defaultValue),
+            placeholder: '1'
+        });
+
+        if (input === null) {
+            return;
+        }
+
+        const parsed = this.normalizeStartNumber(input);
+        if (parsed === null) {
+            this.showError('Heading numbering start must be a whole number greater than 0.');
+            return;
+        }
+
+        const latestContent = this.editor.getContent();
+        this.updateFrontMatterField(latestContent, 'headingNumberStart', parsed);
+        this.showMessage(`Heading numbering will start at ${parsed}`);
+        this.refreshMarkdownMenuStates();
+    }
+
+    async setFigureTableNumberStart() {
+        if (!this.editor) {
+            console.warn('[App] Figure/Table numbering start prompt ignored - editor not ready');
+            return;
+        }
+
+        const content = this.editor.getContent();
+        const currentValue = this.getCurrentFrontMatterValue(content, 'figureTableNumberStart');
+        const defaultValue = this.getStartNumberOrDefault(currentValue, 1);
+
+        const input = await this.promptForText({
+            title: 'Figure/Table Numbering Start',
+            message: 'Enter the starting value for figure and table numbering (must be at least 1):',
+            defaultValue: String(defaultValue),
+            placeholder: '1'
+        });
+
+        if (input === null) {
+            return;
+        }
+
+        const parsed = this.normalizeStartNumber(input);
+        if (parsed === null) {
+            this.showError('Figure/Table numbering start must be a whole number greater than 0.');
+            return;
+        }
+
+        const latestContent = this.editor.getContent();
+        this.updateFrontMatterField(latestContent, 'figureTableNumberStart', parsed);
+        this.showMessage(`Figure and table numbering will start at ${parsed}`);
+        this.refreshMarkdownMenuStates();
+    }
+
+    refreshMarkdownMenuStates() {
+        if (!this.editor) {
+            return;
+        }
+
+        const content = this.editor.getContent();
+        const headingValue = this.getCurrentFrontMatterValue(content, 'numberHeadings');
+        const figureValue = this.getCurrentFrontMatterValue(content, 'numberFiguresTables');
+        const headingStartRaw = this.getCurrentFrontMatterValue(content, 'headingNumberStart');
+        const figureStartRaw = this.getCurrentFrontMatterValue(content, 'figureTableNumberStart');
+
+        const headingToggle = document.getElementById('heading-number-toggle');
+        if (headingToggle) {
+            headingToggle.checked = this.parseBooleanFrontMatterValue(headingValue, false);
+        }
+
+        const figureToggle = document.getElementById('figure-table-number-toggle');
+        if (figureToggle) {
+            figureToggle.checked = this.parseBooleanFrontMatterValue(figureValue, false);
+        }
+
+        const headingStartBtn = document.getElementById('heading-number-start-btn');
+        if (headingStartBtn) {
+            const headingStart = this.getStartNumberOrDefault(headingStartRaw, 1);
+            const baseLabel = headingStartBtn.dataset.baseLabel || headingStartBtn.textContent.trim();
+            headingStartBtn.dataset.baseLabel = baseLabel;
+            headingStartBtn.textContent = `${baseLabel} (current: ${headingStart})`;
+        }
+
+        const figureStartBtn = document.getElementById('figure-table-number-start-btn');
+        if (figureStartBtn) {
+            const figureStart = this.getStartNumberOrDefault(figureStartRaw, 1);
+            const baseLabel = figureStartBtn.dataset.baseLabel || figureStartBtn.textContent.trim();
+            figureStartBtn.dataset.baseLabel = baseLabel;
+            figureStartBtn.textContent = `${baseLabel} (current: ${figureStart})`;
+        }
+    }
+
+    parseBooleanFrontMatterValue(value, defaultValue = false) {
+        if (value === undefined || value === null || value === '') {
+            return defaultValue;
+        }
+
+        if (typeof value === 'boolean') {
+            return value;
+        }
+
+        const normalized = String(value).trim().toLowerCase();
+        if (['true', 'yes', '1', 'on', 'enable', 'enabled'].includes(normalized)) {
+            return true;
+        }
+        if (['false', 'no', '0', 'off', 'disable', 'disabled'].includes(normalized)) {
+            return false;
+        }
+        return defaultValue;
+    }
+
+    getStartNumberOrDefault(value, defaultValue = 1) {
+        const normalized = this.normalizeStartNumber(value);
+        if (normalized === null) {
+            return Math.max(1, defaultValue);
+        }
+        return normalized;
+    }
+
+    normalizeStartNumber(value) {
+        if (value === undefined || value === null) {
+            return null;
+        }
+
+        const trimmed = String(value).trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const parsed = parseInt(trimmed, 10);
+        if (Number.isNaN(parsed) || parsed < 1) {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    getCurrentFrontMatterValue(content, field) {
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        if (match) {
+            const fieldRegex = new RegExp(`^${field}:\\s*(.+)$`, 'm');
+            const fieldMatch = match[1].match(fieldRegex);
+            if (fieldMatch) {
+                return fieldMatch[1].trim().replace(/^["']|["']$/g, '');
+            }
+        }
+        return '';
+    }
+
+    getCurrentFrontMatterColors(content) {
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        const colors = {};
+
+        if (!match) {
+            return colors;
+        }
+
+        const lines = match[1].split('\n');
+        let inColorsBlock = false;
+
+        for (const rawLine of lines) {
+            const line = rawLine.replace(/\s+$/, '');
+
+            if (!inColorsBlock) {
+                if (/^colors:\s*$/.test(line)) {
+                    inColorsBlock = true;
+                }
+                continue;
+            }
+
+            if (!line.startsWith('  ')) {
+                break;
+            }
+
+            const colorMatch = line.match(/^\s{2}([\w-]+):\s*["']?([^"']+)["']?\s*$/);
+            if (colorMatch) {
+                colors[colorMatch[1]] = colorMatch[2];
+            }
+        }
+
+        return colors;
+    }
+
+    updateFrontMatterField(content, field, value) {
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        let updatedContent;
+        
+        // Determine if value should be written (handle boolean false explicitly)
+        const shouldWrite = (value !== undefined && value !== null && value !== '');
+        
+        if (match) {
+            // Front-matter exists, update it
+            let frontMatter = match[1];
+            
+            // Remove existing field line if present
+            const fieldRegex = new RegExp(`^${field}:\\s*.+$`, 'm');
+            frontMatter = frontMatter.replace(fieldRegex, '');
+            
+            // Add field line - write explicit value including boolean false
+            if (shouldWrite) {
+                const quotedValue = typeof value === 'string' && value.includes(' ') ? `"${value}"` : value;
+                frontMatter = frontMatter.trim() + `\n${field}: ${quotedValue}`;
+            }
+            
+            updatedContent = content.replace(frontMatterRegex, `---\n${frontMatter}\n---`);
+        } else {
+            // No front-matter, create it with value
+            if (shouldWrite) {
+                const quotedValue = typeof value === 'string' && value.includes(' ') ? `"${value}"` : value;
+                updatedContent = `---\n${field}: ${quotedValue}\n---\n\n${content}`;
+            } else {
+                updatedContent = content;
+            }
+        }
+        
+        this.editor.setContent(updatedContent);
+        
+        // Refresh preview
+        if (this.presentationManager && this.previewPanel) {
+            this.updatePreview();
+        }
+    }
+
+    resolveNavigationValue(rawValue, content) {
+        if (!rawValue && rawValue !== 0) {
+            return '';
+        }
+        const value = String(rawValue).trim().toLowerCase();
+        if (value === 'left' || value === 'top') {
+            return value;
+        }
+        if (value === 'none') {
+            return 'none';
+        }
+        if (['false', 'no', '0', 'off'].includes(value)) {
+            return 'none';
+        }
+        if (['true', 'yes', '1', 'on', 'default'].includes(value)) {
+            return this.determineDefaultNavigationPosition(content);
+        }
+        return value;
+    }
+
+    determineDefaultNavigationPosition(content) {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+
+        const manager = this.presentationManager;
+        let theme = this.getCurrentFrontMatterValue(content, 'theme');
+        if (!theme && manager && manager.currentTheme) {
+            theme = manager.currentTheme;
+        }
+
+        let candidate = 'left';
+        if (manager && typeof manager.getThemeConfig === 'function') {
+            const config = manager.getThemeConfig(theme || manager.currentTheme || 'berkeley');
+            if (config && config.navigation && config.navigation !== 'none') {
+                candidate = config.navigation;
+            }
+        }
+
+        if (candidate !== 'left' && candidate !== 'top') {
+            candidate = 'left';
+        }
+
+        return candidate;
+    }
+
+    setTransition(type) {
+        const content = this.editor.getContent();
+        this.updateFrontMatterField(content, 'transition', type === 'none' ? '' : type);
+        const displayName = type === 'none' ? 'disabled' : type;
+        this.showMessage(`Slide transition set to ${displayName}`);
+    }
+
+    /**
+     * Insert a slide separator at cursor position
+     */
+    insertSlideSeparator() {
+        if (!this.editor) {
+            this.showError('Editor not initialized');
+            return;
+        }
+
+        // Insert slide separator with newlines
+    const separator = '\n\n---\n\n';
+        
+    // Insert the separator at the current cursor position
+    this.editor.insertText(separator);
+        
+        this.showMessage('Slide separator inserted');
+    }
+    
+    // ========== END PRESENTATION ADDON METHODS ==========
 
     // Markmap integration
     showMarkmap() {
@@ -2040,6 +3822,22 @@ Bob -> Alice: Hi there
         });
     }
 
+    updateStatusBarFilename(filepath, title) {
+        const filePathDisplay = document.getElementById('file-path-display');
+        if (!filePathDisplay) return;
+        
+        if (filepath) {
+            // Extract just the filename from the full path
+            const filename = filepath.split(/[\\/]/).pop();
+            filePathDisplay.textContent = filename;
+            filePathDisplay.title = filepath; // Show full path on hover
+        } else {
+            // Untitled tab - show the tab title
+            filePathDisplay.textContent = title || 'No file opened';
+            filePathDisplay.title = '';
+        }
+    }
+
     handleTabSwitch(event) {
         if (!event || !event.tabData) {
             this.logError('App', 'Invalid tab switch event');
@@ -2050,6 +3848,9 @@ Bob -> Alice: Hi there
         const previousTabId = event.previousTabId;
         const isRestored = event.restored || false;  // Check if this is from session restoration
         this.logInfo('App', 'Switching to tab: ' + tabData.id + ' - ' + tabData.title);
+        
+        // Update status bar filename display
+        this.updateStatusBarFilename(tabData.filepath, tabData.title);
         
         // Save scroll position of previous tab before switching
         // Only save if the previous tab still exists (it might have been closed)
@@ -2087,6 +3888,8 @@ Bob -> Alice: Hi there
                     this.logInfo('App', 'Restored scroll position for tab ' + tabData.id + ': ' + savedScrollTop);
                 });
             }
+
+            this.refreshMarkdownMenuStates();
         }
         
         // Force preview update after tab switch
@@ -2114,6 +3917,188 @@ Bob -> Alice: Hi there
         return confirm('You have unsaved changes. Do you want to continue without saving?');
     }
 
+    showFormDialog({
+        title = 'Input Required',
+        message = '',
+        fields = [],
+        confirmLabel = 'OK',
+        cancelLabel = 'Cancel'
+    } = {}) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = [
+                'position: fixed',
+                'inset: 0',
+                'background: rgba(0, 0, 0, 0.45)',
+                'display: flex',
+                'align-items: center',
+                'justify-content: center',
+                'z-index: 10000'
+            ].join(';');
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = [
+                'background: #ffffff',
+                'color: #1a1a1a',
+                'min-width: 320px',
+                'max-width: 480px',
+                'width: 90%',
+                'border-radius: 8px',
+                'padding: 24px',
+                'box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25)',
+                'font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+            ].join(';');
+
+            const heading = document.createElement('h3');
+            heading.textContent = title;
+            heading.style.margin = '0 0 12px 0';
+            heading.style.fontSize = '18px';
+
+            const messageEl = document.createElement('p');
+            messageEl.textContent = message;
+            messageEl.style.margin = message ? '0 0 16px 0' : '0';
+            messageEl.style.fontSize = '13px';
+            messageEl.style.color = '#555555';
+
+            const form = document.createElement('form');
+            form.style.display = 'flex';
+            form.style.flexDirection = 'column';
+            form.style.gap = '12px';
+
+            const inputs = {};
+
+            fields.forEach((field) => {
+                const wrapper = document.createElement('label');
+                wrapper.style.display = 'flex';
+                wrapper.style.flexDirection = 'column';
+                wrapper.style.gap = '6px';
+                wrapper.style.fontSize = '13px';
+                wrapper.style.color = '#333333';
+
+                wrapper.textContent = field.label || '';
+
+                const input = field.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
+                input.name = field.id;
+                if (field.type && field.type !== 'textarea') {
+                    input.type = field.type;
+                }
+                input.placeholder = field.placeholder || '';
+                if (field.defaultValue !== undefined) {
+                    input.value = field.defaultValue;
+                }
+                if (field.required) {
+                    input.required = true;
+                }
+                input.style.padding = '10px';
+                input.style.border = '1px solid #d0d0d0';
+                input.style.borderRadius = '4px';
+                input.style.fontSize = '13px';
+                input.style.resize = field.type === 'textarea' ? 'vertical' : 'none';
+                input.style.minHeight = field.type === 'textarea' ? '120px' : 'auto';
+
+                wrapper.appendChild(input);
+                form.appendChild(wrapper);
+                inputs[field.id] = input;
+            });
+
+            const buttonRow = document.createElement('div');
+            buttonRow.style.display = 'flex';
+            buttonRow.style.justifyContent = 'flex-end';
+            buttonRow.style.gap = '10px';
+            buttonRow.style.marginTop = '20px';
+
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.textContent = cancelLabel;
+            cancelButton.style.cssText = [
+                'padding: 8px 18px',
+                'border-radius: 4px',
+                'border: 1px solid #c7c7c7',
+                'background: #ffffff',
+                'cursor: pointer'
+            ].join(';');
+
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.textContent = confirmLabel;
+            submitButton.style.cssText = [
+                'padding: 8px 20px',
+                'border-radius: 4px',
+                'border: none',
+                'background: #0078d4',
+                'color: #ffffff',
+                'cursor: pointer'
+            ].join(';');
+
+            buttonRow.appendChild(cancelButton);
+            buttonRow.appendChild(submitButton);
+            form.appendChild(buttonRow);
+
+            dialog.appendChild(heading);
+            if (message) {
+                dialog.appendChild(messageEl);
+            }
+            dialog.appendChild(form);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            const cleanup = (result) => {
+                document.removeEventListener('keydown', keyHandler);
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+                resolve(result);
+            };
+
+            const keyHandler = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+
+            document.addEventListener('keydown', keyHandler);
+
+            cancelButton.addEventListener('click', () => cleanup(null));
+            overlay.addEventListener('click', (event) => {
+                if (event.target === overlay) {
+                    cleanup(null);
+                }
+            });
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const values = {};
+                let invalidField = null;
+
+                fields.forEach((field) => {
+                    const input = inputs[field.id];
+                    if (!input || invalidField) {
+                        return;
+                    }
+                    const rawValue = input.value.trim();
+                    if (field.required && !rawValue) {
+                        invalidField = input;
+                        return;
+                    }
+                    values[field.id] = rawValue;
+                });
+
+                if (invalidField) {
+                    invalidField.focus();
+                    return;
+                }
+
+                cleanup(values);
+            });
+
+            const firstField = fields.length > 0 ? inputs[fields[0].id] : null;
+            if (firstField) {
+                requestAnimationFrame(() => firstField.focus());
+            }
+        });
+    }
+
     showMessage(message) {
         console.log(message);
         // Could show toast notification
@@ -2122,6 +4107,165 @@ Bob -> Alice: Hi there
     showError(message) {
         console.error(message);
         // Could show error notification
+    }
+
+    getRecentFiles() {
+        try {
+            const raw = localStorage.getItem('recent-files');
+            if (!raw) {
+                return [];
+            }
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error('[App] Failed to parse recent files:', error);
+            return [];
+        }
+    }
+
+    getFileNameFromPath(filePath) {
+        if (!filePath) {
+            return 'Untitled';
+        }
+
+        let baseName = filePath.split(/[\\\/]/).pop() || filePath;
+
+        if (typeof require !== 'undefined') {
+            try {
+                const path = require('path');
+                baseName = path.basename(filePath);
+            } catch (error) {
+                console.warn('[App] Failed to resolve path module for filename extraction:', error);
+            }
+        }
+
+        return baseName || 'Untitled';
+    }
+
+    recordRecentFile(filePath, fileName = null) {
+        if (!filePath) {
+            return;
+        }
+
+        const resolvedName = fileName || this.getFileNameFromPath(filePath);
+        let recentFiles = this.getRecentFiles().filter(file => file.path !== filePath);
+
+        recentFiles.unshift({
+            path: filePath,
+            name: resolvedName,
+            timestamp: Date.now()
+        });
+
+        recentFiles = recentFiles.slice(0, 10);
+
+        try {
+            localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+        } catch (error) {
+            console.error('[App] Failed to persist recent files:', error);
+        }
+
+        if (this.fileBrowser && typeof this.fileBrowser.loadRecentFiles === 'function') {
+            this.fileBrowser.loadRecentFiles();
+        }
+
+        this.updateRecentFilesMenu();
+    }
+
+    removeRecentFile(filePath) {
+        if (!filePath) {
+            return;
+        }
+
+        const recentFiles = this.getRecentFiles().filter(file => file.path !== filePath);
+
+        try {
+            localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+        } catch (error) {
+            console.error('[App] Failed to persist recent files after removal:', error);
+        }
+
+        if (this.fileBrowser && typeof this.fileBrowser.loadRecentFiles === 'function') {
+            this.fileBrowser.loadRecentFiles();
+        }
+
+        this.updateRecentFilesMenu();
+    }
+
+    clearRecentFiles() {
+        try {
+            localStorage.removeItem('recent-files');
+        } catch (error) {
+            console.error('[App] Failed to clear recent files:', error);
+        }
+
+        if (this.fileBrowser && typeof this.fileBrowser.loadRecentFiles === 'function') {
+            this.fileBrowser.loadRecentFiles();
+        }
+
+        this.updateRecentFilesMenu();
+    }
+
+    updateRecentFilesMenu() {
+        const itemsContainer = document.getElementById('menu-recent-files-items');
+        const clearButton = document.getElementById('menu-clear-recent');
+
+        if (!itemsContainer) {
+            return;
+        }
+
+        itemsContainer.innerHTML = '';
+
+        const recentFiles = this.getRecentFiles();
+
+        if (recentFiles.length === 0) {
+            const placeholder = document.createElement('button');
+            placeholder.className = 'menu-option';
+            placeholder.textContent = 'No recent files';
+            placeholder.disabled = true;
+            itemsContainer.appendChild(placeholder);
+
+            if (clearButton) {
+                clearButton.disabled = true;
+            }
+            return;
+        }
+
+        recentFiles.forEach(file => {
+            const button = document.createElement('button');
+            button.className = 'menu-option recent-file-option';
+            button.textContent = file.name || this.getFileNameFromPath(file.path);
+            button.title = file.path;
+            button.dataset.path = file.path;
+            button.addEventListener('click', () => this.openRecentFileFromMenu(file.path));
+            itemsContainer.appendChild(button);
+        });
+
+        if (clearButton) {
+            clearButton.disabled = false;
+        }
+    }
+
+    async openRecentFileFromMenu(filePath) {
+        if (!filePath || typeof require === 'undefined') {
+            return;
+        }
+
+        const { ipcRenderer } = require('electron');
+
+        try {
+            const result = await ipcRenderer.invoke('read-file', filePath);
+            const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+
+            if (typeof content !== 'string') {
+                throw new Error('File could not be read');
+            }
+
+            await this.openFile(filePath, content);
+        } catch (error) {
+            console.error('[App] Failed to open recent file:', error);
+            this.showError('Failed to open recent file. It may have been moved or deleted.');
+            this.removeRecentFile(filePath);
+        }
     }
 
     // Menu action implementations
@@ -2234,11 +4378,67 @@ Bob -> Alice: Hi there
         this.applyZoom();
     }
 
+    /**
+     * Open comprehensive feature showcase document
+     */
+    async openHelpShowcase() {
+        const showcasePath = 'COMPREHENSIVE-FEATURES-SHOWCASE.md';
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer } = require('electron');
+            const path = require('path');
+            try {
+                // Get current working directory and construct full path
+                const cwd = await ipcRenderer.invoke('get-cwd');
+                const fullPath = path.join(cwd, showcasePath);
+                const result = await ipcRenderer.invoke('read-file', fullPath);
+                const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+                
+                if (typeof content === 'string') {
+                    await this.openFile(fullPath, content);
+                    this.showMessage('Opened Comprehensive Feature Showcase');
+                } else {
+                    this.showError('Could not read showcase file');
+                }
+            } catch (error) {
+                console.error('[App] Failed to open showcase:', error);
+                this.showError('Failed to open showcase file: ' + error.message);
+            }
+        }
+    }
+
+    /**
+     * Open comprehensive presentation test document
+     */
+    async openHelpPresentation() {
+        const presentationPath = 'COMPREHENSIVE-PRESENTATION-TEST.md';
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer } = require('electron');
+            const path = require('path');
+            try {
+                // Get current working directory and construct full path
+                const cwd = await ipcRenderer.invoke('get-cwd');
+                const fullPath = path.join(cwd, presentationPath);
+                const result = await ipcRenderer.invoke('read-file', fullPath);
+                const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+                
+                if (typeof content === 'string') {
+                    await this.openFile(fullPath, content);
+                    this.showMessage('Opened Comprehensive Presentation Test');
+                } else {
+                    this.showError('Could not read presentation test file');
+                }
+            } catch (error) {
+                console.error('[App] Failed to open presentation test:', error);
+                this.showError('Failed to open presentation test file: ' + error.message);
+            }
+        }
+    }
+
     async showAboutDialog() {
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '1.0.0', // Fallback, will be replaced by main process
+            version: '1.2.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };

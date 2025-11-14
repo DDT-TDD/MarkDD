@@ -496,12 +496,20 @@ class FileBrowser {
             const { ipcRenderer } = require('electron');
             try {
                 const result = await ipcRenderer.invoke('read-file', filePath);
-                if (result && result.success) {
-                    const editor = window.markddApp?.getEditor();
-                    if (editor) {
-                        editor.openFile(filePath, result.content);
+                const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+
+                if (typeof content === 'string') {
+                    if (window.markddApp && typeof window.markddApp.openFile === 'function') {
+                        await window.markddApp.openFile(filePath, content);
+                    } else {
+                        const editor = window.markddApp?.getEditor();
+                        if (editor) {
+                            editor.openFile(filePath, content);
+                        }
                         this.addToRecentFiles(filePath, fileName);
                     }
+                } else {
+                    throw new Error('Unable to read file content');
                 }
             } catch (error) {
                 console.error('Failed to open file:', error);
@@ -512,32 +520,66 @@ class FileBrowser {
     }
 
     // Recent files functionality
+    shouldUseAppRecentFiles() {
+        if (!window.markddApp) {
+            return false;
+        }
+
+        const hasRecord = typeof window.markddApp.recordRecentFile === 'function';
+        const hasFetch = typeof window.markddApp.getRecentFiles === 'function';
+        const hasRemove = typeof window.markddApp.removeRecentFile === 'function';
+
+        return hasRecord && hasFetch && hasRemove;
+    }
+
     addToRecentFiles(filePath, fileName) {
-        let recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+        if (!filePath) {
+            return;
+        }
+
+        if (this.shouldUseAppRecentFiles()) {
+            window.markddApp.recordRecentFile(filePath, fileName);
+            return;
+        }
+
+        let recentFiles = [];
+        try {
+            recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+        } catch (error) {
+            console.error('Failed to parse recent files cache:', error);
+        }
         
-        // Remove existing entry if present
         recentFiles = recentFiles.filter(file => file.path !== filePath);
-        
-        // Add to beginning
         recentFiles.unshift({
             path: filePath,
             name: fileName,
             timestamp: Date.now()
         });
-        
-        // Keep only last 10 files
         recentFiles = recentFiles.slice(0, 10);
         
-        localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+        try {
+            localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+        } catch (error) {
+            console.error('Failed to persist recent files cache:', error);
+        }
         
-        // Update recent files display if visible
         if (this.currentPanel === 'files') {
             this.loadRecentFiles();
         }
     }
 
     loadRecentFiles() {
-        const recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+        let recentFiles = [];
+
+        if (this.shouldUseAppRecentFiles()) {
+            recentFiles = window.markddApp.getRecentFiles();
+        } else {
+            try {
+                recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+            } catch (error) {
+                console.error('Failed to parse recent files cache:', error);
+            }
+        }
         const recentFilesContainer = document.getElementById('recent-files');
         
         if (!recentFilesContainer) return;
@@ -569,30 +611,59 @@ class FileBrowser {
     }
 
     async openRecentFile(filePath) {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('read-file', filePath);
-                if (result && result.success) {
+        if (typeof require === 'undefined' || !filePath) {
+            return;
+        }
+
+        const { ipcRenderer } = require('electron');
+
+        try {
+            const result = await ipcRenderer.invoke('read-file', filePath);
+            const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+
+            if (typeof content === 'string') {
+                if (window.markddApp && typeof window.markddApp.openFile === 'function') {
+                    await window.markddApp.openFile(filePath, content);
+                } else {
                     const editor = window.markddApp?.getEditor();
                     if (editor) {
-                        editor.openFile(filePath, result.content);
+                        editor.openFile(filePath, content);
                     }
-                } else {
-                    // File might have been moved/deleted, remove from recent files
-                    this.removeFromRecentFiles(filePath);
                 }
-            } catch (error) {
-                console.error('Failed to open recent file:', error);
+            } else {
                 this.removeFromRecentFiles(filePath);
             }
+        } catch (error) {
+            console.error('Failed to open recent file:', error);
+            this.removeFromRecentFiles(filePath);
         }
     }
 
     removeFromRecentFiles(filePath) {
-        let recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+        if (!filePath) {
+            return;
+        }
+
+        if (this.shouldUseAppRecentFiles()) {
+            window.markddApp.removeRecentFile(filePath);
+            return;
+        }
+
+        let recentFiles = [];
+        try {
+            recentFiles = JSON.parse(localStorage.getItem('recent-files') || '[]');
+        } catch (error) {
+            console.error('Failed to parse recent files cache:', error);
+        }
+
         recentFiles = recentFiles.filter(file => file.path !== filePath);
-        localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+
+        try {
+            localStorage.setItem('recent-files', JSON.stringify(recentFiles));
+        } catch (error) {
+            console.error('Failed to persist recent files cache:', error);
+        }
+
         this.loadRecentFiles();
     }
 

@@ -404,6 +404,33 @@ class LibraryLoader {
                 check: () => typeof window.katex === 'object' && window.katex !== null
             },
             {
+                name: 'KaTeX_mhchem',
+                localUrl: '../../node_modules/katex/dist/contrib/mhchem.min.js',
+                cdnUrl: 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js',
+                check: () => {
+                    if (!window.katex || typeof window.katex.renderToString !== 'function') {
+                        return false;
+                    }
+                    try {
+                        const rendered = window.katex.renderToString('\\ce{H2O}', {
+                            displayMode: false,
+                            throwOnError: false,
+                            strict: false
+                        });
+                        if (typeof rendered !== 'string' || rendered.includes('katex-error')) {
+                            return false;
+                        }
+                        const sanitized = rendered.replace(/<annotation[^>]*>[\s\S]*?<\/annotation>/gi, '');
+                        const hasRawChem = /\\(ce|pu|chem[a-z]*)/i.test(sanitized);
+                        const hasErrorColor = sanitized.toLowerCase().includes('#cc0000');
+                        return !hasRawChem && !hasErrorColor;
+                    } catch (mhchemError) {
+                        console.warn('[LibraryLoader] KaTeX mhchem check failed:', mhchemError);
+                        return false;
+                    }
+                }
+            },
+            {
                 name: 'HighlightJS',
                 localUrl: null, // Skip local due to CommonJS issues - use CDN
                 cdnUrl: 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js',
@@ -633,32 +660,40 @@ class LibraryLoader {
             }
         ];
 
-        // Load all libraries in parallel, but ensure Vega, Vega-Lite, and Vega-Embed are loaded in order
-        const vegaLibs = ['Vega', 'VegaLite', 'VegaEmbed'];
-        const vegaIndexes = vegaLibs.map(name => libraries.findIndex(lib => lib.name === name));
-        // Remove vega libs from main list
-        const mainLibs = libraries.filter(lib => !vegaLibs.includes(lib.name));
+        // Load most libraries in parallel, but enforce ordering for dependencies like KaTeX mhchem and Vega stack
+        const sequentialLibs = ['KaTeX', 'KaTeX_mhchem', 'Vega', 'VegaLite', 'VegaEmbed'];
+        const mainLibs = libraries.filter(lib => !sequentialLibs.includes(lib.name));
         // Load main libs in parallel
         const mainPromises = mainLibs.map(lib => this.loadLibraryWithFallback(lib));
         
-        // Load Vega, VegaLite, VegaEmbed in order (sequential loading for proper dependencies)
-        let vegaResult = true;
-        for (const libName of vegaLibs) {
+        // Load sequential libraries (KaTeX first, then mhchem plugin, followed by Vega trio)
+        let sequentialSuccessCount = 0;
+        let vegaFailed = false;
+        for (const libName of sequentialLibs) {
             const lib = libraries.find(l => l.name === libName);
-            if (lib && vegaResult) {
-                console.log(`[LibraryLoader] Loading ${libName} sequentially...`);
-                vegaResult = await this.loadLibraryWithFallback(lib);
-                if (!vegaResult) {
-                    console.warn(`[LibraryLoader] Failed to load ${libName}, skipping remaining Vega libraries`);
-                    break;
-                }
+            if (!lib) {
+                continue;
+            }
+
+            if (['Vega', 'VegaLite', 'VegaEmbed'].includes(libName) && vegaFailed) {
+                console.warn(`[LibraryLoader] Skipping ${libName} because a previous Vega library failed to load`);
+                continue;
+            }
+
+            console.log(`[LibraryLoader] Loading ${libName} sequentially...`);
+            const result = await this.loadLibraryWithFallback(lib);
+            if (result) {
+                sequentialSuccessCount += 1;
+            } else if (['Vega', 'VegaLite', 'VegaEmbed'].includes(libName)) {
+                vegaFailed = true;
+                console.warn(`[LibraryLoader] Failed to load ${libName}, skipping remaining Vega libraries`);
             }
         }
         
         // Wait for all main libraries to load
         const mainResults = await Promise.all(mainPromises);
-        const successCount = mainResults.filter(result => result).length + (vegaResult ? vegaLibs.length : 0);
-        const totalCount = mainResults.length + vegaLibs.length;
+        const successCount = mainResults.filter(result => result).length + sequentialSuccessCount;
+        const totalCount = mainResults.length + sequentialLibs.length;
         
         console.log(`[LibraryLoader] Library loading complete: ${successCount}/${totalCount} loaded successfully`);
         

@@ -1,24 +1,36 @@
-# MarkDD Editor v1.1 - Complete Feature Showcase
+# MarkDD Editor v1.2 - Complete Feature Showcase
 
-**Version 1.1** - Advanced Markdown Editor with Full Feature Set
+**Version 1.2.0** - Advanced Markdown Editor with Presentation System
 
-This document demonstrates all features available in MarkDD Editor v1.1.
+This document demonstrates all features available in MarkDD Editor v1.2.
 
 ## Table of Contents
 [TOC]
 
 ---
 
-## ✨ What's New in Version 1.1
+## ✨ What's New in Version 1.2
 
-### Recent Improvements & Fixes
+### Major Features (v1.2.0)
+- 🎭 **Beamer-Style Presentations** - Create professional presentations in Markdown with 28 themes
+  - Live preview in separate window
+  - Export to standalone HTML and PDF
+  - YAML front-matter for theme, title, author, date
+  - Slide transitions (fade, slide, zoom)
+  - Table of contents and navigation (left, top, none)
+  - Headers, footers, progress bars, slide counters
+  - Full math, diagram, and code support in slides
+- 🧪 **Chemistry Equations** - Full mhchem support for chemical formulas and reactions
+- ⚡ **Performance Optimizations** - Faster tab rendering and startup (v1.1.1)
+
+### Core Features (v1.1)
 - ✅ **Custom Container Blocks** - Full support for `:::info`, `:::warning`, `:::danger`, `:::tip`, `:::note` blocks with optional titles
 - ✅ **Draggable Search & Replace** - Non-blocking, movable find & replace window (Ctrl+F) that doesn't gray out the editor
 - ✅ **Manual Refresh Control** - Toggle live preview on/off with dedicated manual refresh button (Ctrl+R) when live preview is disabled
 - ✅ **KityMinder Editing** - Full editing capability restored for saved mind maps (click ✏️ Edit button)
 - ✅ **Clean Exports** - HTML and PDF exports no longer include interactive buttons or "View JSON" / "Edit" controls
 - ✅ **Image Plugin** - Automatic responsive images with lazy loading and figure captions
-- ✅ **Video Plugin** - YouTube links automatically convert to embedded videos (tested with https://youtu.be/5Peo-ivmupE)
+- ✅ **Video Plugin** - YouTube links automatically convert to embedded videos (see example in the video section)
 
 ---
 
@@ -73,7 +85,9 @@ Features:
 ### YouTube Video Embedding
 Paste any YouTube link and it auto-embeds:
 
-**Example:** https://youtu.be/5Peo-ivmupE?si=TlIfjpTxXMlWq8wv
+**Example:**
+
+https://youtu.be/5Peo-ivmupE?si=TlIfjpTxXMlWq8wv
 
 The video appears as a fully functional embedded player with all YouTube controls.
 
@@ -98,6 +112,42 @@ $$
 \nabla \cdot \vec{\mathbf{B}} &= 0
 \end{align}
 ```
+
+## Chemistry Equations (mhchem)
+
+MarkDD Editor supports chemistry equations using the mhchem package.
+
+### Chemical Formulas
+Inline chemistry: $\ce{H2O}$, $\ce{CO2}$, $\ce{NH3}$
+
+Display chemistry:
+$$\ce{C6H12O6}$$
+
+### Chemical Reactions
+Simple reaction:
+$$\ce{2H2 + O2 -> 2H2O}$$
+
+Complex reaction with states:
+$$\ce{2Na(s) + 2H2O(l) -> 2NaOH(aq) + H2(g) ^}$$
+
+### Chemical Equations
+Balanced equation:
+$$\ce{CO2 + C -> 2CO}$$
+
+Acid-base reaction:
+$$\ce{H2SO4 + 2NaOH -> Na2SO4 + 2H2O}$$
+
+### Advanced Chemistry
+Equilibrium:
+$$\ce{N2 + 3H2 <=> 2NH3}$$
+
+With quantities:
+$$\ce{\pu{2 mol} H2 + \pu{1 mol} O2 -> \pu{2 mol} H2O}$$
+
+Oxidation states:
+$$\ce{Fe^{II}Fe^{III}2O4}$$
+
+---
 
 ## LaTeX Document Rendering
 
@@ -486,23 +536,162 @@ Therefore, by mathematical induction, the formula holds for all positive integer
 \end{document}
 ```
 
-## Plugin Installation Test
+## Feature Highlights
 
-The MarkDD Editor now includes a comprehensive plugin installation system that allows you to:
+MarkDD Editor provides a comprehensive markdown editing experience with:
 
-1. **Browse Available Plugins** - View all compatible plugins
-2. **Install Plugins** - Install plugins directly from the interface
-3. **Manage Plugins** - Enable/disable and uninstall plugins
-4. **Plugin Status** - Real-time installation status updates
+### Core Capabilities
+- 📝 **Advanced Markdown Editing** - Full-featured editor with syntax highlighting
+- 👁️ **Live Preview** - Real-time rendering with manual refresh option
+- 🎨 **Custom Container Blocks** - Info, warning, danger, tip, note blocks
+- 🔍 **Draggable Search & Replace** - Non-blocking find/replace window
+- 📊 **Multiple Export Formats** - HTML, PDF with clean output
 
-### Available Plugin Categories:
-- **Diagram Renderers** - TikZ, Mermaid, PlantUML extensions
-- **Mathematical Tools** - Enhanced LaTeX, equation editors
-- **Export Utilities** - PDF, Word, presentation converters
-- **Editor Enhancements** - Themes, shortcuts, productivity tools
-- **Collaboration Tools** - Real-time editing, comments, reviews
+### Mathematical & Scientific
+- 🧮 **LaTeX Math** - Inline and display math with KaTeX/MathJax
+- 🧪 **Chemistry Equations** - Full mhchem support for chemical formulas
+- 📐 **LaTeX Documents** - Complete LaTeX.js document rendering
+- 📈 **TikZ/CircuiTikZ** - Vector graphics and circuit diagrams
 
-Access the plugin manager through the **Tools > Manage Plugins** menu.
+### Diagrams & Visualizations
+- 🌊 **Mermaid** - Flowcharts, sequence, class diagrams
+- 🗺️ **Mind Maps** - Markmap and KityMinder integration
+- 📉 **Data Visualization** - Vega/Vega-Lite charts
+- 🏗️ **PlantUML** - UML diagrams
+
+### Presentation System
+- 🎭 **Beamer Presentations** - 28 professional themes
+- 📽️ **Live Preview** - Real-time slide preview
+- 📤 **Multiple Exports** - HTML and PDF presentation formats
+- 🎬 **Transitions & Navigation** - Fade, slide, zoom effects
+
+### Media & Content
+- 🖼️ **Images** - Lazy loading, responsive, figure captions
+- 🎥 **Video Embeds** - YouTube auto-embedding
+- 💻 **Code Highlighting** - 100+ languages with Highlight.js
+- 📋 **Tables** - GitHub-flavored markdown tables
+
+Access features through the menu bar or keyboard shortcuts!
+
+---
+
+## 🎭 Beamer-Style Presentations
+
+MarkDD Editor v1.2 introduces a complete presentation system inspired by LaTeX Beamer.
+
+### Creating a Presentation
+
+1. Go to **Presentation > New Presentation** (Ctrl+Shift+N)
+2. Edit the YAML front-matter to set theme and metadata
+3. Separate slides with `---`
+4. Preview with **Presentation > Preview Slides** (Ctrl+Shift+V)
+5. Export as HTML or PDF
+
+### Example Presentation
+
+```markdown
+---
+theme: berkeley
+title: My Amazing Presentation
+author: Your Name
+date: 2025-11-10
+transition: fade
+navigation: left
+toc: true
+---
+
+# Welcome Slide
+
+This is the first slide of your presentation.
+
+---
+
+## Slide with Math
+
+The quadratic formula:
+
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+---
+
+## Slide with Code
+
+```python
+def hello_world():
+    print("Hello from MarkDD!")
+```
+
+---
+
+## Slide with Chemistry
+
+Chemical reaction:
+$$\ce{2H2 + O2 -> 2H2O}$$
+
+---
+
+## Thank You!
+
+Questions?
+```
+
+### Available Themes (28 total)
+
+#### Classic Beamer Themes
+- **berkeley** (default) - UC Berkeley blue/gold
+- **berlin** - Modern dark blue/light blue
+- **copenhagen** - Academic dark red/gold
+- **darmstadt** - Professional navy/light blue
+- **warsaw** - Traditional maroon/tan
+- **madrid** - Blue/gold academic
+- **annarbor** - Michigan maize/blue
+- **cambridgeus** - Harvard crimson/gray
+- And 20 more classic themes!
+
+#### Modern Themes
+- **simple-light** - Clean light gray/blue
+- **simple-dark** - Modern dark mode
+- **minimal-gray** - Professional gray/teal
+- **corporate-blue** - Corporate navy/light blue
+
+### Presentation Features
+
+- ✅ **28 Professional Themes** - Classic Beamer and modern styles
+- ✅ **Live Preview** - Real-time preview in separate window
+- ✅ **Table of Contents** - Auto-generated from slide headers
+- ✅ **Navigation** - Left sidebar, top bar, or none
+- ✅ **Transitions** - Fade, slide, zoom effects
+- ✅ **Headers/Footers** - Customizable with alignment options
+- ✅ **Progress Bar** - Visual progress indicator
+- ✅ **Slide Counter** - Current/total slide numbers
+- ✅ **Math Support** - Full LaTeX math in slides
+- ✅ **Diagrams** - Mermaid, TikZ, PlantUML in slides
+- ✅ **Code Highlighting** - Syntax-highlighted code blocks
+- ✅ **Chemistry** - Chemical equations with mhchem
+- ✅ **PDF Export** - Print-ready PDF with proper pagination
+- ✅ **HTML Export** - Standalone HTML with all dependencies
+
+### YAML Front-Matter Options
+
+```yaml
+---
+theme: berkeley              # Theme name (28 options)
+title: Presentation Title    # Presentation title
+author: Author Name          # Author name
+date: 2025-11-10            # Date
+transition: fade             # fade, slide, zoom, or none
+navigation: left             # left, top, or none
+toc: true                    # Show table of contents
+header: Presentation Title   # Custom header text
+footer: Author Name          # Custom footer text
+headerAlign: center          # left, center, right
+footerAlign: center          # left, center, right
+progressBar: true            # Show progress bar
+pageNumbers: true            # Show slide counter
+---
+```
+
+---
 
 ## Performance and Rendering Test
 
@@ -513,3 +702,51 @@ This document tests various rendering performance aspects:
 - **Mixed content types** (markdown + LaTeX + diagrams)
 - **Responsive design** across different screen sizes
 - **Export compatibility** for various output formats
+
+---
+
+## Quick Reference
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+N** | New file |
+| **Ctrl+O** | Open file |
+| **Ctrl+S** | Save file |
+| **Ctrl+Shift+S** | Save as |
+| **Ctrl+F** | Find & replace |
+| **Ctrl+R** | Manual refresh preview |
+| **Ctrl+Shift+N** | New presentation |
+| **Ctrl+Shift+V** | Preview presentation |
+
+### Menu Organization
+
+- **File** - New, Open, Save, Recent Files
+- **Edit** - Undo, Redo, Find & Replace
+- **View** - Toggle Sidebar, Live Preview, Manual Refresh
+- **Export** - HTML, PDF
+- **Presentation** - New, Preview, Export, Themes
+- **Help** - Feature Showcase, Presentation Guide
+
+### Supported Formats
+
+**Input:**
+- Markdown (.md, .markdown)
+- Text files (.txt)
+
+**Output:**
+- HTML (standalone with embedded styles)
+- PDF (via Electron's print engine)
+- Presentation HTML (with navigation and themes)
+- Presentation PDF (print-ready slides)
+
+### Version Information
+
+**Current Version:** 1.2.0  
+**Release Date:** November 2025  
+**Major Features:** Beamer Presentations, Chemistry Equations, Performance Optimizations
+
+---
+
+**End of Feature Showcase** - Thank you for using MarkDD Editor!

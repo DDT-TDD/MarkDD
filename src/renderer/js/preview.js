@@ -1635,6 +1635,15 @@ class Preview {
             padding: 40px 20px;
             background-color: #fff;
         }
+
+        body.doc-pdf-export {
+            max-width: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 32px 56px;
+            background: #fff;
+            box-sizing: border-box;
+        }
         
         /* Math rendering styles */
         .math-display, .math-environment {
@@ -1659,11 +1668,52 @@ class Preview {
         /* Diagram containers */
         .mermaid-container, .markmap-inline-container, .tikz-container,
         .plantuml-container, .vega-lite-container, .graphviz-container {
-            margin: 1em 0;
+            margin: 1em auto;
             padding: 1em;
             border: 1px solid #e1e5e9;
             border-radius: 6px;
             background: #fafbfc;
+        }
+
+        .mermaid-container,
+        .tikz-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        .mermaid-container svg,
+        .tikz-container svg,
+        .tikz-container canvas,
+        .tikz-container img {
+            margin: 0 auto;
+        }
+
+        /* Ensure media fits within printable width */
+        img, video, canvas, iframe {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 1.25em auto;
+            border-radius: 4px;
+        }
+
+        body.doc-pdf-export img,
+        body.doc-pdf-export video,
+        body.doc-pdf-export canvas,
+        body.doc-pdf-export iframe {
+            page-break-inside: avoid;
+        }
+
+        figure {
+            margin: 1.25em auto;
+            text-align: center;
+        }
+
+        figure img {
+            margin: 0 auto;
         }
         
         .diagram-error {
@@ -1723,6 +1773,17 @@ class Preview {
         .copy-button, .copy-code-btn, .diagram-toggle, 
         .fallback-toggle, .export-btn { 
             display: none !important; 
+        }
+        
+        /* YouTube video embeds */
+        .youtube-embed {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .youtube-embed iframe {
+            max-width: 100%;
+            border-radius: 8px;
         }
         
         /* Ensure proper spacing */
@@ -1805,39 +1866,42 @@ class Preview {
                             container.appendChild(svg);
                             
                             const { root } = markmap.transform(code);
-                        // Signal to the embedding process that MathJax has finished typesetting.
-                        // This sets a deterministic global flag window.__MATHJAX_DONE = true which
-                        // the main process will poll to know when it is safe to print to PDF.
-                        try {
-                            if (window.MathJax) {
-                                const setDone = () => { try { window.__MATHJAX_DONE = true; } catch (e) {} };
-                                if (window.MathJax.startup && window.MathJax.startup.promise) {
-                                    window.MathJax.startup.promise.then(() => {
-                                        if (window.MathJax.typesetPromise) {
-                                            window.MathJax.typesetPromise().then(setDone).catch(setDone);
-                                        } else {
-                                            setDone();
-                                        }
-                                    }).catch(setDone);
-                                } else if (window.MathJax.typesetPromise) {
-                                    window.MathJax.typesetPromise().then(setDone).catch(setDone);
-                                } else {
-                                    // Fallback: set done after a short delay
-                                    setTimeout(setDone, 300);
-                                }
-                            } else {
-                                // No MathJax on the page: mark done immediately
-                                window.__MATHJAX_DONE = true;
-                            }
-                        } catch (e) {
-                            try { window.__MATHJAX_DONE = true; } catch (e) {}
-                        }
                             markmap.Markmap.create(svg, null, root);
                         } catch (error) {
                             container.innerHTML = '<div class="diagram-error">Markmap Error: ' + error.message + '</div>';
                         }
                     }
                 });
+            }
+
+            // Signal to the embedding process that MathJax rendering is complete
+            const markMathDone = () => {
+                try { window.__MATHJAX_DONE = true; } catch (_) {}
+            };
+
+            try {
+                if (window.MathJax) {
+                    const finalize = () => setTimeout(markMathDone, 50);
+                    if (window.MathJax.startup && window.MathJax.startup.promise) {
+                        window.MathJax.startup.promise
+                            .then(() => {
+                                if (window.MathJax.typesetPromise) {
+                                    window.MathJax.typesetPromise().then(finalize).catch(finalize);
+                                } else {
+                                    finalize();
+                                }
+                            })
+                            .catch(finalize);
+                    } else if (window.MathJax.typesetPromise) {
+                        window.MathJax.typesetPromise().then(finalize).catch(finalize);
+                    } else {
+                        setTimeout(finalize, 300);
+                    }
+                } else {
+                    markMathDone();
+                }
+            } catch (e) {
+                markMathDone();
             }
         });
     </script>

@@ -541,11 +541,73 @@ ipcMain.handle('export-mindmap-pdf', async (event, { imageData, fileName }) => {
 });
 
 ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) => {
+  const waitForMathFlagScript = `
+    new Promise((resolve) => {
+      const finish = () => resolve(true);
+      if (window.__MATHJAX_DONE) {
+        finish();
+        return;
+      }
+      let attempts = 0;
+      const maxAttempts = 60;
+      const timer = setInterval(() => {
+        attempts += 1;
+        if (window.__MATHJAX_DONE || attempts >= maxAttempts) {
+          clearInterval(timer);
+          finish();
+        }
+      }, 250);
+      setTimeout(() => {
+        clearInterval(timer);
+        resolve(false);
+      }, 20000);
+    });
+  `;
+
+  const exportWithBrowserWindow = async (targetPath) => {
+    logInfo('PDF', 'Falling back to BrowserWindow printToPDF workflow');
+    const pdfWindow = new BrowserWindow({
+      width: 1280,
+      height: 900,
+      show: false,
+      webPreferences: {
+        sandbox: false,
+        nodeIntegration: false,
+        contextIsolation: true,
+        zoomFactor: 1.0
+      }
+    });
+
+    try {
+      const augmentedHtml = html.replace(/<body([^>]*)>/i, (match, attrs = '') => {
+        if (/class=/i.test(attrs)) {
+          return `<body${attrs.replace(/class=(["'])(.*?)\1/i, (original, quote, classes) => `class=${quote}${classes} doc-pdf-export${quote}`)}>`;
+        }
+        return `<body${attrs} class="doc-pdf-export">`;
+      });
+
+      await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(augmentedHtml));
+      await pdfWindow.webContents.executeJavaScript(waitForMathFlagScript);
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      const pdfBuffer = await pdfWindow.webContents.printToPDF({
+        marginsType: 0,
+        printBackground: true,
+        preferCSSPageSize: true,
+        displayHeaderFooter: false,
+        pageSize: 'A4'
+      });
+
+      await fs.promises.writeFile(targetPath, pdfBuffer);
+    } finally {
+      if (!pdfWindow.isDestroyed()) {
+        pdfWindow.close();
+      }
+    }
+  };
+
   try {
     logInfo('PDF', `Starting PDF export: ${fileName}`);
-    
-    // Use Puppeteer for PDF generation to ensure proper rendering
-    const puppeteer = require('puppeteer');
     
     // Determine save path
     let savePath;
@@ -567,67 +629,53 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
     }
     
     logInfo('PDF', `Target path: ${savePath}`);
-    
-    // Launch headless browser
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-      ]
-    });
-    
-    const page = await browser.newPage();
-    
-    // Set viewport for consistent rendering
-    await page.setViewport({
-      width: 1200,
-      height: 800,
-      deviceScaleFactor: 2
-    });
-    
-    // Load the HTML content
-    await page.setContent(html, {
-      waitUntil: ['networkidle0', 'load'],
-      timeout: 60000
-    });
-    
-    // Wait for MathJax rendering to complete
-    await page.evaluate(() => {
-      return new Promise((resolve) => {
-        if (window.MathJax && window.MathJax.typesetPromise) {
-          window.MathJax.typesetPromise().then(() => {
-            // Give extra time for SVG rendering
-            setTimeout(resolve, 1000);
-          }).catch(() => {
-            setTimeout(resolve, 1000);
-          });
-        } else {
-          setTimeout(resolve, 2000);
-        }
+
+    let puppeteer;
+    try {
+      puppeteer = require('puppeteer');
+    } catch (requireError) {
+      logInfo('PDF', `Puppeteer unavailable (${requireError.message}), will use BrowserWindow fallback`);
+    }
+
+    if (puppeteer) {
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu'
+        ]
       });
-    });
-    
-    // Generate PDF with high quality settings
-    await page.pdf({
-      path: savePath,
-      format: 'A4',
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
-      },
-      printBackground: true,
-      preferCSSPageSize: false,
-      displayHeaderFooter: false
-    });
-    
-    await browser.close();
-    
+      try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
+        await page.setContent(html, { waitUntil: ['networkidle0', 'load'], timeout: 60000 });
+        await page.evaluate(() => {
+          return new Promise((resolve) => {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+              window.MathJax.typesetPromise().then(() => setTimeout(resolve, 1000)).catch(() => setTimeout(resolve, 1000));
+            } else {
+              setTimeout(resolve, 2000);
+            }
+          });
+        });
+        await page.pdf({
+          path: savePath,
+          format: 'A4',
+          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+          printBackground: true,
+          preferCSSPageSize: false,
+          displayHeaderFooter: false
+        });
+      } finally {
+        await browser.close();
+      }
+    } else {
+      await exportWithBrowserWindow(savePath);
+    }
+
     logInfo('PDF', `PDF exported successfully to: ${savePath}`);
     return { success: true, filePath: savePath };
     
@@ -984,6 +1032,11 @@ ipcMain.handle('get-package-data', async () => {
   }
 });
 
+// Get current working directory
+ipcMain.handle('get-cwd', async () => {
+  return process.cwd();
+});
+
 // Read LICENSE file handler
 ipcMain.handle('read-license', async () => {
   try {
@@ -1216,3 +1269,203 @@ ipcMain.on('window-fullscreen', () => {
     mainWindow.webContents.send('window-fullscreen-changed', !isFullscreen);
   }
 });
+
+// ========== PRESENTATION ADDON IPC HANDLERS ==========
+
+let presentationWindow = null;
+
+// Preview presentation in separate window
+ipcMain.handle('preview-presentation', async (event, { html }) => {
+  try {
+    logInfo('Presentation', 'Preparing presentation preview window');
+
+    const createWindowIfNeeded = () => {
+      if (presentationWindow && !presentationWindow.isDestroyed()) {
+        return;
+      }
+
+      presentationWindow = new BrowserWindow({
+        width: 1120,
+        height: 780,
+        show: false,
+        autoHideMenuBar: true,
+        backgroundColor: '#000000',
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          webSecurity: false, // Allow loading external CDN resources
+          allowRunningInsecureContent: false,
+          backgroundThrottling: false
+        },
+        icon: path.join(__dirname, '../assets/icons/icon.png'),
+        title: 'Presentation Preview'
+      });
+
+      presentationWindow.on('closed', () => {
+        presentationWindow = null;
+      });
+
+      presentationWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    };
+
+    createWindowIfNeeded();
+
+    if (!presentationWindow) {
+      throw new Error('Failed to initialise preview window');
+    }
+
+    presentationWindow.webContents.stop();
+
+    const base64Html = Buffer.from(html, 'utf-8').toString('base64');
+    await presentationWindow.loadURL(`data:text/html;base64,${base64Html}`);
+
+    if (!presentationWindow.isVisible()) {
+      presentationWindow.show();
+    }
+
+    presentationWindow.focus();
+
+    return { success: true };
+  } catch (error) {
+    logError('PreviewPresentation', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Save presentation as HTML
+ipcMain.handle('save-presentation-html', async (event, { html, title }) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Presentation as HTML',
+      defaultPath: `${title || 'presentation'}.html`,
+      filters: [
+        { name: 'HTML Files', extensions: ['html'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    await fs.promises.writeFile(result.filePath, html, 'utf-8');
+    logInfo('Presentation', `HTML presentation saved to ${result.filePath}`);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    logError('SavePresentationHTML', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Export presentation as PDF
+ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCount }) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Presentation as PDF',
+      defaultPath: `${title || 'presentation'}.pdf`,
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    logInfo('Presentation', `Exporting presentation to PDF: ${result.filePath}`);
+    
+    // Create a window that matches the content size instead of forcing A4
+    const pdfWindow = new BrowserWindow({
+      width: 1920,  // Standard presentation width
+      height: 1080, // Standard presentation height
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        zoomFactor: 1.0 // Ensure 100% zoom
+      }
+    });
+
+    // Prepare HTML for PDF printing - let content determine size
+    const pdfHtml = html.replace(/<body([^>]*)>/i, (match, attrs) => {
+      if (/class=/i.test(attrs)) {
+        return `<body${attrs.replace(/class=("|')(.*?)\1/i, (original, quote, classes) => `class=${quote}${classes} print-layout pdf-export${quote}`)}>`;
+      }
+      return `<body${attrs} class="print-layout pdf-export">`;
+    });
+    
+    // Load the presentation HTML with UTF-8 encoding
+    await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(pdfHtml));
+    
+    // Wait for rendering to finish inside the presentation (event-driven)
+    try {
+      await pdfWindow.webContents.executeJavaScript(`
+        new Promise((resolve) => {
+          const finalize = () => resolve(true);
+
+          if (window.presentationRenderStatus === 'complete' || document.body.classList.contains('rendering-complete')) {
+            finalize();
+            return;
+          }
+
+          window.addEventListener('presentation-render-complete', finalize, { once: true });
+          // Fallback timeout to avoid hanging indefinitely
+          setTimeout(() => resolve(false), 15000);
+        });
+      `);
+      logInfo('Presentation', 'Rendering complete signal received');
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (waitError) {
+      logError('Presentation', `Error while waiting for render completion: ${waitError.message}`);
+    }
+
+    try {
+      await pdfWindow.webContents.executeJavaScript(`
+        (function(){
+          if (typeof window.enablePresentationPrintLayout === 'function') {
+            window.enablePresentationPrintLayout();
+          }
+        })();
+      `);
+    } catch (prepError) {
+      logError('Presentation', `Failed to enable print layout: ${prepError.message}`);
+    }
+
+    // Generate PDF with settings that follow HTML layout exactly
+    const pdfData = await pdfWindow.webContents.printToPDF({
+      marginsType: 0, // No margins - controlled by CSS
+      printBackground: true,
+      landscape: true,
+      preferCSSPageSize: true,
+      scale: 1.0, // Ensure no scaling
+      displayHeaderFooter: false
+    });
+
+    // Save PDF file
+    await fs.promises.writeFile(result.filePath, pdfData);
+
+    try {
+      await pdfWindow.webContents.executeJavaScript(`
+        (function(){
+          if (typeof window.disablePresentationPrintLayout === 'function') {
+            window.disablePresentationPrintLayout();
+          }
+        })();
+      `);
+    } catch (cleanupError) {
+      logError('Presentation', `Failed to disable print layout: ${cleanupError.message}`);
+    }
+    
+    // Close the PDF window
+    pdfWindow.close();
+    
+    logInfo('Presentation', `PDF presentation saved to ${result.filePath}`);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    logError('ExportPresentationPDF', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ========== END PRESENTATION ADDON IPC HANDLERS ==========

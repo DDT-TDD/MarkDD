@@ -479,7 +479,8 @@ class MarkdownRenderer {
         }
         
         // Configure marked with custom renderer
-        const renderer = new this.marked.Renderer();
+    const renderer = new this.marked.Renderer();
+    const defaultTableRenderer = renderer.table ? renderer.table.bind(renderer) : null;
         
         // Custom code block rendering
         renderer.code = (codeParam, langParam, escaped) => {
@@ -666,9 +667,36 @@ class MarkdownRenderer {
             return `<h${level} id="${escapedText}">${text}</h${level}>`;
         };
         
-        // Custom table rendering with classes
-        renderer.table = (header, body) => {
-            return `<table class="table table-striped">${header}${body}</table>`;
+        // Custom table rendering with classes (compatible with Marked v5 token API)
+        renderer.table = (headerParam, bodyParam) => {
+            let tableHtml = '';
+
+            if (defaultTableRenderer) {
+                tableHtml = defaultTableRenderer(headerParam, bodyParam);
+            } else {
+                const headerHtml = typeof headerParam === 'string' ? headerParam : '';
+                const bodyHtml = typeof bodyParam === 'string' ? bodyParam : '';
+                tableHtml = `<table>${headerHtml}${bodyHtml}</table>`;
+            }
+
+            if (!tableHtml || typeof tableHtml !== 'string') {
+                tableHtml = '<table></table>';
+            }
+
+            if (/class\s*=/.test(tableHtml)) {
+                if (/table-striped/.test(tableHtml) && /table\b/.test(tableHtml)) {
+                    return tableHtml;
+                }
+                return tableHtml.replace(/<table\s+class="([^"]*)"/i, (match, classes) => {
+                    if (classes.includes('table') && classes.includes('table-striped')) {
+                        return match;
+                    }
+                    const augmented = classes.includes('table') ? `${classes} table-striped` : `${classes} table table-striped`;
+                    return `<table class="${augmented.trim()}"`;
+                });
+            }
+
+            return tableHtml.replace('<table', '<table class="table table-striped"');
         };
         
         // Custom image renderer to handle KityMinder resource references (![mindmap](:/<id>))
@@ -1335,9 +1363,18 @@ class MarkdownRenderer {
             const { content, frontmatter } = this.processYAMLFrontmatter(processedMarkdown);
             processedMarkdown = content;
 
+            this.currentFrontmatter = frontmatter || {};
+            const numberingOptions = this.getNumberingOptions(frontmatter);
+            const headingStructure = this.extractMarkdownStructure(processedMarkdown);
+            const headingNumberMap = this.computeHeadingNumberMap(headingStructure, numberingOptions);
+            this.latestHeadingNumberMap = headingNumberMap;
+
             // Step 2: Insert TOC if [TOC] present
             if (processedMarkdown.includes('[TOC]')) {
-                const tocHtml = this.generateTOC(processedMarkdown);
+                const tocHtml = this.generateTOC(processedMarkdown, {
+                    structure: headingStructure,
+                    headingNumberMap
+                });
                 processedMarkdown = processedMarkdown.replace(/\[TOC\]/gi, tocHtml);
             }
 
@@ -1458,6 +1495,12 @@ class MarkdownRenderer {
             console.log('[MarkdownRenderer] Data tables completed');
         } else {
             console.log('[MarkdownRenderer] processDataTables method not available');
+        }
+
+        if (numberingOptions.headings || numberingOptions.figures) {
+            console.log('[MarkdownRenderer] Applying automatic numbering...');
+            this.applyAutomaticNumbering(tempDiv, numberingOptions, headingNumberMap);
+            console.log('[MarkdownRenderer] Automatic numbering completed');
         }
 
             // Step 12: Process footnotes
@@ -3774,25 +3817,108 @@ class MarkdownRenderer {
         const links = container.querySelectorAll('a');
         
         links.forEach(link => {
-            const youtubeMatch = link.href.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-            if (youtubeMatch) {
-                const videoId = youtubeMatch[1];
-                const embed = document.createElement('div');
-                embed.className = 'youtube-embed';
-                embed.innerHTML = `
-                    <iframe 
-                        width="560" 
-                        height="315" 
-                        src="https://www.youtube.com/embed/${videoId}" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen
-                        loading="lazy">
-                    </iframe>
-                `;
-                link.parentNode.replaceChild(embed, link);
+            if (!link || !link.href || link.closest('.youtube-embed')) {
+                return;
+            }
+
+            const embedConfig = this.extractYouTubeEmbedConfig(link.href);
+            if (!embedConfig) {
+                return;
+            }
+
+            const embedElement = this.createYouTubeEmbedElement(embedConfig);
+            if (embedElement && link.parentNode) {
+                link.parentNode.replaceChild(embedElement, link);
             }
         });
+    }
+
+    applyAutomaticNumbering(container, numberingOptions = {}, headingNumberMap = new Map()) {
+        if (!container) {
+            return;
+        }
+
+        if (numberingOptions.headings && headingNumberMap && headingNumberMap.size) {
+            this.applyHeadingNumbering(container, headingNumberMap);
+        }
+
+        if (numberingOptions.figures) {
+            this.applyFigureAndTableNumbering(container, numberingOptions);
+        }
+    }
+
+    applyHeadingNumbering(container, headingNumberMap) {
+        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach((heading) => {
+            const id = heading.getAttribute('id');
+            const number = id ? headingNumberMap.get(id) : null;
+
+            const existing = heading.querySelector('.heading-number');
+            if (existing) {
+                existing.remove();
+            }
+
+            if (!number) {
+                heading.removeAttribute('data-heading-number');
+                return;
+            }
+
+            const span = document.createElement('span');
+            span.className = 'heading-number';
+            span.textContent = `${number} `;
+            heading.insertBefore(span, heading.firstChild);
+            heading.setAttribute('data-heading-number', number);
+        });
+    }
+
+    applyFigureAndTableNumbering(container, numberingOptions = {}) {
+        const figureStart = Math.max(1, numberingOptions.figureStart || 1);
+        let figureCount = figureStart - 1;
+        const figures = container.querySelectorAll('figure');
+        figures.forEach((figure) => {
+            const caption = figure.querySelector('figcaption');
+            if (!caption) {
+                return;
+            }
+            figureCount += 1;
+            this.injectCaptionNumber(caption, `Figure ${figureCount}.`, 'figure-number-label');
+            figure.setAttribute('data-figure-number', figureCount);
+        });
+
+        const tableStart = Math.max(1, numberingOptions.figureStart || 1);
+        let tableCount = tableStart - 1;
+        const tables = container.querySelectorAll('table');
+        tables.forEach((table) => {
+            tableCount += 1;
+            let caption = table.querySelector('caption');
+            let generatedCaption = false;
+            if (!caption) {
+                caption = document.createElement('caption');
+                generatedCaption = true;
+                table.insertBefore(caption, table.firstChild);
+            }
+
+            if (generatedCaption) {
+                caption.classList.add('table-caption-generated');
+            }
+
+            this.injectCaptionNumber(caption, `Table ${tableCount}.`, 'table-number-label');
+            table.setAttribute('data-table-number', tableCount);
+        });
+    }
+
+    injectCaptionNumber(caption, labelText, className) {
+        if (!caption) {
+            return;
+        }
+        const existingLabel = caption.querySelector(`.${className}`);
+        if (existingLabel) {
+            existingLabel.remove();
+        }
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = `${labelText} `;
+        caption.insertBefore(span, caption.firstChild);
     }
 
     async processLatexDocuments(container) {
@@ -3903,6 +4029,222 @@ class MarkdownRenderer {
     }
 
     // Utility methods
+    getNumberingOptions(frontmatter = {}) {
+        const options = {
+            headings: false,
+            figures: false,
+            headingStart: 1,
+            figureStart: 1
+        };
+
+        if (frontmatter && Object.prototype.hasOwnProperty.call(frontmatter, 'numberHeadings')) {
+            options.headings = this.parseBooleanFlag(frontmatter.numberHeadings);
+        }
+
+        if (frontmatter && Object.prototype.hasOwnProperty.call(frontmatter, 'numberFiguresTables')) {
+            options.figures = this.parseBooleanFlag(frontmatter.numberFiguresTables);
+        }
+
+        if (frontmatter && Object.prototype.hasOwnProperty.call(frontmatter, 'headingNumberStart')) {
+            options.headingStart = this.parseStartNumber(frontmatter.headingNumberStart, 1);
+        }
+
+        if (frontmatter && Object.prototype.hasOwnProperty.call(frontmatter, 'figureTableNumberStart')) {
+            options.figureStart = this.parseStartNumber(frontmatter.figureTableNumberStart, 1);
+        }
+
+        return options;
+    }
+
+    computeHeadingNumberMap(structure, options = {}) {
+        const map = new Map();
+        if (!options.headings || !Array.isArray(structure) || structure.length === 0) {
+            return map;
+        }
+
+        const startValue = Math.max(1, options.headingStart || 1);
+        const counters = [startValue - 1, 0, 0, 0, 0, 0];
+        structure.forEach(({ level, text }) => {
+            const safeLevel = Math.min(Math.max(level || 1, 1), 6);
+            counters[safeLevel - 1] += 1;
+            for (let i = safeLevel; i < counters.length; i++) {
+                counters[i] = 0;
+            }
+
+            const active = counters.slice(0, safeLevel).filter((value) => value > 0);
+            const numbering = active.join('.');
+            const anchor = (text || '').toLowerCase().replace(/[^\w]+/g, '-');
+
+            if (numbering && anchor) {
+                map.set(anchor, numbering);
+            }
+        });
+
+        return map;
+    }
+
+    parseBooleanFlag(value, defaultValue = false) {
+        if (value === undefined || value === null || value === '') {
+            return defaultValue;
+        }
+
+        if (typeof value === 'boolean') {
+            return value;
+        }
+
+        const normalized = String(value).trim().toLowerCase();
+        if (['true', 'yes', '1', 'on', 'enable', 'enabled'].includes(normalized)) {
+            return true;
+        }
+        if (['false', 'no', '0', 'off', 'disable', 'disabled'].includes(normalized)) {
+            return false;
+        }
+        return defaultValue;
+    }
+
+    parseStartNumber(value, defaultValue = 1) {
+        if (value === undefined || value === null || value === '') {
+            return Math.max(1, defaultValue);
+        }
+
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            const normalized = Math.floor(value);
+            return normalized >= 1 ? normalized : Math.max(1, defaultValue);
+        }
+
+        const parsed = parseInt(String(value).trim(), 10);
+        if (Number.isNaN(parsed) || parsed < 1) {
+            return Math.max(1, defaultValue);
+        }
+
+        return parsed;
+    }
+
+    extractYouTubeEmbedConfig(href = '') {
+        if (!href || typeof href !== 'string') {
+            return null;
+        }
+
+        try {
+            const url = new URL(href);
+            const normalizedHost = url.hostname.replace(/^www\./i, '').toLowerCase();
+            const segments = url.pathname.split('/').filter(Boolean);
+            let videoId = null;
+
+            if (normalizedHost === 'youtu.be') {
+                videoId = segments[0] || null;
+            } else if (normalizedHost.endsWith('youtube.com') || normalizedHost.endsWith('youtube-nocookie.com')) {
+                if (url.searchParams.has('v')) {
+                    videoId = url.searchParams.get('v');
+                } else if (segments[0] === 'embed' && segments[1]) {
+                    videoId = segments[1];
+                } else if (segments[0] === 'shorts' && segments[1]) {
+                    videoId = segments[1];
+                } else if (segments[0] === 'live' && segments[1]) {
+                    videoId = segments[1];
+                } else if (!segments.length && url.hash.startsWith('#/watch?v=')) {
+                    videoId = url.hash.replace('#/watch?v=', '');
+                }
+            }
+
+            videoId = this.sanitizeYouTubeId(videoId);
+            if (!videoId) {
+                return null;
+            }
+
+            const startParam = url.searchParams.get('t') || url.searchParams.get('start');
+            const startSeconds = this.parseYouTubeStartSeconds(startParam);
+            const playlistId = url.searchParams.get('list');
+
+            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            if (startSeconds) {
+                embedUrl.searchParams.set('start', startSeconds);
+            }
+            if (playlistId && /^[A-Za-z0-9_-]+$/.test(playlistId)) {
+                embedUrl.searchParams.set('list', playlistId);
+            }
+
+            return {
+                embedUrl: embedUrl.toString(),
+                videoId,
+                startSeconds,
+                playlistId: playlistId || undefined,
+                originalUrl: href
+            };
+        } catch (error) {
+            console.warn('[MarkdownRenderer] Failed to parse YouTube URL', href, error);
+            return null;
+        }
+    }
+
+    parseYouTubeStartSeconds(value) {
+        if (!value) {
+            return null;
+        }
+
+        if (/^\d+$/.test(value)) {
+            return parseInt(value, 10);
+        }
+
+        const timeMatch = value.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i);
+        if (!timeMatch) {
+            return null;
+        }
+
+        const hours = parseInt(timeMatch[1] || '0', 10);
+        const minutes = parseInt(timeMatch[2] || '0', 10);
+        const seconds = parseInt(timeMatch[3] || '0', 10);
+        const total = hours * 3600 + minutes * 60 + seconds;
+        return total > 0 ? total : null;
+    }
+
+    sanitizeYouTubeId(id) {
+        if (!id) {
+            return null;
+        }
+        const trimmed = String(id).trim();
+        const match = trimmed.match(/^[A-Za-z0-9_-]{6,}$/);
+        return match ? match[0] : null;
+    }
+
+    createYouTubeEmbedElement(config) {
+        if (!config || !config.embedUrl) {
+            return null;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'youtube-embed';
+        wrapper.setAttribute('data-youtube-id', config.videoId);
+        wrapper.setAttribute('data-youtube-source', config.originalUrl || '');
+
+        const frameWrapper = document.createElement('div');
+        frameWrapper.className = 'youtube-embed-frame';
+
+        const iframe = document.createElement('iframe');
+        iframe.src = config.embedUrl;
+        iframe.title = 'YouTube video player';
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+
+        frameWrapper.appendChild(iframe);
+        wrapper.appendChild(frameWrapper);
+
+        const fallback = document.createElement('div');
+        fallback.className = 'youtube-embed-fallback';
+        const fallbackLink = document.createElement('a');
+        fallbackLink.href = config.originalUrl || config.embedUrl;
+        fallbackLink.target = '_blank';
+        fallbackLink.rel = 'noopener noreferrer';
+        fallbackLink.textContent = 'Open on YouTube';
+        fallback.append('Having trouble playing this video? ', fallbackLink);
+        wrapper.appendChild(fallback);
+
+        return wrapper;
+    }
+
     extractMarkdownStructure(markdown) {
         const lines = markdown.split('\n');
         const structure = [];
@@ -4013,18 +4355,21 @@ class MarkdownRenderer {
         }
     }
 
-    generateTOC(markdown) {
-        const structure = this.extractMarkdownStructure(markdown);
-        if (structure.length === 0) return '';
-        
+    generateTOC(markdown, options = {}) {
+        const structure = Array.isArray(options.structure) ? options.structure : this.extractMarkdownStructure(markdown);
+        if (!structure.length) return '';
+
+        const headingNumberMap = options.headingNumberMap;
         let toc = '<div class="table-of-contents">\n<h3>Table of Contents</h3>\n<ul>\n';
-        
+
         structure.forEach(heading => {
             const anchor = heading.text.toLowerCase().replace(/[^\w]+/g, '-');
-            const indent = '  '.repeat(heading.level - 1);
-            toc += `${indent}<li><a href="#${anchor}">${heading.text}</a></li>\n`;
+            const indent = '  '.repeat(Math.max(heading.level - 1, 0));
+            const numbering = headingNumberMap && headingNumberMap.get(anchor);
+            const label = numbering ? `${numbering} ${heading.text}` : heading.text;
+            toc += `${indent}<li><a href="#${anchor}">${label}</a></li>\n`;
         });
-        
+
         toc += '</ul>\n</div>\n';
         return toc;
     }
