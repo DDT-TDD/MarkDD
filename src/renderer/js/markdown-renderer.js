@@ -1814,12 +1814,32 @@ class MarkdownRenderer {
                 .then(() => {
                     try {
                         this.sanitizeMathJaxDOM(container);
+                        // Remove any SVG elements with NaN dimensions
+                        const svgs = container.querySelectorAll('svg[width*="NaN"], svg[height*="NaN"]');
+                        svgs.forEach(svg => {
+                            console.warn('[MarkdownRenderer] Removing SVG with NaN dimensions');
+                            const parent = svg.parentElement;
+                            if (parent) {
+                                parent.innerHTML = '<span class="math-error">Invalid math expression</span>';
+                            }
+                        });
                     } catch (e) {
                         console.warn('[MarkdownRenderer] sanitizeMathJaxDOM after typeset failed:', e);
                     }
                 })
                 .catch((err) => {
                     console.warn('[MarkdownRenderer] MathJax typeset error:', err);
+                    // Clean up any broken math rendering
+                    try {
+                        const brokenElements = container.querySelectorAll('.MathJax');
+                        brokenElements.forEach(el => {
+                            if (!el.querySelector('svg') || el.querySelector('svg[width*="NaN"]')) {
+                                el.innerHTML = '<span class="math-error">Math rendering failed</span>';
+                            }
+                        });
+                    } catch (cleanupErr) {
+                        console.warn('[MarkdownRenderer] Math cleanup failed:', cleanupErr);
+                    }
                 });
         }
 

@@ -17,9 +17,17 @@ class PresentationManager {
             'singapore', 'szeged', 'hannover', 'marburg', 'goettingen',
             // Color variants
             'berkeley-dark', 'berlin-light', 'copenhagen-blue', 'madrid-green',
-                'simple-light', 'simple-dark', 'minimal-gray', 'corporate-blue',
-                'aurora-forge', 'ddt-signature', 'strata-pulse'
+            'simple-light', 'simple-dark', 'minimal-gray', 'corporate-blue',
+            'aurora-forge', 'ddt-signature', 'strata-pulse'
         ];
+        this.customThemes = {};
+        this.customThemeStorageKey = 'markdd-custom-themes';
+        this.themeDisplayNames = {
+            'aurora-forge': 'Aurora Black / Red',
+            'ddt-signature': 'DDT Signature',
+            'strata-pulse': 'Strata Pulse'
+        };
+        this.loadCustomThemes();
         this.slides = [];
         this.metadata = {};
     }
@@ -58,7 +66,11 @@ class PresentationManager {
         
         this.slides = slides;
         this.metadata = frontMatter;
-        this.currentTheme = frontMatter.theme || this.currentTheme;
+        if (frontMatter.theme && this.isKnownTheme(frontMatter.theme)) {
+            this.currentTheme = frontMatter.theme;
+        } else if (frontMatter.theme && !this.isKnownTheme(frontMatter.theme)) {
+            console.warn('[Presentation] Unknown theme in front-matter, reverting to current theme:', frontMatter.theme);
+        }
         
         return {
             slides: slides,
@@ -570,6 +582,8 @@ ${navItems}
         
         /* Center diagrams, tables, and visualizations */
         .slide table,
+        .slide img,
+        .slide figure,
         .slide .mermaid,
         .slide .mermaid-container,
         .slide .plantuml-container,
@@ -577,10 +591,28 @@ ${navItems}
         .slide .vega-lite-container,
         .slide .vega-container,
         .slide .markmap-container,
-        .slide .graphviz-container {
+        .slide .graphviz-container,
+        .slide .kityminder-container {
             margin-left: auto;
             margin-right: auto;
             display: block;
+        }
+
+        .slide img {
+            max-width: 90%;
+            height: auto;
+        }
+
+        .slide figure {
+            text-align: center;
+            margin: 1.5em auto;
+        }
+
+        .slide figcaption {
+            margin-top: 0.5em;
+            font-size: 0.9em;
+            font-style: italic;
+            opacity: 0.8;
         }
 
         .slide .mermaid,
@@ -602,8 +634,9 @@ ${navItems}
         
         .slide table {
             border-collapse: collapse;
-            margin: 1em auto;
+            margin: 1em auto !important;
             max-width: 90%;
+            display: table;
         }
         
         .slide table th,
@@ -616,6 +649,15 @@ ${navItems}
         .slide table th {
             background: rgba(0,0,0,0.05);
             font-weight: bold;
+        }
+        
+        .slide table caption,
+        .slide caption {
+            text-align: center;
+            caption-side: bottom;
+            padding: 0.5em;
+            font-style: italic;
+            font-size: 0.9em;
         }
         
         /* Progress bar */
@@ -2049,6 +2091,15 @@ ${navItems}
      * @returns {Object|null} Theme configuration or null if not found
      */
     getThemeConfig(theme) {
+        if (this.customThemes && this.customThemes[theme]) {
+            const customTheme = this.customThemes[theme];
+            if (customTheme.navigation) {
+                return { navigation: customTheme.navigation };
+            }
+            const baseConfig = this.getThemeConfig(customTheme.baseTheme || 'berkeley');
+            return baseConfig || { navigation: 'none' };
+        }
+        
         // Theme configurations (must match getThemeCSS themes)
         const themes = {
             // Original 5 themes
@@ -2092,17 +2143,8 @@ ${navItems}
         return themes[theme] || null;
     }
 
-    /**
-     * Get theme CSS
-     * 
-     * Navigation Types:
-     * - 'left': Left sidebar navigation (Beamer themes: Berkeley, Copenhagen, Boadilla, Antibes, JuanLesPins, Montpellier, Malmoe)
-     * - 'top': Top bar navigation (Beamer themes: Berlin, Darmstadt, Warsaw, Madrid, Hannover, Marburg)
-     * - 'none': No navigation panel (Simple themes and color variants)
-     */
-    async getThemeCSS(theme) {
-        // Comprehensive theme definitions based on Beamer gallery + custom variants
-        const themes = {
+    getBuiltInThemePalette() {
+        return {
             // Original 5 themes
             berkeley: {
                 primary: '#003262',
@@ -2450,15 +2492,31 @@ ${navItems}
                 navigation: 'top' // WSP-inspired high-contrast layout
             }
         };
-        
-        // Get base theme colors
-        const baseColors = themes[theme] || themes.berkeley;
-        
-        // Merge with custom colors from front-matter if provided
-        const colors = {
-            ...baseColors,
-            ...(this.metadata.colors || {})
-        };
+    }
+
+    /**
+     * Get theme CSS
+     * 
+     * Navigation Types:
+     * - 'left': Left sidebar navigation (Beamer themes: Berkeley, Copenhagen, Boadilla, Antibes, JuanLesPins, Montpellier, Malmoe)
+     * - 'top': Top bar navigation (Beamer themes: Berlin, Darmstadt, Warsaw, Madrid, Hannover, Marburg)
+     * - 'none': No navigation panel (Simple themes and color variants)
+     */
+    async getThemeCSS(theme) {
+        const isCustomTheme = !!(this.customThemes && this.customThemes[theme]);
+        const palette = this.getBuiltInThemePalette();
+        const customDefinition = isCustomTheme ? this.customThemes[theme] : null;
+        const baseTheme = isCustomTheme ? (customDefinition.baseTheme || 'berkeley') : theme;
+        const baseColors = palette[baseTheme] || palette.berkeley;
+        const frontMatterColors = this.metadata ? this.metadata.colors || {} : {};
+
+        let colors = { ...baseColors };
+
+        if (isCustomTheme) {
+            colors = { ...colors, ...(customDefinition.colors || {}) };
+        }
+
+        colors = { ...colors, ...frontMatterColors };
         
         // Get theme-specific structural CSS
         const themeStructure = this.getThemeStructureCSS(theme, colors);
@@ -2616,6 +2674,13 @@ ${navItems}
      * This creates actual Beamer-style layout differences
      */
     getThemeStructureCSS(theme, colors) {
+        if (this.customThemes && this.customThemes[theme]) {
+            const baseTheme = this.customThemes[theme].baseTheme || 'berkeley';
+            if (baseTheme !== theme) {
+                return this.getThemeStructureCSS(baseTheme, colors);
+            }
+        }
+        
         // Berkeley Style: Serif font, sidebar, rounded boxes
         if (theme === 'berkeley' || theme === 'berkeley-dark') {
             return `
@@ -2937,6 +3002,7 @@ ${navItems}
             `;
         }
 
+        // Strata Pulse: WSP-inspired bold red gradients and angled accents
         if (theme === 'strata-pulse') {
             return `
             [data-theme="${theme}"] {
@@ -3047,7 +3113,7 @@ ${navItems}
             }
             `;
         }
-        
+
         // Madrid Style: Academic, clear structure
         if (theme === 'madrid' || theme === 'madrid-green') {
             return `
@@ -3736,6 +3802,216 @@ ${navItems}
         `;
     }
 
+    getThemePalette(theme) {
+        const palette = this.getBuiltInThemePalette();
+        if (this.customThemes && this.customThemes[theme]) {
+            const custom = this.customThemes[theme];
+            const baseTheme = custom.baseTheme || 'berkeley';
+            const basePalette = this.getThemePalette(baseTheme);
+            return {
+                ...basePalette,
+                ...(custom.colors || {})
+            };
+        }
+
+        const builtIn = palette[theme] || palette.berkeley;
+        if (!builtIn) {
+            return {};
+        }
+
+        const {
+            primary,
+            secondary,
+            background,
+            text,
+            headerBg,
+            headerText,
+            footerBg,
+            footerText
+        } = builtIn;
+
+        return {
+            primary,
+            secondary,
+            background,
+            text,
+            headerBg,
+            headerText,
+            footerBg,
+            footerText
+        };
+    }
+
+    isKnownTheme(theme) {
+        if (!theme) {
+            return false;
+        }
+        return this.availableThemes.includes(theme) || (this.customThemes && !!this.customThemes[theme]);
+    }
+
+    getBuiltInThemeIds() {
+        return [...this.availableThemes];
+    }
+
+    getAllThemeIds() {
+        return [...this.availableThemes, ...Object.keys(this.customThemes || {})];
+    }
+
+    getCustomThemes() {
+        return Object.values(this.customThemes || {}).map(theme => ({ ...theme }));
+    }
+
+    getThemeLabel(theme) {
+        if (!theme) {
+            return '';
+        }
+
+        if (this.customThemes && this.customThemes[theme]) {
+            return this.customThemes[theme].label || this.formatThemeLabel(theme);
+        }
+
+        if (this.themeDisplayNames && this.themeDisplayNames[theme]) {
+            return this.themeDisplayNames[theme];
+        }
+
+        return this.formatThemeLabel(theme);
+    }
+
+    formatThemeLabel(theme) {
+        return theme
+            .split('-')
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+
+    normalizeThemeId(name) {
+        if (!name) {
+            return null;
+        }
+
+        const base = name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-');
+
+        if (!base) {
+            return null;
+        }
+
+        let candidate = `custom-${base}`;
+        let suffix = 1;
+        while (this.isKnownTheme(candidate)) {
+            candidate = `custom-${base}-${suffix}`;
+            suffix += 1;
+        }
+        return candidate;
+    }
+
+    loadCustomThemes() {
+        this.customThemes = {};
+
+        if (typeof localStorage === 'undefined') {
+            return;
+        }
+
+        try {
+            const raw = localStorage.getItem(this.customThemeStorageKey);
+            if (!raw) {
+                return;
+            }
+
+            const parsed = JSON.parse(raw);
+            const themeArray = Array.isArray(parsed) ? parsed : [];
+
+            themeArray.forEach(theme => {
+                if (!theme || typeof theme !== 'object') {
+                    return;
+                }
+                const { id, label, baseTheme, colors, navigation } = theme;
+                if (!id || !baseTheme) {
+                    return;
+                }
+                this.customThemes[id] = {
+                    id,
+                    label: label || this.formatThemeLabel(id),
+                    baseTheme: this.availableThemes.includes(baseTheme) ? baseTheme : 'berkeley',
+                    colors: colors || {},
+                    navigation: navigation || (this.getThemeConfig(baseTheme) || {}).navigation || 'none'
+                };
+            });
+        } catch (error) {
+            console.warn('[Presentation] Failed to load custom themes:', error);
+            this.customThemes = {};
+        }
+    }
+
+    saveCustomThemes() {
+        if (typeof localStorage === 'undefined') {
+            return;
+        }
+
+        try {
+            const themesToPersist = Object.values(this.customThemes || {}).map(theme => ({
+                id: theme.id,
+                label: theme.label,
+                baseTheme: theme.baseTheme,
+                colors: theme.colors,
+                navigation: theme.navigation
+            }));
+
+            const sorted = themesToPersist.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+            localStorage.setItem(this.customThemeStorageKey, JSON.stringify(sorted));
+        } catch (error) {
+            console.warn('[Presentation] Failed to save custom themes:', error);
+        }
+    }
+
+    createCustomTheme({ name, baseTheme, colors }) {
+        if (!name) {
+            throw new Error('Theme name is required');
+        }
+
+        const sanitizedBase = this.availableThemes.includes(baseTheme) ? baseTheme : 'berkeley';
+        const themeId = this.normalizeThemeId(name);
+
+        if (!themeId) {
+            throw new Error('Could not derive a valid theme identifier');
+        }
+
+        const sanitizedColors = {};
+        const colorKeys = ['primary', 'secondary', 'background', 'text', 'headerBg', 'headerText', 'footerBg', 'footerText'];
+
+        colorKeys.forEach(key => {
+            const value = colors && typeof colors[key] === 'string' ? colors[key].trim() : '';
+            if (value) {
+                sanitizedColors[key] = value;
+            }
+        });
+
+        const storedTheme = {
+            id: themeId,
+            label: name.trim(),
+            baseTheme: sanitizedBase,
+            colors: sanitizedColors,
+            navigation: (this.getThemeConfig(sanitizedBase) || {}).navigation || 'none'
+        };
+
+        this.customThemes[themeId] = storedTheme;
+        this.saveCustomThemes();
+        return themeId;
+    }
+
+    deleteCustomTheme(themeId) {
+        if (!this.customThemes || !this.customThemes[themeId]) {
+            return false;
+        }
+
+        delete this.customThemes[themeId];
+        this.saveCustomThemes();
+        return true;
+    }
+
     /**
      * Get navigation JavaScript
      */
@@ -4292,7 +4568,7 @@ ${navItems}
      * Set current theme
      */
     setTheme(theme) {
-        if (this.availableThemes.includes(theme)) {
+        if (this.isKnownTheme(theme)) {
             this.currentTheme = theme;
             return true;
         }
@@ -4303,10 +4579,18 @@ ${navItems}
      * Get available themes
      */
     getThemes() {
-        return this.availableThemes.map(theme => ({
+        const builtIn = this.availableThemes.map(theme => ({
             id: theme,
-            name: theme.charAt(0).toUpperCase() + theme.slice(1)
+            name: this.getThemeLabel(theme)
         }));
+
+        const customThemes = Object.values(this.customThemes || {}).map(theme => ({
+            id: theme.id,
+            name: theme.label || this.getThemeLabel(theme.id)
+        }));
+
+        const sortedCustom = customThemes.sort((a, b) => a.name.localeCompare(b.name));
+        return [...builtIn, ...sortedCustom];
     }
 }
 

@@ -46,7 +46,7 @@ Author: MarkDD Team
 
 A fully-featured Markdown editor with advanced capabilities, combining the best features from MarkText, VS Code Markdown Preview Enhanced, Markmap, and obsidian-tikzjax.
 
-![MarkDD Editor](https://img.shields.io/badge/Version-1.1.0-blue)
+![MarkDD Editor](https://img.shields.io/badge/Version-1.3.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Electron](https://img.shields.io/badge/Electron-38.0.0-blue)
 
@@ -82,6 +82,23 @@ A fully-featured Markdown editor with advanced capabilities, combining the best 
 - **YAML front-matter** - Configure theme, title, author, and date
 - **Speaker notes** - Add notes that don't appear in slides
 - **Theme categories** - Classic Beamer, Color Variants, and Modern themes
+
+### Book Module & Publishing System (NEW in v1.3.0)
+- **Complete book publishing workflow** - From manuscript to HTML/PDF with one command
+- **4 book types** - Classical books, wiki documentation, help systems, technical documents
+- **SUMMARY.md manifest system** - GitBook-style table of contents with nested chapters
+- **book.config.json** - Centralized configuration for metadata, paths, and build options
+- **13 technical document templates** - Reports, plans, brochures, business cases, white papers, case studies, feasibility studies, proposals, user manuals, SOPs, RFPs, annual reports, project charters
+- **5 professional HTML themes** - Dark mode, Classic print, Wiki, Help Center, Professional Document
+- **Static site builder** - Generate complete HTML sites with navigation and search
+- **Lunr.js full-text search** - Client-side search with zero server dependencies
+- **Live preview server** - Local development with auto-rebuild on changes
+- **PDF export** - Puppeteer-based PDF generation with professional formatting
+- **CLI tools** - Command-line interface for init, build, and serve operations
+- **Comprehensive Book menu** - 15+ commands with keyboard shortcuts (Ctrl+Alt+B, Ctrl+Alt+Shift+B, Ctrl+Alt+P)
+- **Split-pane editor** - Dedicated book mode with sidebar navigation and chapter management
+
+Book menu commands handle project scaffolding, manifest/config editing, builds, exports, and live preview serving.
 
 ### Advanced Code Features
 - **Syntax highlighting** for 100+ languages
@@ -284,6 +301,22 @@ npm run dev
 ```bash
 npm run pack  # Create unpacked build for testing
 ```
+
+### Book CLI
+Use the bundled CLI to scaffold, build, and serve book projects from any terminal session.
+
+```bash
+# Initialize a project (creates book.config.json, SUMMARY.md, and sample chapters)
+npm run book init ./docs-book
+
+# Build HTML/PDF outputs into the configured outputDir
+npm run book build ./docs-book
+
+# Serve locally with live rebuilds
+npm run book serve ./docs-book -- --watch --port 5050
+```
+
+Commands default to the current working directory when no path is provided. Pass `--watch` during `serve` to trigger automatic rebuilds when Markdown sources change.
 
 ## Contributing
 

@@ -7,9 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2025-11-20
+
+### Added
+
+#### 📚 Complete Book Module & Publishing System (NEW MAJOR FEATURE)
+- **Book Project Management** – Create, open, and manage multi-chapter book projects with SUMMARY.md manifest system
+- **4 Book Types** – Classical Book, Wiki Documentation, Help Documentation, Technical Documents
+- **Project Scaffolding** – Automatic generation of book structure with sample chapters, configuration files, and templates
+- **SUMMARY.md Manifest** – GitBook-style table of contents with nested chapters, sections, and automatic linking
+- **book.config.json** – Centralized metadata (title, author, description), paths (contentDir, outputDir), and build options
+- **Chapter Management** – Add, edit, remove, reorder chapters with live preview and validation
+- **Split-Pane Book Editor** – Dedicated book editing mode with sidebar navigation, chapter browser, and real-time preview
+- **Static Site Builder** – Generate complete interlinked HTML site with search index, landing page, chapter navigation, and assets
+- **5 HTML Style Presets** – Professional themes optimized for different use cases:
+  - **Midnight (Dark Mode)** – Dark theme for technical documentation and nighttime reading
+  - **Classic Print** – Traditional book layout with serif fonts and print-friendly styling
+  - **Knowledge Base (Wiki)** – Clean, organized wiki-style documentation
+  - **Help Center (CHM)** – Microsoft CHM-style help documentation with sidebar navigation
+  - **Professional Document** – Business document styling with Calibri/Cambria fonts, justified text, optimized for technical reports
+- **PDF Export** – Puppeteer-based PDF generation with preserved formatting, diagrams, math, and professional typography
+- **Live Preview Server** – Local development server (default port 4500) with auto-rebuild on file changes
+- **Lunr.js Full-Text Search** – Client-side search with zero server dependencies, instant results, keyword highlighting
+- **Watch Mode** – Automatic rebuild on file changes for live development workflow
+- **CLI Interface** – Command-line tools for automation:
+  ```bash
+  npm run book -- init [dir] --title "My Book" --author "Author"
+  npm run book -- build [dir]
+  npm run book -- serve [dir] --port 5050 --watch
+  ```
+- **Comprehensive Book Menu** – Full UI integration with keyboard shortcuts:
+  - New Book Project ▶ (Ctrl+Alt+B)
+  - Open Book Project...
+  - Enable Book Mode (toggle)
+  - Edit SUMMARY.md
+  - Edit book.config.json
+  - Add New Chapter...
+  - Build All Formats (Ctrl+Alt+Shift+B)
+  - Build HTML Only
+  - Export as PDF
+  - Preview Book Locally (Ctrl+Alt+P)
+  - Stop Preview Server
+  - Auto-rebuild on Changes (toggle)
+  - Search in Book... (Ctrl+Alt+F)
+- **13 Technical Document Templates** – Professional business document types:
+  1. **Project Report** – Executive summary, status overview, risk log, next steps
+  2. **Strategic Plan** – Vision, initiatives, milestones, financial summary
+  3. **Product Brochure** – Highlights, features, use cases, call-to-action
+  4. **Business Case** – Problem statement, solution, financials, ROI
+  5. **White Paper** – Abstract, background, methodology, findings
+  6. **Case Study** – Challenge, solution, results, testimonials
+  7. **Feasibility Study** – Scope, analysis, recommendations, conclusions
+  8. **Proposal** – Overview, approach, deliverables, pricing
+  9. **User Manual** – Introduction, setup, usage, troubleshooting
+  10. **SOP (Standard Operating Procedure)** – Purpose, scope, procedures, references
+  11. **RFP (Request for Proposal)** – Background, requirements, evaluation, timeline
+  12. **Annual Report** – Message, performance, operations, outlook
+  13. **Project Charter** – Objectives, scope, stakeholders, timeline
+- **Structured Section Files** – Each technical document generates separate markdown files per section for better organization
+- **Smart Section Navigation** – Automatic scroll-to-section with visual highlighting for anchor-based navigation
+- **Example Projects** – Built-in templates for all book types with comprehensive sample content and best practices
+- **Book IPC Handlers** – 16 main process handlers for book operations:
+  - `book-select-directory`, `book-save-dialog`
+  - `book-init-project`, `book-create-temp-example`
+  - `book-build`, `book-export-pdf`, `book-serve`, `book-stop-server`
+  - `book-load-structure`, `book-search`
+  - `book-add-chapter`, `book-remove-chapter`, `book-reorder-chapters`
+  - `book-add-appendix`, `book-remove-appendix`, `book-get-structure`
+- **Files**: `src/common/book-engine.js` (~3300 lines), `src/renderer/js/book.js`, `src/renderer/js/book-examples.js`, `scripts/book-cli.js`
+
+### Changed
+
+#### Application Features
+- **About Dialog** – Updated feature list to include Book Module and Presentation Mode at top
+- **Version Display** – Updated to v1.3.0 across all components
+
+### Fixed
+
+1. **Technical Document Section Navigation** ✅
+   - Issue: All sections appeared to have same content when clicked in sidebar
+   - Root Cause: Single file with anchors caused confusion, no scroll-to-section behavior
+   - Fix: Generate separate markdown file for each section, add auto-scroll and visual highlighting
+   - Status: Resolved
+
+2. **Missing Professional Document HTML Style** ✅
+   - Issue: Technical documents had no dedicated HTML style option in dropdown
+   - Root Cause: CSS preset existed but wasn't exposed in UI
+   - Fix: Added "Professional Document" to style picker dropdown in book builder
+   - Status: Resolved
+
+3. **Chapter Content Duplication** ✅
+   - Issue: Technical document sections showed duplicate or empty content
+   - Root Cause: All sections pointed to same file with different anchors
+   - Fix: Separate files per section with unique, meaningful content
+   - Status: Resolved
+
+### Technical
+
+- New: `src/common/book-engine.js` (~3300 lines, complete book publishing system)
+- New: `src/renderer/js/book.js` (book UI and navigation)
+- New: `src/renderer/js/book-examples.js` (template generation)
+- New: `scripts/book-cli.js` (command-line interface)
+- Enhanced: `src/renderer/js/app.js` (book menu integration, technical style dropdown, section highlighting)
+- Enhanced: `src/renderer/styles/main.css` (book UI styles, `.book-section-highlight`)
+- Enhanced: `src/renderer/index.html` (book menu with 15+ commands)
+- Files: 13 technical document template definitions in `TECHNICAL_DOCUMENT_STYLES`
+- Files: 5 HTML style presets in `BOOK_STYLE_PRESETS`
+- Files: Book UI components, search integration, preview system
+
+---
+
 ## [1.2.0] - 2025-11-14
 
 ### Added
+
+#### 📚 Complete Book Module & Publishing System
+- **Book Project Management** – Create, open, and manage multi-chapter book projects with SUMMARY.md manifest
+- **4 Book Types** – Classical Book, Wiki Documentation, Help Documentation, Technical Documents
+- **Project Scaffolding** – Automatic generation of book structure with sample chapters and configuration
+- **SUMMARY.md Manifest** – GitBook-style table of contents with nested chapters and sections
+- **book.config.json** – Centralized metadata, paths, and build options
+- **Chapter Management** – Add, edit, remove chapters with live preview
+- **Split-Pane Editor** – Dedicated book editing mode with sidebar navigation
+- **Static Site Builder** – Generate interlinked HTML with search index, landing page, and navigation
+- **HTML Style Presets** – 5 professional themes (Dark, Classic, Wiki, Helpdesk, Professional Document)
+- **PDF Export** – Puppeteer-based PDF generation with preserved formatting
+- **Live Preview Server** – Local dev server with auto-rebuild on changes
+- **Lunr.js Search** – Client-side full-text search with zero server dependencies
+- **Watch Mode** – Automatic rebuild on file changes for live development
+- **CLI Interface** – Command-line tools for init, build, and serve operations
+- **Book Menu** – Comprehensive UI with shortcuts (Ctrl+Alt+B, Ctrl+Alt+Shift+B, Ctrl+Alt+P, Ctrl+Alt+F)
+- **Example Projects** – Built-in templates for all 4 book types with sample content
+- **Files**: `src/common/book-engine.js` (~3300 lines), `src/renderer/js/book.js`, book UI components
 
 #### 🎪 Professional Presentation Mode
 - **28 Beamer-Style Themes** – Berkeley, Berlin, Copenhagen, Madrid, Warsaw, AnnArbor, Antibes, Bergen, Boadilla, CambridgeUS, Darmstadt, Dresden, Frankfurt, Goettingen, Hannover, Ilmenau, JuanLesPins, Luebeck, Malmoe, Marburg, Montpellier, PaloAlto, Pittsburgh, Rochester, Singapore, Szeged, Simple-light, Simple-dark

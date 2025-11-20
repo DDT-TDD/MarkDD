@@ -18,6 +18,8 @@ class MarkDDApp {
         this.kityMinderIntegration = null;
         this.tikzIntegration = null;
         this.latexIntegration = null;
+        this.presentationManager = null;
+        this.bookManager = null;
         
         // Tab system
         this.tabManager = null;
@@ -33,7 +35,18 @@ class MarkDDApp {
         this._openingFile = false;
         this._exportingHTML = false;
         this._exportingPDF = false;
-    this._lastNavigationPosition = null;
+        this._exportingBookHTML = false;
+        this._exportingBookPDF = false;
+        this._lastNavigationPosition = null;
+
+        this.bookStyleOptions = [
+            { value: 'dark', label: 'Midnight (Dark Mode)' },
+            { value: 'classic', label: 'Classic Print' },
+            { value: 'wiki', label: 'Knowledge Base (Wiki)' },
+            { value: 'helpdesk', label: 'Help Center (CHM)' },
+            { value: 'technical', label: 'Professional Document' }
+        ];
+        this.bookStyleSelect = null;
         
         // Prevent multiple initialization calls
         this.initialUpdateTriggered = false;
@@ -670,7 +683,6 @@ class MarkDDApp {
 
         console.log('[Menu] Initializing comprehensive menu system');
 
-        // Track pointer type for touch vs mouse handling
         let lastPointerType = 'mouse';
         const rememberPointerType = (event) => {
             if (event.pointerType) {
@@ -681,7 +693,6 @@ class MarkDDApp {
         menuBar.addEventListener('pointerdown', rememberPointerType, true);
         menuBar.addEventListener('pointermove', rememberPointerType, true);
 
-        // Get all menu items and submenus
         const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
         const submenus = Array.from(menuBar.querySelectorAll('.menu-submenu'));
         const dropdowns = Array.from(menuBar.querySelectorAll('.menu-dropdown'));
@@ -718,7 +729,6 @@ class MarkDDApp {
 
         console.log(`[Menu] Found ${menuItems.length} menu items and ${submenus.length} submenus`);
 
-        // Helper functions
         const getMenuLabel = (item) => item.querySelector('.menu-label');
 
         const resetDropdownPosition = (dropdown) => {
@@ -848,7 +858,6 @@ class MarkDDApp {
 
         const getFocusableOptions = (dropdown) => {
             if (!dropdown) return [];
-            // Get direct child buttons and submenu triggers, excluding nested dropdown buttons
             const directButtons = Array.from(dropdown.querySelectorAll(':scope > button.menu-option:not([disabled])'));
             const submenuTriggers = Array.from(dropdown.querySelectorAll(':scope > .menu-submenu > .menu-option:not([disabled])'));
             return [...directButtons, ...submenuTriggers];
@@ -881,7 +890,6 @@ class MarkDDApp {
             }
         };
 
-        // Setup main menu items
         menuItems.forEach(item => {
             const label = getMenuLabel(item);
             const dropdown = item.querySelector('.menu-dropdown');
@@ -893,14 +901,12 @@ class MarkDDApp {
             label.setAttribute('aria-expanded', 'false');
             dropdown.setAttribute('role', 'menu');
 
-            // Click handler for menu label
             label.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 toggleMenu(item);
             });
 
-            // Keyboard navigation for menu labels
             label.addEventListener('keydown', (event) => {
                 switch (event.key) {
                     case 'Enter':
@@ -928,11 +934,9 @@ class MarkDDApp {
                 }
             });
 
-            // Mouse hover for menu items
             item.addEventListener('mouseenter', () => {
                 cancelPendingClose(menuCloseTimers, item);
                 if (lastPointerType !== 'touch') {
-                    // Only auto-open if another menu is already open
                     const anyMenuOpen = menuItems.some(mi => mi.classList.contains('active'));
                     if (anyMenuOpen) {
                         openMenu(item);
@@ -956,12 +960,11 @@ class MarkDDApp {
                 }
             });
 
-            // Keyboard navigation within dropdown
             dropdown.addEventListener('keydown', (event) => {
                 const focusable = getFocusableOptions(dropdown);
                 if (!focusable.length) return;
                 const currentIndex = focusable.indexOf(document.activeElement);
-                
+
                 switch (event.key) {
                     case 'ArrowDown':
                         event.preventDefault();
@@ -998,7 +1001,6 @@ class MarkDDApp {
                         focusAdjacentMenuItem(item, -1);
                         break;
                     case 'ArrowRight':
-                        // Check if current element is a submenu trigger
                         const currentElement = document.activeElement;
                         const parentSubmenu = currentElement ? currentElement.closest('.menu-submenu') : null;
                         if (parentSubmenu) {
@@ -1012,7 +1014,6 @@ class MarkDDApp {
             });
         });
 
-        // Helper functions for submenus
         const closeSiblingSubmenus = (submenu) => {
             if (!submenu || !submenu.parentElement) return;
             const siblings = submenu.parentElement.querySelectorAll('.menu-submenu.open');
@@ -1026,11 +1027,9 @@ class MarkDDApp {
         const openSubmenu = (submenu, options = {}) => {
             if (!submenu) return;
             const { focusFirstOption = false } = options;
-            
-            // Close sibling submenus
+
             closeSiblingSubmenus(submenu);
-            
-            // Open this submenu
+
             submenu.classList.add('open');
             cancelPendingClose(submenuCloseTimers, submenu);
             adjustNestedPosition(submenu);
@@ -1038,8 +1037,7 @@ class MarkDDApp {
             if (trigger) {
                 trigger.setAttribute('aria-expanded', 'true');
             }
-            
-            // Focus first option if requested
+
             if (focusFirstOption) {
                 const nested = submenu.querySelector('.menu-dropdown-nested');
                 const focusable = getFocusableOptions(nested);
@@ -1058,31 +1056,27 @@ class MarkDDApp {
             }
         };
 
-        // Setup submenus
         submenus.forEach(submenu => {
             const trigger = submenu.querySelector(':scope > .menu-option');
             const nested = submenu.querySelector('.menu-dropdown-nested');
-            
+
             if (!trigger || !nested) {
                 console.warn('[Menu] Submenu missing trigger or nested dropdown:', submenu);
                 return;
             }
 
-            // Set ARIA attributes
             trigger.setAttribute('role', 'menuitem');
             trigger.setAttribute('tabindex', '-1');
             trigger.setAttribute('aria-haspopup', 'true');
             trigger.setAttribute('aria-expanded', 'false');
             nested.setAttribute('role', 'menu');
 
-            // Click handler for submenu trigger
             trigger.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 toggleSubmenu(submenu);
             });
 
-            // Keyboard navigation for submenu triggers
             trigger.addEventListener('keydown', (event) => {
                 switch (event.key) {
                     case 'Enter':
@@ -1113,7 +1107,6 @@ class MarkDDApp {
                 }
             });
 
-            // Mouse hover for submenu
             submenu.addEventListener('mouseenter', () => {
                 cancelPendingClose(submenuCloseTimers, submenu);
                 if (lastPointerType !== 'touch') {
@@ -1127,12 +1120,11 @@ class MarkDDApp {
                 }
             });
 
-            // Keyboard navigation within nested dropdown
             nested.addEventListener('keydown', (event) => {
                 const focusable = getFocusableOptions(nested);
                 if (!focusable.length) return;
                 const currentIndex = focusable.indexOf(document.activeElement);
-                
+
                 switch (event.key) {
                     case 'ArrowDown':
                         event.preventDefault();
@@ -1178,14 +1170,12 @@ class MarkDDApp {
             });
         });
 
-        // Close menus on outside click
         const closeOnOutsideClick = (event) => {
             if (!menuBar.contains(event.target)) {
                 closeAllMenus();
             }
         };
 
-        // Close menus on Escape key
         const closeOnEscape = (event) => {
             if (event.key === 'Escape') {
                 closeAllMenus();
@@ -1195,9 +1185,7 @@ class MarkDDApp {
         document.addEventListener('click', closeOnOutsideClick);
         document.addEventListener('keydown', closeOnEscape);
 
-        // Close menus when clicking regular menu options (not submenu triggers)
         menuBar.querySelectorAll('.menu-dropdown > button.menu-option').forEach(button => {
-            // Only add to direct children, not submenu triggers
             if (!button.parentElement.classList.contains('menu-submenu')) {
                 button.addEventListener('click', () => {
                     window.requestAnimationFrame(() => closeAllMenus());
@@ -1205,14 +1193,12 @@ class MarkDDApp {
             }
         });
 
-        // Also handle nested dropdown option clicks
         menuBar.querySelectorAll('.menu-dropdown-nested > button.menu-option').forEach(button => {
             button.addEventListener('click', () => {
                 window.requestAnimationFrame(() => closeAllMenus());
             });
         });
 
-        // Cleanup function
         this._menuCleanup = () => {
             document.removeEventListener('click', closeOnOutsideClick);
             document.removeEventListener('keydown', closeOnEscape);
@@ -1334,6 +1320,2070 @@ class MarkDDApp {
             console.log(`[DEBUG] Event listener added for button: ${id}`);
         } else {
             console.warn(`[DEBUG] Button not found: ${id}`);
+        }
+    }
+
+    isPromptOverlayActive() {
+        if (typeof document === 'undefined' || !document.body) {
+            return false;
+        }
+        return document.body.classList.contains('prompt-active');
+    }
+
+    getBookManagerInstance(createIfMissing = true) {
+        if (this.bookManager) {
+            return this.bookManager;
+        }
+        if (!createIfMissing) {
+            return null;
+        }
+        if (typeof BookManager === 'undefined') {
+            console.warn('[App] BookManager script not loaded');
+            return null;
+        }
+        this.bookManager = new BookManager({
+            createExportDocument: (content, title) => {
+                if (this.preview && typeof this.preview.createExportDocument === 'function') {
+                    return this.preview.createExportDocument(content, title);
+                }
+                return null;
+            },
+            sanitizeExport: (html) => {
+                if (this.preview && typeof this.preview.sanitizeExport === 'function') {
+                    return this.preview.sanitizeExport(html);
+                }
+                return html;
+            },
+            app: this
+        });
+        if (typeof this.bookManager.setApp === 'function') {
+            this.bookManager.setApp(this);
+        }
+        return this.bookManager;
+    }
+
+    invokeBookManager(methodName) {
+        const manager = this.getBookManagerInstance();
+        if (!manager) {
+            this.showError('Book module unavailable.');
+            return;
+        }
+        const fn = manager[methodName];
+        if (typeof fn === 'function') {
+            try {
+                const result = fn.call(manager);
+                return result;
+            } catch (error) {
+                this.showError(`Book action failed: ${error.message || error}`);
+            }
+        } else {
+            console.warn('[App] BookManager missing method:', methodName);
+        }
+    }
+
+    // ========== BOOK MODE UI METHODS ==========
+
+    setupBookModeUI() {
+        // Book Mode close button
+        this.bindButton('book-mode-close', () => this.toggleBookMode(false));
+
+        // Book Mode navigation controls
+        this.bindButton('book-nav-refresh', () => this.refreshBookStructure());
+        this.bindButton('book-nav-add-chapter', () => this.addBookChapter());
+
+        // Book Mode action buttons
+        this.bindButton('book-action-build-all', () => this.buildBookAll());
+        this.bindButton('book-action-preview', () => this.invokeBookManager('serveBook'));
+        this.bindButton('book-action-export-pdf', () => this.invokeBookManager('exportBookPdf'));
+
+        // Book editor controls
+        this.bindButton('book-editor-save', () => this.saveCurrentBookChapter());
+        this.bindButton('book-editor-preview-toggle', (event) => {
+            const target = event?.currentTarget || event?.target;
+            if (target && target.classList) {
+                target.classList.toggle('active');
+            }
+            this.toggleBookPreview();
+        });
+        this.bindButton('book-title-edit', () => this.editBookTitle());
+
+        // Book search
+        const bookSearchInput = document.getElementById('book-search-input');
+        if (bookSearchInput) {
+            let searchTimeout;
+            bookSearchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.performBookSearch(e.target.value);
+                }, 300);
+            });
+        }
+
+        // Initialize book editor with live preview
+        const bookEditor = document.getElementById('book-chapter-editor');
+        if (bookEditor) {
+            bookEditor.addEventListener('input', () => {
+                this.updateBookChapterPreview();
+            });
+        }
+
+        this.setupBookStyleControls();
+    }
+
+    setupBookStyleControls() {
+        const select = document.getElementById('book-style-select');
+        if (!select) {
+            return;
+        }
+        this.bookStyleSelect = select;
+        const placeholder = '<option value="" disabled selected>Select HTML style...</option>';
+        const optionsMarkup = this.bookStyleOptions
+            .map(option => `<option value="${option.value}">${option.label}</option>`)
+            .join('');
+        select.innerHTML = placeholder + optionsMarkup;
+        select.disabled = true;
+        select.addEventListener('change', (event) => {
+            this.handleBookStyleChange(event.target.value);
+        });
+    }
+
+    getBookStyleLabel(styleKey) {
+        const match = this.bookStyleOptions.find(option => option.value === styleKey);
+        return match ? match.label : (styleKey || 'Custom');
+    }
+
+    syncBookStyleSelectWithConfig(config) {
+        const select = this.bookStyleSelect || document.getElementById('book-style-select');
+        if (!select) {
+            return;
+        }
+        if (!config) {
+            select.value = '';
+            select.disabled = true;
+            return;
+        }
+        const targetStyle = config.bookStyle || this.resolveBookStyleForType(config.type);
+        const validStyle = this.bookStyleOptions.some(option => option.value === targetStyle) ? targetStyle : 'dark';
+        select.disabled = false;
+        select.value = validStyle;
+    }
+
+    resolveBookStyleForType(type) {
+        const normalized = (type || '').toLowerCase();
+        if (normalized === 'classical') return 'classic';
+        if (normalized === 'wiki') return 'wiki';
+        if (normalized === 'help') return 'helpdesk';
+        if (normalized === 'technical') return 'technical';
+        return 'dark';
+    }
+
+    async handleBookStyleChange(newStyle) {
+        if (!newStyle) {
+            return;
+        }
+        const manager = this.getBookManagerInstance();
+        if (!manager) {
+            this.showError('Book module unavailable.');
+            return;
+        }
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) {
+            this.showMessage('Open a book project first to change HTML style.');
+            this.syncBookStyleSelectWithConfig(this.currentBookData?.config || null);
+            return;
+        }
+        const pathModule = manager.getPathModule();
+        const fs = manager.getFsModule();
+        if (!pathModule || !fs) {
+            this.showError('File system access unavailable');
+            this.syncBookStyleSelectWithConfig(this.currentBookData?.config || null);
+            return;
+        }
+
+        const configPath = pathModule.join(rootDir, 'book.config.json');
+        try {
+            const raw = await fs.promises.readFile(configPath, 'utf-8');
+            const config = JSON.parse(raw);
+            if (config.bookStyle === newStyle) {
+                this.showMessage('HTML style already applied.');
+                return;
+            }
+            config.bookStyle = newStyle;
+            await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+            if (this.currentBookData && this.currentBookData.config) {
+                this.currentBookData.config.bookStyle = newStyle;
+            }
+            this.showMessage(`HTML style updated to ${this.getBookStyleLabel(newStyle)}.`);
+        } catch (error) {
+            console.error('[App] Failed to update book style:', error);
+            this.showError(`Failed to update book style: ${error.message || error}`);
+            this.syncBookStyleSelectWithConfig(this.currentBookData?.config || null);
+        }
+    }
+
+    toggleBookMode(enabled) {
+        const bookModePanel = document.getElementById('book-mode-panel');
+        const mainContent = document.getElementById('main-content');
+        const menuToggle = document.getElementById('menu-book-mode-enabled');
+
+        if (!bookModePanel) return;
+
+        if (enabled) {
+            // Enter Book Mode
+            bookModePanel.style.display = 'block';
+            mainContent.style.display = 'none';
+            if (menuToggle) menuToggle.checked = true;
+            
+            // Load current book project if available
+            this.loadBookProject();
+            this.showMessage('Book Mode activated');
+        } else {
+            // Exit Book Mode
+            bookModePanel.style.display = 'none';
+            mainContent.style.display = 'flex';
+            if (menuToggle) menuToggle.checked = false;
+            this.syncBookStyleSelectWithConfig(null);
+            this.showMessage('Book Mode deactivated');
+        }
+    }
+
+    async newBookProject(type = 'classical') {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const typeNames = {
+            'classical': 'Classical Book',
+            'wiki': 'Wiki Documentation',
+            'help': 'Help Documentation',
+            'technical': 'Technical Documentation'
+        };
+
+        // Collect all book details in a single dialog
+        const details = await this.showBookCreationDialog(type);
+        if (!details) return;
+        const { title, author, description, sections, chapterCount, appendixCount, showChapterNumbers, technicalStyle } = details;
+        const defaultBookStyle = this.resolveBookStyleForType(type);
+
+        // Select directory
+        const rootDir = await manager.promptForDirectory(`Select folder for ${typeNames[type]}`);
+        if (!rootDir) return;
+
+        try {
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('book-init-project', {
+                targetDir: rootDir,
+                config: {
+                    type,
+                    title,
+                    author,
+                    description: description || `A ${typeNames[type].toLowerCase()} created with MarkDD`,
+                    sections: sections && sections.length ? sections : null,
+                    minimal: true, // Flag to create minimal content, not full examples
+                    chapterCount: chapterCount || 3,
+                    appendixCount: appendixCount || 0,
+                    showChapterNumbers: showChapterNumbers !== false,
+                    bookStyle: defaultBookStyle,
+                    ...(type === 'technical' ? { technicalStyle: technicalStyle || 'report' } : {})
+                }
+            });
+
+            if (!result || !result.success) {
+                this.showError(result?.error || 'Failed to create book project');
+                return;
+            }
+
+            manager.rememberBookRoot(rootDir);
+            
+            // Success message with clear next steps
+            const message = `✓ ${typeNames[type]} created: "${title}"\n\n` +
+                `Empty book structure is ready.\n\n` +
+                `Next steps:\n` +
+                `1. Book Mode is now active\n` +
+                `2. Click chapters in Table of Contents to edit\n` +
+                `3. Replace placeholder text with your content\n` +
+                `4. Use "Build All" when ready to export`;
+            
+            alert(message);
+            
+            // Auto-enable Book Mode and load the structure
+            this.toggleBookMode(true);
+            await this.loadBookProject();
+        } catch (error) {
+            this.showError(`Failed to create book: ${error.message || error}`);
+        }
+    }
+
+    async openBookProject() {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = await manager.promptForDirectory('Select Book Project Folder');
+        if (!rootDir) return;
+
+        manager.rememberBookRoot(rootDir);
+        this.toggleBookMode(true);
+        await this.loadBookProject();
+    }
+
+    async showBookExample(type = 'classical') {
+        // Load embedded example book and create it as a temporary filesystem project
+        // so all export/build features work properly
+        if (typeof window.BookExamples === 'undefined') {
+            this.showError('Book examples not loaded. Please refresh the application.');
+            return;
+        }
+
+        const example = window.BookExamples.getExample(type);
+        if (!example) {
+            this.showError(`Example for type "${type}" not found.`);
+            return;
+        }
+
+        try {
+            const { ipcRenderer } = require('electron');
+            const manager = this.getBookManagerInstance();
+            if (!manager) return;
+
+            // Create example project in a temporary directory
+            const tempResult = await ipcRenderer.invoke('book-create-temp-example', {
+                type,
+                config: example.config,
+                chapters: example.chapters,
+                structure: example.structure
+            });
+
+            if (!tempResult || !tempResult.success) {
+                this.showError(tempResult?.error || 'Failed to create example project');
+                return;
+            }
+
+            const tempDir = tempResult.tempDir;
+            
+            // Store this as a temporary book project
+            manager.rememberBookRoot(tempDir);
+            this.currentBookData = null; // Clear to force fresh load
+            this.tempExampleDir = tempDir; // Track for potential cleanup
+
+            // Enable Book Mode and load the structure
+            this.toggleBookMode(true);
+            await this.loadBookProject();
+
+            // Update project title to indicate it's an example
+            const titleEl = document.getElementById('book-project-title');
+            if (titleEl && example.config) {
+                titleEl.textContent = `${example.config.title} (Example)`;
+            }
+
+            this.showMessage(`Loaded ${example.config.title} example - Full-featured demonstration with export capability`);
+        } catch (error) {
+            this.showError(`Failed to load example: ${error.message || error}`);
+        }
+    }
+
+    async loadBookProject() {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) {
+            this.showMessage('No book project loaded. Create or open a book project first.');
+            this.syncBookStyleSelectWithConfig(null);
+            return;
+        }
+
+        try {
+            // Load book structure via IPC
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('book-load-structure', { rootDir });
+            
+            if (!result || !result.success) {
+                this.showError(result?.error || 'Failed to load book structure');
+                return;
+            }
+
+            const bookData = {
+                ...(result.data || {}),
+                rootDir
+            };
+
+            const filesystemStructure = await this.buildStructureFromFilesystem(rootDir, bookData.config || {});
+            const summaryNodes = this.normalizeBookStructure(bookData.structure);
+            let appendedUnlisted = false;
+
+            if ((!summaryNodes.length) && filesystemStructure.length) {
+                bookData.structure = { root: filesystemStructure };
+            } else if (summaryNodes.length && filesystemStructure.length) {
+                const knownLinks = new Set();
+                this.collectBookLinks(summaryNodes, knownLinks);
+                const missingNodes = this.extractMissingFilesystemNodes(filesystemStructure, knownLinks);
+                if (missingNodes.length) {
+                    appendedUnlisted = true;
+                    const nextSequence = this.getNextSequenceValue(summaryNodes);
+                    summaryNodes.push({
+                        title: 'Unlisted Chapters',
+                        id: this.createBookNodeId('unlisted-chapters'),
+                        link: '',
+                        sequence: nextSequence,
+                        children: missingNodes
+                    });
+                    bookData.structure = { root: summaryNodes };
+                }
+            }
+
+            if (bookData.structure?.root?.length) {
+                this.sortBookNodes(bookData.structure.root);
+            }
+
+            this.currentBookData = bookData;
+            this.renderBookStructure(bookData);
+            this.syncBookStyleSelectWithConfig(bookData.config);
+            
+            // Update project title
+            const titleEl = document.getElementById('book-project-title');
+            if (titleEl && bookData.config) {
+                titleEl.textContent = bookData.config.title || 'Book Project';
+            }
+
+            if (appendedUnlisted) {
+                this.showMessage('Loaded with unlisted chapters appended. Update SUMMARY.md to reorganize them.');
+            } else {
+                this.showMessage(`Loaded: ${bookData.config?.title || 'Book Project'}`);
+            }
+        } catch (error) {
+            this.showError(`Failed to load book: ${error.message || error}`);
+            this.syncBookStyleSelectWithConfig(null);
+        }
+    }
+
+    renderBookStructure(bookData) {
+        const tocTree = document.getElementById('book-toc-tree');
+        if (!tocTree) return;
+
+        const structureNodes = this.sortBookNodes(this.normalizeBookStructure(bookData?.structure));
+
+        if (!structureNodes.length) {
+            tocTree.innerHTML = '<p class="book-toc-placeholder">No chapters found</p>';
+            return;
+        }
+
+        const formatNumbering = (segments = []) => segments.filter(Boolean).join('.');
+
+        const renderNode = (node, level = 0, segments = []) => {
+            const isChapter = node.link && !node.children?.length;
+            const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+            const displayNumber = formatNumbering(segments);
+            const shouldShowOrder = displayNumber && node.title !== 'Unlisted Chapters';
+            const classes = ['book-toc-link'];
+            if (shouldShowOrder) {
+                classes.push('has-order');
+            }
+
+            let html = '';
+            if (node.title) {
+                html += `<div class="book-toc-item" style="padding-left: ${level * 16}px;">`;
+                html += `<a href="#" class="${classes.join(' ')}" data-file="${node.link || ''}" data-id="${node.id || ''}">`;
+                html += `<span class="book-toc-order">${shouldShowOrder ? displayNumber : ''}</span>`;
+                html += `<span class="book-toc-icon">${isChapter ? '📄' : '📁'}</span>`;
+                html += `<span>${this.escapeHtml(node.title)}</span>`;
+                html += `</a>`;
+                html += `</div>`;
+            }
+
+            if (hasChildren) {
+                node.children.forEach((child, idx) => {
+                    html += renderNode(child, level + 1, [...segments, idx + 1]);
+                });
+            }
+
+            return html;
+        };
+
+        let html = '';
+        structureNodes.forEach((node, index) => {
+            html += renderNode(node, 0, [index + 1]);
+        });
+        
+        tocTree.innerHTML = html;
+
+        // Attach click handlers
+        const links = tocTree.querySelectorAll('.book-toc-link');
+        links.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const file = link.getAttribute('data-file');
+                if (file) {
+                    this.loadBookChapter(file);
+                }
+                // Update active state
+                links.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+    }
+
+    normalizeBookStructure(structure) {
+        if (!structure) {
+            return [];
+        }
+        if (Array.isArray(structure)) {
+            return structure;
+        }
+        if (Array.isArray(structure.root)) {
+            return structure.root;
+        }
+        if (Array.isArray(structure.children)) {
+            return structure.children;
+        }
+        return [];
+    }
+
+    collectBookLinks(nodes, linkSet) {
+        if (!Array.isArray(nodes) || !linkSet) {
+            return;
+        }
+        nodes.forEach((node) => {
+            if (node && node.link) {
+                linkSet.add(this.normalizeBookLink(node.link));
+            }
+            if (node && Array.isArray(node.children) && node.children.length) {
+                this.collectBookLinks(node.children, linkSet);
+            }
+        });
+    }
+
+    extractMissingFilesystemNodes(nodes, existingLinks) {
+        if (!Array.isArray(nodes) || !existingLinks) {
+            return [];
+        }
+        const missing = [];
+        nodes.forEach((node) => {
+            if (!node) {
+                return;
+            }
+            const normalizedLink = this.normalizeBookLink(node.link);
+            const childMissing = this.extractMissingFilesystemNodes(node.children || [], existingLinks);
+            const selfMissing = normalizedLink && !existingLinks.has(normalizedLink);
+            if (selfMissing) {
+                existingLinks.add(normalizedLink);
+            }
+            if (selfMissing || childMissing.length) {
+                const clone = { ...node };
+                clone.children = childMissing;
+                missing.push(clone);
+            }
+        });
+        return missing;
+    }
+
+    normalizeBookLink(link) {
+        if (!link || typeof link !== 'string') {
+            return '';
+        }
+        return link.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+    }
+
+    createBookNodeId(source) {
+        if (!source) {
+            return 'book-node';
+        }
+        return String(source)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '') || 'book-node';
+    }
+
+    formatBookNodeTitle(rawName) {
+        if (!rawName) {
+            return 'Untitled';
+        }
+        const base = rawName
+            .replace(/\\/g, '/')
+            .split('/')
+            .pop()
+            .replace(/\.md$/i, '');
+        const cleaned = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return cleaned.replace(/\b\w/g, (char) => char.toUpperCase()) || 'Untitled';
+    }
+
+    getNextSequenceValue(nodes) {
+        let max = 0;
+        const traverse = (items = []) => {
+            items.forEach((node) => {
+                if (!node) {
+                    return;
+                }
+                if (typeof node.sequence === 'number') {
+                    max = Math.max(max, node.sequence);
+                }
+                if (Array.isArray(node.children) && node.children.length) {
+                    traverse(node.children);
+                }
+            });
+        };
+        traverse(nodes || []);
+        return max + 1;
+    }
+
+    assignSequenceNumbers(nodes, start = 1) {
+        let counter = start;
+        const traverse = (items = []) => {
+            items.forEach((node) => {
+                if (!node) {
+                    return;
+                }
+                node.sequence = counter++;
+                if (Array.isArray(node.children) && node.children.length) {
+                    traverse(node.children);
+                }
+            });
+        };
+        traverse(nodes || []);
+        return counter;
+    }
+
+    sortBookNodes(nodes) {
+        if (!Array.isArray(nodes)) {
+            return [];
+        }
+        nodes.sort((a, b) => {
+            const seqA = typeof a?.sequence === 'number' ? a.sequence : Number.MAX_SAFE_INTEGER;
+            const seqB = typeof b?.sequence === 'number' ? b.sequence : Number.MAX_SAFE_INTEGER;
+            if (seqA !== seqB) {
+                return seqA - seqB;
+            }
+            const titleA = (a?.title || '').toLowerCase();
+            const titleB = (b?.title || '').toLowerCase();
+            return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        nodes.forEach((node) => {
+            if (node && Array.isArray(node.children) && node.children.length) {
+                this.sortBookNodes(node.children);
+            }
+        });
+        return nodes;
+    }
+
+    async buildStructureFromFilesystem(rootDir, config = {}) {
+        const manager = this.getBookManagerInstance(false);
+        if (!manager || !rootDir) {
+            return [];
+        }
+        const fs = manager.getFsModule();
+        const pathModule = manager.getPathModule();
+        if (!fs || !pathModule) {
+            return [];
+        }
+        const contentDirName = config.contentDir || 'chapters';
+        const contentDir = pathModule.join(rootDir, contentDirName);
+        if (!fs.existsSync(contentDir)) {
+            return [];
+        }
+
+        const normalizeRelative = (targetPath) => {
+            const relativePath = pathModule.relative(rootDir, targetPath) || '';
+            return relativePath.split(pathModule.sep).join('/');
+        };
+
+        const isMarkdown = (name) => /\.md$/i.test(name);
+        const primaryCandidates = ['readme.md', 'index.md'];
+
+        const walk = async (absDir, relativeDir = '', skipNames = new Set()) => {
+            let entries;
+            try {
+                entries = await fs.promises.readdir(absDir, { withFileTypes: true });
+            } catch (error) {
+                console.warn('[App] Failed to scan directory:', absDir, error.message || error);
+                return [];
+            }
+            const lowerSkip = new Set(Array.from(skipNames).map((name) => name.toLowerCase()));
+            entries = entries.filter((entry) => !lowerSkip.has(entry.name.toLowerCase()));
+            entries.sort((a, b) => {
+                if (a.isDirectory() && !b.isDirectory()) return -1;
+                if (!a.isDirectory() && b.isDirectory()) return 1;
+                return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            const nodes = [];
+
+            for (const entry of entries) {
+                if (!entry.isDirectory()) {
+                    continue;
+                }
+                const subPath = pathModule.join(absDir, entry.name);
+                const subRelative = relativeDir ? pathModule.join(relativeDir, entry.name) : entry.name;
+                let primaryFileName = null;
+                try {
+                    const childEntries = await fs.promises.readdir(subPath, { withFileTypes: true });
+                    for (const candidate of primaryCandidates) {
+                        const match = childEntries.find((child) => child.isFile() && child.name.toLowerCase() === candidate);
+                        if (match) {
+                            primaryFileName = match.name;
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    primaryFileName = null;
+                }
+                const nextSkip = new Set();
+                if (primaryFileName) {
+                    nextSkip.add(primaryFileName.toLowerCase());
+                }
+                const children = await walk(subPath, subRelative, nextSkip);
+                nodes.push({
+                    title: this.formatBookNodeTitle(entry.name),
+                    id: this.createBookNodeId(subRelative),
+                    link: primaryFileName ? normalizeRelative(pathModule.join(subPath, primaryFileName)) : '',
+                    children
+                });
+            }
+
+            for (const entry of entries) {
+                if (entry.isDirectory() || !isMarkdown(entry.name)) {
+                    continue;
+                }
+                const relativeFile = relativeDir ? pathModule.join(relativeDir, entry.name) : entry.name;
+                const normalized = normalizeRelative(pathModule.join(absDir, entry.name));
+                nodes.push({
+                    title: this.formatBookNodeTitle(entry.name),
+                    id: this.createBookNodeId(relativeFile),
+                    link: normalized,
+                    children: []
+                });
+            }
+
+            return nodes;
+        };
+
+        const relativeRoot = pathModule.relative(rootDir, contentDir) || contentDirName;
+        const nodes = await walk(contentDir, relativeRoot, new Set());
+        this.assignSequenceNumbers(nodes, 1);
+        return nodes;
+    }
+
+    async loadBookChapter(relativePath) {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) {
+            this.showError('No book project loaded');
+            return;
+        }
+
+        try {
+            const pathModule = manager.getPathModule();
+            const fs = manager.getFsModule();
+            if (!pathModule || !fs) return;
+
+            const hashIndex = typeof relativePath === 'string' ? relativePath.indexOf('#') : -1;
+            const cleanRelativePath = hashIndex >= 0 ? relativePath.slice(0, hashIndex) : relativePath;
+            const anchorFragment = hashIndex >= 0 ? relativePath.slice(hashIndex) : '';
+
+            const fullPath = pathModule.join(rootDir, cleanRelativePath);
+            const content = await fs.promises.readFile(fullPath, 'utf-8');
+
+            // Update editor
+            const editor = document.getElementById('book-chapter-editor');
+            const currentChapter = document.getElementById('book-current-chapter');
+            
+            if (editor) {
+                editor.value = content;
+                editor.dataset.currentFile = fullPath;
+                editor.dataset.anchorFragment = anchorFragment; // Store for preview scrolling
+                editor.readOnly = false; // Always editable now (examples are real temp projects)
+                editor.style.opacity = '1';
+                editor.style.cursor = 'text';
+            }
+            
+            if (currentChapter) {
+                currentChapter.textContent = anchorFragment ? `${cleanRelativePath}${anchorFragment}` : cleanRelativePath;
+            }
+
+            // Update preview
+            this.updateBookChapterPreview();
+        } catch (error) {
+            this.showError(`Failed to load chapter: ${error.message || error}`);
+        }
+    }
+
+    async updateBookChapterPreview() {
+        const editor = document.getElementById('book-chapter-editor');
+        const preview = document.getElementById('book-chapter-preview');
+        
+        if (!editor || !preview) return;
+
+        const content = editor.value;
+        if (!content || !content.trim()) {
+            preview.innerHTML = '<div class="book-preview-placeholder"><p>No content to preview</p></div>';
+            return;
+        }
+
+        try {
+            // Use the main renderer for consistency
+            if (this.renderer) {
+                const html = await this.renderer.render(content);
+                preview.innerHTML = html;
+                
+                // Handle anchor scrolling for technical documents
+                const anchorFragment = editor.dataset.anchorFragment;
+                if (anchorFragment && anchorFragment.startsWith('#')) {
+                    const targetId = anchorFragment.substring(1);
+                    const targetElement = preview.querySelector(`#${targetId}`);
+                    
+                    if (targetElement) {
+                        // Remove any previous highlights
+                        preview.querySelectorAll('.book-section-highlight').forEach(el => {
+                            el.classList.remove('book-section-highlight');
+                        });
+                        
+                        // Scroll to section
+                        setTimeout(() => {
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            // Highlight the section
+                            targetElement.classList.add('book-section-highlight');
+                        }, 100);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[App] Book preview render failed:', error);
+            preview.innerHTML = `<div class="book-preview-placeholder"><p>Preview error: ${error.message}</p></div>`;
+        }
+    }
+
+    async saveCurrentBookChapter() {
+        const editor = document.getElementById('book-chapter-editor');
+        if (!editor || !editor.dataset.currentFile) {
+            this.showMessage('No chapter loaded');
+            return;
+        }
+
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const fs = manager.getFsModule();
+        if (!fs) return;
+
+        try {
+            await fs.promises.writeFile(editor.dataset.currentFile, editor.value, 'utf-8');
+            this.showMessage('Chapter saved');
+        } catch (error) {
+            this.showError(`Save failed: ${error.message || error}`);
+        }
+    }
+
+    async addBookChapter() {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) {
+            this.showMessage('Open a book project first');
+            return;
+        }
+
+        // Ask for chapter title (user-friendly)
+        const chapterTitle = await this.showPrompt('Enter chapter title:', 'New Chapter');
+        if (!chapterTitle || !chapterTitle.trim()) return;
+
+        const pathModule = manager.getPathModule();
+        const fs = manager.getFsModule();
+        if (!pathModule || !fs) return;
+
+        try {
+            // Auto-generate safe filename from title
+            const safeFileName = this.generateChapterFileName(chapterTitle.trim());
+            const chapterPath = pathModule.join(rootDir, 'chapters', safeFileName);
+            
+            // Check if file already exists
+            try {
+                await fs.promises.access(chapterPath);
+                this.showError(`Chapter file already exists: ${safeFileName}`);
+                return;
+            } catch (accessError) {
+                // File doesn't exist, good to proceed
+            }
+            
+            const template = `# ${chapterTitle.trim()}\n\nChapter content goes here.\n`;
+            
+            await fs.promises.writeFile(chapterPath, template, 'utf-8');
+            this.showMessage(`Chapter created: "${chapterTitle.trim()}"`);
+            
+            // Reload structure
+            await this.refreshBookStructure();
+        } catch (error) {
+            console.error('[App] Failed to create chapter:', error);
+            this.showError(`Failed to create chapter: ${error.message || error}`);
+        }
+    }
+
+    generateChapterFileName(title) {
+        // Convert title to safe filename following book naming convention
+        // Example: "My Great Chapter" -> "my-great-chapter.md"
+        let safe = title
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+            .replace(/\s+/g, '-')          // Replace spaces with hyphens
+            .replace(/-+/g, '-')           // Remove duplicate hyphens
+            .replace(/^-|-$/g, '');        // Remove leading/trailing hyphens
+        
+        // Ensure filename isn't empty
+        if (!safe) {
+            safe = 'chapter';
+        }
+        
+        // Add .md extension
+        return `${safe}.md`;
+    }
+
+    async refreshBookStructure() {
+        await this.loadBookProject();
+    }
+
+    async editBookTitle() {
+        const manager = this.getBookManagerInstance();
+        if (!manager) {
+            return;
+        }
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) {
+            this.showMessage('Open a book project first');
+            return;
+        }
+
+        const pathModule = manager.getPathModule();
+        const fs = manager.getFsModule();
+        if (!pathModule || !fs) {
+            this.showError('File system access unavailable');
+            return;
+        }
+
+        const configPath = pathModule.join(rootDir, 'book.config.json');
+        let config;
+        try {
+            const raw = await fs.promises.readFile(configPath, 'utf-8');
+            config = JSON.parse(raw);
+        } catch (error) {
+            this.showError(`Failed to read book.config.json: ${error.message || error}`);
+            return;
+        }
+
+        const currentTitle = config.title || 'Book Project';
+        const newTitle = await this.showPrompt('Update book title:', currentTitle);
+        if (newTitle === null || typeof newTitle === 'undefined') {
+            return;
+        }
+
+        const trimmed = newTitle.trim();
+        if (!trimmed) {
+            this.showError('Book title cannot be empty');
+            return;
+        }
+        if (trimmed === currentTitle) {
+            this.showMessage('Book title unchanged');
+            return;
+        }
+
+        config.title = trimmed;
+
+        try {
+            await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+            
+            // Update cached data safely
+            if (this.currentBookData && this.currentBookData.config) {
+                this.currentBookData.config.title = trimmed;
+            }
+            
+            // Update UI elements safely
+            try {
+                const titleEl = document.getElementById('book-project-title');
+                if (titleEl) {
+                    titleEl.textContent = trimmed;
+                }
+            } catch (uiError) {
+                console.warn('[App] UI update failed:', uiError);
+            }
+            
+            this.showMessage('Book title updated successfully');
+        } catch (error) {
+            console.error('[App] Failed to update book title:', error);
+            this.showError(`Failed to update title: ${error.message || error}`);
+        }
+    }
+
+    async buildBookAll() {
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) return;
+
+        try {
+            this.showMessage('Building HTML + PDF...');
+            
+            const { ipcRenderer } = require('electron');
+            
+            // Build HTML
+            const htmlResult = await ipcRenderer.invoke('book-build', { rootDir });
+            if (!htmlResult || !htmlResult.success) {
+                throw new Error(htmlResult?.error || 'HTML build failed');
+            }
+
+            // Build PDF
+            const pdfResult = await ipcRenderer.invoke('book-export-pdf', {
+                rootDir,
+                outputPath: require('path').join(htmlResult.outputDir, '../book.pdf')
+            });
+            if (!pdfResult || !pdfResult.success) {
+                throw new Error(pdfResult?.error || 'PDF export failed');
+            }
+
+            this.showMessage('HTML & PDF built successfully!');
+        } catch (error) {
+            this.showError(`Build failed: ${error.message || error}`);
+        }
+    }
+
+    toggleBookPreview() {
+        const previewSection = document.querySelector('.book-preview-section');
+        if (previewSection) {
+            const isHidden = previewSection.style.display === 'none';
+            previewSection.style.display = isHidden ? 'flex' : 'none';
+            
+            // Adjust editor width
+            const editorSection = document.querySelector('.book-editor-section');
+            if (editorSection) {
+                editorSection.style.gridColumn = isHidden ? '1 / 2' : '1 / -1';
+            }
+        }
+    }
+
+    activateBookLivePreview(previewUrl) {
+        const previewSection = document.querySelector('.book-preview-section');
+        if (previewSection) {
+            previewSection.style.display = 'flex';
+        }
+
+        const editorSection = document.querySelector('.book-editor-section');
+        if (editorSection) {
+            editorSection.style.gridColumn = '1 / 2';
+        }
+
+        const previewContainer = document.getElementById('book-chapter-preview');
+        if (!previewContainer) {
+            return;
+        }
+
+        previewContainer.innerHTML = '';
+
+        const infoBanner = document.createElement('div');
+        infoBanner.className = 'book-preview-serve-banner';
+
+        const infoStack = document.createElement('div');
+        infoStack.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px;';
+
+        const title = document.createElement('span');
+        title.textContent = 'Live preview server is running';
+        title.style.cssText = 'font-weight:600;color:#fff;';
+
+        const urlRow = document.createElement('span');
+        urlRow.className = 'book-preview-url';
+        urlRow.textContent = previewUrl || 'Starting server...';
+
+        infoStack.appendChild(title);
+        infoStack.appendChild(urlRow);
+
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'book-preview-open-btn';
+        openBtn.textContent = 'Open in Browser';
+        openBtn.addEventListener('click', () => {
+            if (!previewUrl) {
+                return;
+            }
+            try {
+                const { shell } = require('electron');
+                if (shell?.openExternal) {
+                    shell.openExternal(previewUrl);
+                    return;
+                }
+            } catch (error) {
+                console.warn('[App] Unable to use shell for preview:', error.message || error);
+            }
+            window.open(previewUrl, '_blank', 'noopener');
+        });
+
+        infoBanner.appendChild(infoStack);
+        infoBanner.appendChild(openBtn);
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'book-live-preview-frame';
+        iframe.className = 'book-live-preview-frame';
+        iframe.title = 'Book Live Preview';
+        if (previewUrl) {
+            iframe.src = previewUrl;
+        }
+
+        previewContainer.appendChild(infoBanner);
+        previewContainer.appendChild(iframe);
+    }
+
+    async performBookSearch(query) {
+        const resultsContainer = document.getElementById('book-search-results');
+        if (!resultsContainer) return;
+
+        if (!query || query.trim().length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        resultsContainer.style.display = 'block';
+
+        const manager = this.getBookManagerInstance();
+        if (!manager) return;
+
+        const rootDir = manager.getStoredBookRoot();
+        if (!rootDir) return;
+
+        try {
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('book-search', { rootDir, query });
+
+            if (!result || !result.success || !result.results || !result.results.length) {
+                resultsContainer.innerHTML = '<p class="book-search-placeholder">No results found</p>';
+                return;
+            }
+
+            let html = '';
+            for (const item of result.results) {
+                html += `<div class="book-search-result-item" data-file="${item.file}">`;
+                html += `<div class="book-search-result-title">${this.escapeHtml(item.title || item.file)}</div>`;
+                html += `<div class="book-search-result-snippet">${this.highlightSearchTerm(item.snippet, query)}</div>`;
+                html += `</div>`;
+            }
+
+            resultsContainer.innerHTML = html;
+
+            // Attach click handlers
+            const items = resultsContainer.querySelectorAll('.book-search-result-item');
+            items.forEach(item => {
+                item.addEventListener('click', () => {
+                    const file = item.getAttribute('data-file');
+                    if (file) this.loadBookChapter(file);
+                });
+            });
+        } catch (error) {
+            console.error('[App] Book search failed:', error);
+            resultsContainer.innerHTML = '<p class="book-search-placeholder">Search error</p>';
+        }
+    }
+
+    showBookSearch() {
+        this.toggleBookMode(true);
+        const searchInput = document.getElementById('book-search-input');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+
+    highlightSearchTerm(text, term) {
+        if (!text || !term) return this.escapeHtml(text || '');
+        const escaped = this.escapeHtml(text);
+        const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+        return escaped.replace(regex, '<span class="book-search-highlight">$1</span>');
+    }
+
+    escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        const str = String(value);
+        if (!/[&<>"']/.test(str)) {
+            return str;
+        }
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        };
+        return str.replace(/[&<>"']/g, (char) => map[char] || char);
+    }
+
+    // ========== HELP CONTENT METHODS ==========
+
+    openHelpMarkDD() {
+        const helpContent = `# MarkDD Editor Guide
+
+Welcome to MarkDD - a fully-featured Markdown editor with advanced rendering capabilities.
+
+## Quick Start
+
+### Creating Documents
+
+1. **New File**: Press \`Ctrl+N\` or click the New button
+2. **Open File**: Press \`Ctrl+O\` to open existing markdown files
+3. **Save**: Press \`Ctrl+S\` to save your work
+
+### Editing Features
+
+#### Basic Formatting
+
+- **Bold**: \`**text**\` or press \`Ctrl+B\`
+- **Italic**: \`*text*\` or press \`Ctrl+I\`
+- **Highlight**: \`==text==\` or press \`Ctrl+U\`
+- **Strikethrough**: \`~~text~~\` or press \`Ctrl+Alt+S\`
+- **Code**: \`\\\`code\\\`\` 
+
+#### Headings
+
+\`\`\`markdown
+# Heading 1
+## Heading 2
+### Heading 3
+\`\`\`
+
+#### Lists
+
+**Unordered:**
+\`\`\`markdown
+- Item 1
+- Item 2
+  - Nested item
+\`\`\`
+
+**Ordered:**
+\`\`\`markdown
+1. First item
+2. Second item
+   1. Nested item
+\`\`\`
+
+**Task Lists:**
+\`\`\`markdown
+- [x] Completed task
+- [ ] Pending task
+\`\`\`
+
+### Advanced Features
+
+#### Mathematical Expressions
+
+Inline math: \`$E = mc^2$\`
+
+Display math:
+\`\`\`
+$$
+\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
+$$
+\`\`\`
+
+#### Diagrams with Mermaid
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action 1]
+    B -->|No| D[Action 2]
+    C --> E[End]
+    D --> E
+\`\`\`
+
+#### Code Blocks with Syntax Highlighting
+
+\`\`\`javascript
+function example() {
+    console.log("Hello, MarkDD!");
+    return true;
+}
+\`\`\`
+
+#### Tables
+
+\`\`\`markdown
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+\`\`\`
+
+### Section and Figure Numbering
+
+Enable automatic numbering from the **Markdown** menu:
+
+- **Number Headings**: Automatically numbers all headings
+- **Number Figures & Tables**: Adds sequential numbering to images and tables
+
+You can customize the starting number for each.
+
+### Toolbar Features
+
+- **Toggle View**: Switch between editor-only, preview-only, or split view
+- **Live Preview**: Enable/disable automatic preview updates
+- **Manual Refresh**: Force preview refresh
+- **Scroll Sync**: Synchronize editor and preview scrolling
+
+### Export Options
+
+#### Export as HTML
+
+1. Click **Export as HTML** button or use menu
+2. Choose destination
+3. Standalone HTML file with embedded styles is created
+
+#### Export as PDF
+
+1. Click **Export as PDF** button
+2. High-quality PDF with proper formatting
+3. Includes all diagrams, math, and syntax highlighting
+
+### Keyboard Shortcuts
+
+#### File Operations
+- **New File**: \`Ctrl+N\`
+- **Open**: \`Ctrl+O\`
+- **Save**: \`Ctrl+S\`
+- **Save As**: \`Ctrl+Shift+S\`
+- **Exit**: \`Ctrl+Q\`
+
+#### Editing
+- **Bold**: \`Ctrl+B\`
+- **Italic**: \`Ctrl+I\`
+- **Highlight**: \`Ctrl+U\`
+- **Find**: \`Ctrl+F\`
+- **Replace**: \`Ctrl+H\`
+- **Undo**: \`Ctrl+Z\`
+- **Redo**: \`Ctrl+Y\`
+
+#### View
+- **Toggle Sidebar**: \`Ctrl+\\\`
+- **Toggle Preview**: \`Ctrl+Shift+P\`
+- **Fullscreen**: \`F11\`
+- **Zoom In**: \`Ctrl++\`
+- **Zoom Out**: \`Ctrl+-\`
+- **Reset Zoom**: \`Ctrl+0\`
+
+### Settings & Customization
+
+Access settings via **Tools → Settings** or \`Ctrl+,\`
+
+- **Theme**: Choose light, dark, or color themes
+- **Font Size**: Adjust editor font size
+- **Autosave**: Enable automatic saving
+- **Spellcheck**: Toggle spell checking
+- **Word Wrap**: Enable/disable word wrapping
+
+### Tips & Tricks
+
+1. **Live Preview**: Keep it enabled for real-time feedback
+2. **Keyboard Shortcuts**: Learn them for faster editing
+3. **Table of Contents**: Automatically generated from headings
+4. **Drag & Drop**: Drop markdown or image files directly into editor
+5. **Multiple Tabs**: Work on several documents simultaneously
+
+## Need More Help?
+
+- **Feature Showcase**: See \`Help → MarkDD Feature Showcase\` for comprehensive examples
+- **Presentation Mode**: See \`Help → Presentation Mode Guide\`
+- **Book Mode**: See \`Help → Book Mode Guide\`
+`;
+
+        this.openHelpDocument('MarkDD Editor Guide', helpContent);
+    }
+
+    openHelpPresentation() {
+        const helpContent = `# Presentation Mode Guide
+
+Create beautiful slide presentations using Markdown.
+
+## Getting Started
+
+### Create New Presentation
+
+1. Click **Presentation → New Presentation** or press \`Ctrl+Shift+N\`
+2. A template is created with sample slides
+3. Edit content using Markdown
+
+### Slide Structure
+
+Slides are separated by \`---\` (horizontal rule):
+
+\`\`\`markdown
+---
+theme: berkeley
+title: My Presentation
+author: Your Name
+---
+
+# Welcome Slide
+
+First slide content
+
+---
+
+## Second Slide
+
+- Point 1
+- Point 2
+
+---
+
+# Thank You
+\`\`\`
+
+## Front Matter Configuration
+
+Add configuration at the start:
+
+\`\`\`yaml
+---
+theme: berlin
+title: My Presentation  
+author: John Doe
+date: 2025-11-15
+---
+\`\`\`
+
+### Available Themes
+
+**Classic Beamer:**
+- Berkeley, Berlin, Copenhagen, Darmstadt
+- Warsaw, Madrid, AnnArbor, CambridgeUS
+- Pittsburgh, Rochester, Boadilla
+- Antibes, JuanLesPins, Montpellier
+- Malmoe, Singapore, Szeged
+- Hannover, Marburg, Goettingen
+
+**Modern Themes:**
+- Simple Light, Simple Dark
+- Minimal Gray, Corporate Blue
+- Aurora Forge, DDT Signature
+- Strata Pulse
+
+## Features
+
+### Navigation Panel
+
+Enable from **Presentation** menu:
+
+- **Position**: Left sidebar or Top bar
+- **Features**: Slide thumbnails, quick navigation
+- **Delay**: Configure hover delay
+
+### Table of Contents
+
+Automatically generated from headings:
+
+1. Enable: **Presentation → Enable Table of Contents**
+2. Appears in navigation panel
+3. Click to jump to slides
+
+### Page Numbers
+
+Toggle from menu to show/hide slide numbers.
+
+### Headers & Footers
+
+- **Set Header**: Custom header text
+- **Set Footer**: Custom footer text
+
+### Slide Transitions
+
+Choose animation:
+- None (instant)
+- Fade
+- Slide
+- Zoom
+
+### Custom Colors
+
+Customize presentation colors:
+
+1. **Presentation → Customize Colors**
+2. Set primary, secondary, background colors
+3. Use preset color schemes
+
+### Save Custom Themes
+
+Create reusable themes:
+
+1. Configure colors and settings
+2. **Presentation → Save Current Theme**
+3. Name your theme
+4. Appears in theme menu
+
+## Slide Content
+
+### All Markdown Features
+
+Slides support:
+- **Math**: \`$E=mc^2$\` and display math
+- **Diagrams**: Mermaid, PlantUML
+- **Code**: Syntax-highlighted code blocks
+- **Images**: \`![alt](image.png)\`
+- **Tables**: Full table support
+
+### Speaker Notes
+
+Add notes that don't appear in slides:
+
+\`\`\`markdown
+## Slide Title
+
+Visible content
+
+<!-- Speaker notes: These won't show in the presentation -->
+\`\`\`
+
+## Preview & Export
+
+### Preview Slides
+
+1. **Presentation → Preview Slides** or \`Ctrl+Shift+V\`
+2. Opens in new window
+3. Use arrow keys to navigate
+4. Press \`Esc\` to exit fullscreen
+
+### Export
+
+**As HTML:**
+- Standalone file
+- Works offline
+- Share easily
+
+**As PDF:**
+- Professional output
+- Print-ready
+- One slide per page
+
+## Keyboard Shortcuts
+
+**Editing:**
+- New Presentation: \`Ctrl+Shift+N\`
+- Preview: \`Ctrl+Shift+V\`
+
+**During Presentation:**
+- Next: →, Space, Page Down
+- Previous: ←, Page Up
+- First: Home
+- Last: End
+- Exit Fullscreen: Esc
+
+## Tips
+
+1. **Keep slides simple**: One main idea per slide
+2. **Use visuals**: Diagrams and images enhance understanding
+3. **Limit text**: Bullet points over paragraphs
+4. **Test theme**: Preview before presenting
+5. **Practice navigation**: Know your keyboard shortcuts
+
+## Examples
+
+See **Help → Presentation Examples** for sample presentations.
+`;
+
+        this.openHelpDocument('Presentation Mode Guide', helpContent);
+    }
+
+    openHelpPresentationShowcase() {
+        const showcaseContent = `---
+theme: ddt-signature
+title: Presentation Features Showcase
+author: MarkDD Team
+date: ${new Date().toISOString().split('T')[0]}
+---
+
+# Presentation Features
+
+A comprehensive showcase of MarkDD presentation capabilities
+
+---
+
+## Text Formatting
+
+- **Bold text** for emphasis
+- *Italic text* for subtle emphasis
+- ***Bold and italic*** for strong emphasis
+- ~~Strikethrough~~ for corrections
+- ==Highlighted== text
+- \`Inline code\` for technical terms
+
+---
+
+## Lists and Structure
+
+### Unordered Lists
+
+- Main point 1
+- Main point 2
+  - Nested point
+  - Another nested point
+- Main point 3
+
+### Ordered Lists
+
+1. First step
+2. Second step
+3. Third step
+
+---
+
+## Mathematical Expressions
+
+### Inline Math
+
+The equation $E = mc^2$ changed physics forever.
+
+### Display Math
+
+$$
+\\int_0^{2\\pi} \\sin(x) dx = 0
+$$
+
+$$
+\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}
+$$
+
+---
+
+## Code Blocks
+
+### JavaScript
+
+\`\`\`javascript
+function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+console.log(fibonacci(10)); // 55
+\`\`\`
+
+---
+
+## Diagrams with Mermaid
+
+### Flowchart
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug]
+    D --> B
+    C --> E[Deploy]
+\`\`\`
+
+---
+
+## Sequence Diagrams
+
+\`\`\`mermaid
+sequenceDiagram
+    Client->>Server: Request
+    Server->>Database: Query
+    Database-->>Server: Data
+    Server-->>Client: Response
+\`\`\`
+
+---
+
+## Tables
+
+| Feature | Status | Priority |
+|---------|--------|----------|
+| Math    | ✓      | High     |
+| Diagrams| ✓      | High     |
+| Themes  | ✓      | Medium   |
+| Export  | ✓      | High     |
+
+---
+
+## Images
+
+![Sample Image](https://picsum.photos/200/300)
+
+*Caption: Images scale automatically*
+
+---
+
+## Blockquotes
+
+> "The best way to predict the future is to invent it."
+> 
+> — Alan Kay
+
+---
+
+## Multi-Column Layouts
+
+<div class="columns" style="display: flex; gap: 20px;">
+<div class="column" style="flex: 1;">
+
+### Left Column
+
+- Point 1
+- Point 2
+- Point 3
+
+</div>
+<div class="column" style="flex: 1;">
+
+### Right Column
+
+- Point A
+- Point B
+- Point C
+
+</div>
+</div>
+
+---
+
+# Thank You!
+
+## Questions?
+
+Explore more features in MarkDD Editor
+
+<!-- Speaker notes: Remember to demonstrate live preview and export options -->
+`;
+
+        this.openHelpDocument('Presentation Showcase', showcaseContent);
+    }
+
+    openHelpBook() {
+        const helpContent = `# Book Mode Guide
+
+Create professional books, wikis, help documentation, and technical docs.
+
+## Overview
+
+Book Mode provides a complete authoring environment for long-form documentation with:
+
+- Hierarchical chapter organization
+- Live preview with all MarkDD features
+- Full-text search
+- Multiple export formats (HTML & PDF)
+- Template-based project creation
+
+## Book Types
+
+### Classical Book
+
+📚 Traditional sequential reading structure:
+- Preface and introduction
+- Numbered chapters organized in parts
+- Appendices and references
+- Linear reading flow
+
+**Best for**: Novels, textbooks, manuals
+
+### Wiki Documentation
+
+🌐 Interconnected knowledge base:
+- Home page and navigation
+- Cross-referenced pages
+- Topic-based organization
+- Search-driven discovery
+
+**Best for**: Project wikis, knowledge bases, team docs
+
+### Help Documentation
+
+❓ Task-oriented user assistance:
+- Getting started guides
+- How-to articles
+- Troubleshooting sections
+- Quick reference
+
+**Best for**: User manuals, support docs, tutorials
+
+### Technical Documentation
+
+⚙️ API and developer documentation:
+- Architecture overviews
+- API references
+- Development guides
+- Deployment instructions
+
+**Best for**: API docs, SDKs, developer guides
+
+## Getting Started
+
+### Create New Book Project
+
+1. **Book → New Book Project** → Choose type
+2. Select folder location
+3. Enter book title
+4. Template structure is generated automatically
+
+### Project Structure
+
+\`\`\`
+my-book/
+├── book.config.json    # Configuration
+├── SUMMARY.md          # Table of contents
+└── chapters/           # Content files
+    ├── intro.md
+    ├── chapter-01.md
+    └── ...
+\`\`\`
+
+### Configuration File
+
+\`book.config.json\`:
+
+\`\`\`json
+{
+  "type": "classical",
+  "title": "My Book",
+  "author": "Author Name",
+  "description": "Book description",
+  "language": "en",
+  "outputDir": "book-dist"
+}
+\`\`\`
+
+### Table of Contents
+
+\`SUMMARY.md\` defines structure:
+
+\`\`\`markdown
+# My Book
+
+- [Introduction](chapters/intro.md)
+
+## Part I: Basics
+- [Chapter 1](chapters/chapter-01.md)
+- [Chapter 2](chapters/chapter-02.md)
+
+## Part II: Advanced
+- [Chapter 3](chapters/chapter-03.md)
+\`\`\`
+
+## Using Book Mode
+
+### Enable Book Mode
+
+**Book → Enable Book Mode** or check the menu option
+
+### Interface
+
+**Left Sidebar:**
+- Project title and controls
+- Hierarchical ToC tree
+- Search input
+- Quick action buttons
+
+**Right Panel:**
+- Chapter editor (top/left)
+- Live preview (bottom/right)
+
+### Editing Chapters
+
+1. Click chapter in ToC tree
+2. Edit markdown in editor
+3. See live preview
+4. Save with \`💾 Save\` button
+
+### Adding Chapters
+
+1. Click **➕ Add Chapter** button
+2. Enter chapter filename
+3. New file is created
+4. Update SUMMARY.md to include it
+
+### Renaming Your Book
+
+- Click the ✏️ button beside the book title in Book Mode
+- Enter the new title (it updates \`book.config.json\`)
+- The sidebar, builders, and exports use the updated title immediately
+
+### Searching
+
+Type in search box to find content across all chapters:
+- Results show matching chapters
+- Click result to jump to chapter
+- Highlights search terms
+
+## Features
+
+### All MarkDD Rendering
+
+Books support complete MarkDD feature set:
+
+- **Math**: KaTeX and MathJax
+- **Diagrams**: Mermaid, PlantUML, TikZ
+- **Code**: Syntax highlighting with highlight.js
+- **Tables**: Full GFM table support
+- **Task Lists**: Interactive checkboxes
+
+### Diagram Rendering Recipes
+
+#### Mermaid
+
+Use fenced code blocks with the \`mermaid\` language tag:
+
+\`\`\`mermaid
+graph TD
+    Start --> Decision{Ready?}
+    Decision -->|Yes| Ship[Ship Release]
+    Decision -->|No| Iterate[Polish Again]
+\`\`\`
+
+#### PlantUML
+
+Wrap PlantUML syntax with \`plantuml\` fences—MarkDD encodes and renders it automatically:
+
+\`\`\`plantuml
+@startuml
+actor User
+User -> System: Request export
+System --> User: Deliver PDF
+@enduml
+\`\`\`
+
+#### KityMinder Mind Maps
+
+Add mind maps with the \`mindmap\` fence or paste JSON exported from KityMinder:
+
+\`\`\`mindmap
+- Launch Plan
+    - Scope
+        - Book Mode polish
+        - Diagram docs
+    - Release
+        - HTML
+        - PDF
+\`\`\`
+
+You can also paste a \`![mindmap](:/<id>)\` reference followed by the embedded JSON comment to preserve editor-created diagrams.
+
+### Navigation
+
+- Click ToC items to navigate
+- Nested structure with expand/collapse
+- Visual indicators (📁 folders, 📄 files)
+- Active chapter highlighting
+
+### Build & Export
+
+#### Build HTML + PDF
+
+**🚀 Build All** button or **Book → Build All Formats**:
+- Generates static HTML site
+- Creates PDF
+
+All in one operation!
+
+#### Individual Exports
+
+- **Build HTML Only**: Static website
+- **Export as PDF**: Single PDF file
+
+### Local Preview
+
+**👁️ Preview** button or **Book → Preview Book Locally**:
+
+- Starts local HTTP server
+- Opens in browser
+- Test navigation and search
+- Enable watch mode for auto-rebuild
+
+### Auto-Rebuild
+
+Enable **Auto-rebuild on Changes**:
+- Watches source files
+- Rebuilds on save
+- Refresh browser to see changes
+
+## CLI Access
+
+Expert users can use CLI:
+
+\`\`\`bash
+# Initialize project
+npm run book -- init ./my-book --title "My Book"
+
+# Build HTML + PDF
+npm run book -- build ./my-book
+
+# Serve locally
+npm run book -- serve ./my-book --watch --port 4500
+\`\`\`
+
+## Tips
+
+1. **Choose right type**: Select template matching your content structure
+2. **Organize SUMMARY.md**: Logical structure improves navigation
+3. **Use sections**: Group related chapters
+4. **Add cross-references**: Link between chapters
+5. **Test exports early**: Verify formatting in target formats
+6. **Use search**: Find and update content across all chapters
+7. **Enable watch**: Auto-rebuild during development
+
+## Examples
+
+Try template examples:
+
+- **Help → Book Templates → Classical Book Example**
+- **Help → Book Templates → Wiki Example**
+- **Help → Book Templates → Help Documentation Example**
+- **Help → Book Templates → Technical Docs Example**
+
+Each opens a fully populated project demonstrating best practices.
+
+## Troubleshooting
+
+**Q: Book Mode doesn't open?**
+A: Ensure you've created or opened a book project first.
+
+**Q: Changes not appearing?**
+A: Click refresh button or save the chapter.
+
+**Q: Export fails?**
+A: Check file permissions and ensure output folder is writable.
+
+**Q: Search returns no results?**
+A: Verify files exist and contain matching text.
+`;
+
+        this.openHelpDocument('Book Mode Guide', helpContent);
+    }
+
+    async openBookExample(type) {
+        const typeNames = {
+            'classical': 'Classical Book',
+            'wiki': 'Wiki Documentation',
+            'help': 'Help Documentation',
+            'technical': 'Technical Documentation'
+        };
+
+        const confirmed = confirm(`Create a ${typeNames[type]} example project?\n\nThis will generate a complete sample project demonstrating best practices.`);
+        if (!confirmed) return;
+
+        await this.newBookProject(type);
+    }
+
+    openHelpDocument(title, content) {
+        // Create a new tab with help content
+        if (this.tabManager && this.tabManager.createTab) {
+            const tabId = this.tabManager.createTab(title + '.md', content);
+            this.tabManager.switchTab(tabId);
+            if (this.editor) {
+                this.editor.setContent(content);
+            }
+            if (this.preview) {
+                this.preview.updatePreview(content);
+            }
         }
     }
 
@@ -1654,9 +3704,13 @@ class MarkDDApp {
         this.bindButton('menu-theme-aurora-forge', () => this.setPresentationTheme('aurora-forge'));
         this.bindButton('menu-theme-ddt-signature', () => this.setPresentationTheme('ddt-signature'));
         this.bindButton('menu-theme-strata-pulse', () => this.setPresentationTheme('strata-pulse'));
+
+    // Populate custom themes in menu (if any stored)
+    this.refreshCustomThemeMenu();
         
         // Color customization handlers
         this.bindButton('menu-presentation-customize-colors', () => this.customizePresentationColors());
+    this.bindButton('menu-presentation-save-theme', () => this.saveCustomPresentationTheme());
         this.bindButton('menu-color-preset-blue', () => this.applyColorPreset('blue'));
         this.bindButton('menu-color-preset-red', () => this.applyColorPreset('red'));
         this.bindButton('menu-color-preset-green', () => this.applyColorPreset('green'));
@@ -1664,6 +3718,45 @@ class MarkDDApp {
         this.bindButton('menu-color-preset-orange', () => this.applyColorPreset('orange'));
     this.bindButton('menu-color-preset-dark', () => this.applyColorPreset('dark'));
     this.bindButton('menu-color-preset-crimson-horizon', () => this.applyColorPreset('crimsonHorizon'));
+
+        // Book module handlers (Note: book template creation is handled by specific buttons below)
+        this.bindButton('menu-book-open', () => this.openBookProject());
+        this.bindButton('menu-book-open-summary', () => this.invokeBookManager('openSummaryFile'));
+        this.bindButton('menu-book-open-config', () => this.invokeBookManager('openConfigFile'));
+        this.bindButton('menu-book-add-chapter', () => this.addBookChapter());
+        this.bindButton('menu-book-build-all', () => this.buildBookAll());
+        this.bindButton('menu-book-build-html', () => this.invokeBookManager('buildStaticSite'));
+        this.bindButton('menu-book-export-pdf', () => this.invokeBookManager('exportBookPdf'));
+        this.bindButton('menu-book-serve', () => this.invokeBookManager('serveBook'));
+        this.bindButton('menu-book-stop-serve', () => this.invokeBookManager('stopServingBook'));
+        this.bindButton('menu-book-search', () => this.showBookSearch());
+
+        // Book Mode toggle
+        const bookModeToggle = document.getElementById('menu-book-mode-enabled');
+        if (bookModeToggle) {
+            bookModeToggle.addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.toggleBookMode(e.target.checked);
+            });
+        }
+
+        const bookWatchToggle = document.getElementById('menu-book-watch-toggle');
+        if (bookWatchToggle) {
+            const manager = this.getBookManagerInstance(false);
+            if (manager) {
+                bookWatchToggle.checked = manager.isWatchEnabled();
+            }
+            bookWatchToggle.addEventListener('change', () => {
+                const mgr = this.getBookManagerInstance();
+                if (mgr && typeof mgr.setWatchPreference === 'function') {
+                    mgr.setWatchPreference(bookWatchToggle.checked);
+                    this.showMessage(`Book watch ${bookWatchToggle.checked ? 'enabled' : 'disabled'}`);
+                }
+            });
+        }
+        
+        // Book Mode UI handlers
+        this.setupBookModeUI();
         
         // Navigation toggle handler
         const navigationToggleCheckbox = document.getElementById('navigation-toggle-checkbox');
@@ -1719,15 +3812,31 @@ class MarkDDApp {
         // ========== END PRESENTATION MENU HANDLERS ==========
         
         // Help menu handlers
+        this.bindButton('menu-help-markdd', () => this.openHelpMarkDD());
         this.bindButton('menu-help-showcase', () => this.openHelpShowcase());
         this.bindButton('menu-help-presentation', () => this.openHelpPresentation());
+        this.bindButton('menu-help-presentation-showcase', () => this.openHelpPresentationShowcase());
+        this.bindButton('menu-help-book', () => this.openHelpBook());
+        this.bindButton('menu-help-book-classical', () => this.showBookExample('classical'));
+        this.bindButton('menu-help-book-wiki', () => this.showBookExample('wiki'));
+        this.bindButton('menu-help-book-help', () => this.showBookExample('help'));
+        this.bindButton('menu-help-book-technical', () => this.showBookExample('technical'));
         this.bindButton('menu-about', () => this.showAboutDialog());
+
+        // Book type handlers
+        this.bindButton('menu-book-new-classical', () => this.newBookProject('classical'));
+        this.bindButton('menu-book-new-wiki', () => this.newBookProject('wiki'));
+        this.bindButton('menu-book-new-help', () => this.newBookProject('help'));
+        this.bindButton('menu-book-new-technical', () => this.newBookProject('technical'));
 
         // Ensure Markdown menu toggles reflect current front-matter state
         this.refreshMarkdownMenuStates();
 
         // Global keyboard shortcuts (non-conflicting with file operations)
         document.addEventListener('keydown', (e) => {
+            if (this.isPromptOverlayActive()) {
+                return;
+            }
             if (e.ctrlKey || e.metaKey) {
                 switch (e.key.toLowerCase()) {
                     case '\\':
@@ -1738,6 +3847,31 @@ class MarkDDApp {
                         break;
                     case 'p':
                         if (e.shiftKey && !e.altKey) {
+                            e.preventDefault();
+                            this.toggleLivePreview();
+                        }
+                        break;
+                    case '=':
+                    case '+':
+                        if (!e.shiftKey && !e.altKey) {
+                            e.preventDefault();
+                            this.zoomIn();
+                        }
+                        break;
+                    case '-':
+                        if (!e.shiftKey && !e.altKey) {
+                            e.preventDefault();
+                            this.zoomOut();
+                        }
+                        break;
+                    case '0':
+                        if (!e.shiftKey && !e.altKey) {
+                            e.preventDefault();
+                            this.resetZoom();
+                        }
+                        break;
+                    case ',':
+                        if (!e.shiftKey && !e.altKey) {
                             e.preventDefault();
                             this.showPluginsModal();
                         }
@@ -2568,7 +4702,8 @@ Questions?
         const success = this.presentationManager.setTheme(theme);
         
         if (success) {
-            this.showMessage(`Presentation theme set to: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`);
+            const themeName = this.presentationManager.getThemeLabel(theme);
+            this.showMessage(`Presentation theme set to: ${themeName}`);
             
             // Update the front-matter in the editor if present
             const content = this.editor.getContent();
@@ -2594,6 +4729,145 @@ Questions?
         } else {
             this.showError(`Invalid theme: ${theme}`);
         }
+    }
+
+    async saveCustomPresentationTheme() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+
+        const builtInThemes = this.presentationManager.getBuiltInThemeIds();
+        if (!builtInThemes.length) {
+            this.showError('No built-in themes available to base a custom theme on.');
+            return;
+        }
+
+        const currentTheme = this.presentationManager.currentTheme || 'berkeley';
+        const currentThemeData = (this.presentationManager.customThemes || {})[currentTheme];
+        const defaultBaseTheme = builtInThemes.includes(currentTheme)
+            ? currentTheme
+            : (currentThemeData && currentThemeData.baseTheme) ? currentThemeData.baseTheme : 'berkeley';
+
+        const themeOptions = builtInThemes.map(themeId => ({
+            value: themeId,
+            label: this.presentationManager.getThemeLabel(themeId)
+        }));
+
+        // Gather existing color overrides from front matter
+        const content = this.editor.getContent();
+        const currentColors = this.getCurrentFrontMatterColors(content) || {};
+
+        const hexPattern = /^#?[0-9A-Fa-f]{6}$/;
+        const normalizeHex = (hex) => {
+            const stripped = hex.replace(/^#/, '');
+            return `#${stripped.toUpperCase()}`;
+        };
+
+        const normalizedColors = {};
+        Object.entries(currentColors).forEach(([key, value]) => {
+            if (typeof value !== 'string') {
+                return;
+            }
+            const trimmed = value.trim();
+            if (hexPattern.test(trimmed)) {
+                normalizedColors[key] = normalizeHex(trimmed);
+            }
+        });
+
+        const dialogResult = await this.showFormDialog({
+            title: 'Save Custom Theme',
+            message: 'Name your custom theme and choose the base theme layout. Current color overrides will be saved.',
+            fields: [
+                {
+                    id: 'name',
+                    label: 'Theme name',
+                    type: 'text',
+                    required: true,
+                    placeholder: 'Aurora Custom'
+                },
+                {
+                    id: 'baseTheme',
+                    label: 'Base theme',
+                    type: 'select',
+                    options: themeOptions,
+                    defaultValue: defaultBaseTheme
+                }
+            ],
+            confirmLabel: 'Save Theme'
+        });
+
+        if (!dialogResult) {
+            this.showMessage('Custom theme save canceled');
+            return;
+        }
+
+        const themeName = dialogResult.name ? dialogResult.name.trim() : '';
+        if (!themeName) {
+            this.showError('Theme name cannot be empty');
+            return;
+        }
+
+        const baseTheme = builtInThemes.includes(dialogResult.baseTheme) ? dialogResult.baseTheme : defaultBaseTheme;
+
+        try {
+            const themeId = this.presentationManager.createCustomTheme({
+                name: themeName,
+                baseTheme,
+                colors: normalizedColors
+            });
+
+            this.refreshCustomThemeMenu();
+            this.setPresentationTheme(themeId);
+            this.showMessage(`Custom theme saved as: ${themeName}`);
+        } catch (error) {
+            this.showError(`Failed to save custom theme: ${error.message}`);
+        }
+    }
+
+    refreshCustomThemeMenu() {
+        if (!this.presentationManager) {
+            this.presentationManager = new PresentationManager();
+        }
+
+        const container = document.getElementById('custom-theme-list');
+        const header = document.getElementById('custom-themes-header');
+
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        const customThemes = this.presentationManager.getCustomThemes();
+        if (!customThemes.length) {
+            container.style.display = 'none';
+            if (header) {
+                header.style.display = 'none';
+            }
+            return;
+        }
+
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '4px';
+
+        if (header) {
+            header.style.display = 'block';
+        }
+
+        customThemes
+            .sort((a, b) => (a.label || a.id).localeCompare(b.label || b.id))
+            .forEach((theme) => {
+                const button = document.createElement('button');
+                button.className = 'menu-option theme-option custom-theme-option';
+                button.textContent = theme.label || this.presentationManager.getThemeLabel(theme.id);
+                button.dataset.themeId = theme.id;
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this.setPresentationTheme(theme.id);
+                });
+                container.appendChild(button);
+            });
     }
 
     /**
@@ -2775,6 +5049,7 @@ Questions?
 
         this.editor.setContent(updatedContent);
         
+        // Refresh preview if in presentation mode
         if (this.presentationManager && this.previewPanel) {
             this.updatePreview();
         }
@@ -2936,6 +5211,13 @@ Questions?
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
             overlay.className = 'input-dialog-overlay';
+            overlay.classList.add('prompt-overlay');
+            if (document.body) {
+                document.body.classList.add('prompt-active');
+            }
+            if (typeof window !== 'undefined') {
+                window.markddPromptActive = true;
+            }
 
             const dialog = document.createElement('div');
             dialog.className = 'input-dialog';
@@ -2980,6 +5262,13 @@ Questions?
                 window.removeEventListener('keydown', handleWindowKeydown);
                 input.removeEventListener('keydown', handleInputKeydown);
                 overlay.remove();
+                const stillOpen = document.querySelector('.prompt-overlay');
+                if (!stillOpen && document.body) {
+                    document.body.classList.remove('prompt-active');
+                }
+                if (typeof window !== 'undefined') {
+                    window.markddPromptActive = !!stillOpen;
+                }
                 resolve(result);
             };
 
@@ -3077,6 +5366,7 @@ Questions?
 
         const content = this.editor.getContent();
         this.updateFrontMatterField(content, 'numberHeadings', enabled ? true : '');
+
         if (enabled) {
             const latestContent = this.editor.getContent();
             const rawStart = this.getCurrentFrontMatterValue(latestContent, 'headingNumberStart');
@@ -3097,6 +5387,7 @@ Questions?
 
         const content = this.editor.getContent();
         this.updateFrontMatterField(content, 'numberFiguresTables', enabled ? true : '');
+
         if (enabled) {
             const latestContent = this.editor.getContent();
             const rawStart = this.getCurrentFrontMatterValue(latestContent, 'figureTableNumberStart');
@@ -3670,6 +5961,9 @@ Questions?
 
     // Event handlers
     handleGlobalShortcuts(e) {
+        if (this.isPromptOverlayActive()) {
+            return;
+        }
         if (e.ctrlKey || e.metaKey) {
             switch (e.key.toLowerCase()) {
                 case 'b':
@@ -3977,24 +6271,50 @@ Questions?
 
                 wrapper.textContent = field.label || '';
 
-                const input = field.type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
-                input.name = field.id;
-                if (field.type && field.type !== 'textarea') {
-                    input.type = field.type;
+                let input;
+                if (field.type === 'textarea') {
+                    input = document.createElement('textarea');
+                } else if (field.type === 'select') {
+                    input = document.createElement('select');
+                    const options = Array.isArray(field.options) ? field.options : [];
+                    options.forEach((option) => {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = option.value;
+                        optionEl.textContent = option.label ?? option.value;
+                        input.appendChild(optionEl);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    if (field.type) {
+                        input.type = field.type;
+                    }
                 }
-                input.placeholder = field.placeholder || '';
+
+                input.name = field.id;
+                if (field.placeholder && field.type !== 'select') {
+                    input.placeholder = field.placeholder;
+                }
                 if (field.defaultValue !== undefined) {
-                    input.value = field.defaultValue;
+                    if (field.type === 'select') {
+                        input.value = field.defaultValue;
+                    } else {
+                        input.value = field.defaultValue;
+                    }
                 }
                 if (field.required) {
                     input.required = true;
                 }
+
                 input.style.padding = '10px';
                 input.style.border = '1px solid #d0d0d0';
                 input.style.borderRadius = '4px';
                 input.style.fontSize = '13px';
-                input.style.resize = field.type === 'textarea' ? 'vertical' : 'none';
-                input.style.minHeight = field.type === 'textarea' ? '120px' : 'auto';
+                if (field.type === 'textarea') {
+                    input.style.resize = 'vertical';
+                    input.style.minHeight = '120px';
+                } else {
+                    input.style.resize = 'none';
+                }
 
                 wrapper.appendChild(input);
                 form.appendChild(wrapper);
@@ -4092,6 +6412,7 @@ Questions?
                 cleanup(values);
             });
 
+            // Focus first field
             const firstField = fields.length > 0 ? inputs[fields[0].id] : null;
             if (firstField) {
                 requestAnimationFrame(() => firstField.focus());
@@ -4107,6 +6428,444 @@ Questions?
     showError(message) {
         console.error(message);
         // Could show error notification
+    }
+
+    // Custom prompt dialog for Electron (prompt() is not supported)
+    async showPrompt(message, defaultValue = '') {
+        return new Promise((resolve) => {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;pointer-events:auto!important;';
+            overlay.classList.add('prompt-overlay');
+            if (document.body) {
+                document.body.classList.add('prompt-active');
+            }
+            if (typeof window !== 'undefined') {
+                window.markddPromptActive = true;
+            }
+            
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#2d2d2d;padding:20px;border-radius:8px;min-width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.5);pointer-events:auto!important;user-select:text!important;-webkit-user-select:text!important;';
+            
+            const label = document.createElement('div');
+            label.textContent = message;
+            label.style.cssText = 'color:#fff;margin-bottom:12px;font-size:14px;';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = defaultValue;
+            input.disabled = false;
+            input.readOnly = false;
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('spellcheck', 'false');
+            input.setAttribute('tabindex', '0');
+            input.style.cssText = 'width:100%;padding:8px;margin-bottom:16px;background:#1e1e1e;color:#fff;border:1px solid #444;border-radius:4px;font-size:14px;box-sizing:border-box;outline:none;user-select:text!important;-webkit-user-select:text!important;pointer-events:auto!important;cursor:text!important;';
+            
+            // Ensure input is interactive
+            input.onclick = (e) => {
+                e.stopPropagation();
+                input.focus();
+            };
+            input.onfocus = () => {
+                input.style.borderColor = '#007acc';
+            };
+            input.onblur = () => {
+                input.style.borderColor = '#444';
+            };
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
+            
+            const okBtn = document.createElement('button');
+            okBtn.textContent = 'OK';
+            okBtn.style.cssText = 'padding:8px 16px;background:#007acc;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.cssText = 'padding:8px 16px;background:#444;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+            
+            const cleanup = (result) => {
+                window.removeEventListener('keydown', handleWindowKeydown);
+                input.removeEventListener('keydown', handleInputKeydown);
+                overlay.remove();
+                const stillOpen = document.querySelector('.prompt-overlay');
+                if (!stillOpen && document.body) {
+                    document.body.classList.remove('prompt-active');
+                }
+                if (typeof window !== 'undefined') {
+                    window.markddPromptActive = !!stillOpen;
+                }
+                resolve(result);
+            };
+
+            const handleWindowKeydown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+
+            const handleInputKeydown = (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    cleanup(input.value || null);
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+            
+            okBtn.onclick = () => cleanup(input.value || null);
+            cancelBtn.onclick = () => cleanup(null);
+            
+            // Prevent overlay click from interfering
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    cleanup(null);
+                }
+            };
+            dialog.onclick = (e) => {
+                e.stopPropagation();
+            };
+
+            input.addEventListener('keydown', handleInputKeydown);
+            window.addEventListener('keydown', handleWindowKeydown);
+            
+            buttonContainer.appendChild(cancelBtn);
+            buttonContainer.appendChild(okBtn);
+            dialog.appendChild(label);
+            dialog.appendChild(input);
+            dialog.appendChild(buttonContainer);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            // Focus with delay to ensure DOM is ready
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 50);
+        });
+    }
+
+    // Book section selection dialog
+    getBookSectionDefinitions() {
+        return {
+            classical: [
+                { id: 'title', name: 'Title Page', category: 'front', auto: true, checked: true },
+                { id: 'copyright', name: 'Copyright Page', category: 'front', auto: true, checked: true },
+                { id: 'dedication', name: 'Dedication', category: 'front', auto: false, checked: false },
+                { id: 'toc', name: 'Table of Contents', category: 'front', auto: true, checked: true },
+                { id: 'foreword', name: 'Foreword', category: 'front', auto: false, checked: false },
+                { id: 'preface', name: 'Preface', category: 'front', auto: false, checked: true },
+                { id: 'acknowledgments', name: 'Acknowledgments', category: 'front', auto: false, checked: false },
+                { id: 'introduction', name: 'Introduction', category: 'body', auto: false, checked: true },
+                { id: 'chapters', name: 'Main Chapters', category: 'body', auto: false, checked: true },
+                { id: 'epilogue', name: 'Epilogue', category: 'body', auto: false, checked: false },
+                { id: 'afterword', name: 'Afterword', category: 'back', auto: false, checked: false },
+                { id: 'appendix', name: 'Appendix', category: 'back', auto: false, checked: false },
+                { id: 'glossary', name: 'Glossary', category: 'back', auto: false, checked: false },
+                { id: 'bibliography', name: 'Bibliography', category: 'back', auto: false, checked: false },
+                { id: 'index', name: 'Index', category: 'back', auto: false, checked: false },
+                { id: 'author-bio', name: 'Author Biography', category: 'back', auto: false, checked: false }
+            ]
+        };
+    }
+
+    async showBookCreationDialog(bookType) {
+        const typeNames = {
+            classical: 'Classical Book',
+            wiki: 'Wiki Documentation',
+            help: 'Help Documentation',
+            technical: 'Technical Documentation'
+        };
+
+        const readableType = typeNames[bookType] || 'Book';
+        const sectionDefinitions = this.getBookSectionDefinitions();
+        const sectionList = (sectionDefinitions[bookType] || []).map(section => ({ ...section }));
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:20px;box-sizing:border-box;overflow:auto;';
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'background:#1f1f1f;padding:28px;border-radius:12px;width:100%;max-width:840px;color:#fff;box-shadow:0 25px 80px rgba(0,0,0,0.65);max-height:calc(100vh - 40px);overflow-y:auto;';
+
+            const header = document.createElement('div');
+            header.style.cssText = 'margin-bottom:20px;';
+            header.innerHTML = `
+                <h2 style="margin:0 0 6px 0;font-size:20px;font-weight:600;color:#fff;">Create ${readableType}</h2>
+                <p style="margin:0;color:#aaa;font-size:13px;line-height:1.6;">
+                    Fill in the details below. Everything is collected in one place for a faster start.
+                </p>
+            `;
+
+            const form = document.createElement('form');
+            form.style.cssText = 'display:flex;flex-direction:column;gap:20px;';
+
+            const fieldsGrid = document.createElement('div');
+            fieldsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;width:100%;';
+            form.appendChild(fieldsGrid);
+
+            const createInputField = (labelText, defaultValue = '', isTextarea = false, options = {}) => {
+                const wrapper = document.createElement('label');
+                wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#ddd;min-width:0;';
+                if (options.fullWidth) {
+                    wrapper.style.gridColumn = '1 / -1';
+                }
+
+                const label = document.createElement('span');
+                label.textContent = labelText;
+                const input = document.createElement(isTextarea ? 'textarea' : 'input');
+                input.value = defaultValue;
+                input.required = !isTextarea;
+                input.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;resize:' + (isTextarea ? 'vertical' : 'none') + ';min-height:44px;';
+                if (!isTextarea) {
+                    input.type = 'text';
+                } else {
+                    input.rows = 3;
+                }
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                fieldsGrid.appendChild(wrapper);
+                return input;
+            };
+
+            const titleInput = createInputField('Book Title', `My ${readableType}`);
+            const authorInput = createInputField('Author Name', 'Author Name');
+            const descriptionInput = createInputField('Short Description (optional)', `A ${readableType.toLowerCase()} created with MarkDD`, true, { fullWidth: true });
+
+            let technicalStyleSelect = null;
+            if (bookType === 'technical') {
+                const styleWrapper = document.createElement('label');
+                styleWrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#ddd;min-width:0;grid-column:1 / -1;';
+                styleWrapper.innerHTML = '<span>Technical Document Style</span>';
+
+                const select = document.createElement('select');
+                select.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;min-height:44px;';
+
+                const styleOptions = [
+                    { value: 'report', label: 'Project Report' },
+                    { value: 'plan', label: 'Strategic Plan' },
+                    { value: 'brochure', label: 'Product Brochure' },
+                    { value: 'business-case', label: 'Business Case' },
+                    { value: 'white-paper', label: 'White Paper' },
+                    { value: 'case-study', label: 'Case Study' },
+                    { value: 'feasibility-study', label: 'Feasibility Study' },
+                    { value: 'proposal', label: 'Project Proposal' },
+                    { value: 'user-manual', label: 'User Manual' },
+                    { value: 'sop', label: 'Standard Operating Procedure' },
+                    { value: 'rfp', label: 'Request for Proposal' },
+                    { value: 'annual-report', label: 'Annual Report' },
+                    { value: 'project-charter', label: 'Project Charter' }
+                ];
+
+                styleOptions.forEach(opt => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = opt.value;
+                    optionEl.textContent = opt.label;
+                    select.appendChild(optionEl);
+                });
+
+                styleWrapper.appendChild(select);
+                fieldsGrid.appendChild(styleWrapper);
+                technicalStyleSelect = select;
+            }
+
+            const structureSettings = document.createElement('div');
+            structureSettings.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;padding:16px;border:1px solid #333;border-radius:10px;background:#252525;';
+
+            const chapterCountWrapper = document.createElement('label');
+            chapterCountWrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#ddd;';
+            chapterCountWrapper.innerHTML = '<span>How many main chapters?</span>';
+            const chapterCountInput = document.createElement('input');
+            chapterCountInput.type = 'number';
+            chapterCountInput.min = '1';
+            chapterCountInput.max = '50';
+            chapterCountInput.value = '5';
+            chapterCountInput.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;min-height:44px;';
+            chapterCountWrapper.appendChild(chapterCountInput);
+
+            const appendixCountWrapper = document.createElement('label');
+            appendixCountWrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#ddd;';
+            appendixCountWrapper.innerHTML = '<span>How many appendices?</span>';
+            const appendixCountInput = document.createElement('input');
+            appendixCountInput.type = 'number';
+            appendixCountInput.min = '0';
+            appendixCountInput.max = '20';
+            appendixCountInput.value = '0';
+            appendixCountInput.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;min-height:44px;';
+            appendixCountWrapper.appendChild(appendixCountInput);
+
+            const numberingWrapper = document.createElement('div');
+            numberingWrapper.style.cssText = 'display:flex;align-items:center;gap:10px;background:#1b1b1b;border:1px solid #333;border-radius:8px;padding:12px;';
+            const numberingToggle = document.createElement('input');
+            numberingToggle.type = 'checkbox';
+            numberingToggle.id = 'book-dialog-numbering-toggle';
+            numberingToggle.checked = true;
+            numberingToggle.style.cssText = 'width:18px;height:18px;';
+            const numberingLabel = document.createElement('label');
+            numberingLabel.setAttribute('for', numberingToggle.id);
+            numberingLabel.style.cssText = 'font-size:13px;font-weight:600;color:#ddd;cursor:pointer;';
+            numberingLabel.textContent = 'Show chapter numbers in compiled book';
+            numberingWrapper.appendChild(numberingToggle);
+            numberingWrapper.appendChild(numberingLabel);
+
+            structureSettings.appendChild(chapterCountWrapper);
+            structureSettings.appendChild(appendixCountWrapper);
+            structureSettings.appendChild(numberingWrapper);
+            form.appendChild(structureSettings);
+
+            let sectionsContainer = null;
+            if (sectionList.length) {
+                sectionsContainer = document.createElement('div');
+                sectionsContainer.style.cssText = 'margin-top:4px;padding:16px;border:1px solid #333;border-radius:10px;background:#252525;display:flex;flex-direction:column;gap:16px;';
+
+                const legend = document.createElement('div');
+                legend.innerHTML = '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">Sections</div><p style="margin:0;font-size:12px;color:#aaa;">Choose which sections to generate. Auto sections are always included.</p>';
+                sectionsContainer.appendChild(legend);
+
+                const sectionGrid = document.createElement('div');
+                sectionGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;align-items:flex-start;';
+
+                const frontSection = this.createSectionGroup('Front Matter', sectionList.filter(s => s.category === 'front'));
+                const bodySection = this.createSectionGroup('Main Content', sectionList.filter(s => s.category === 'body'));
+                const backSection = this.createSectionGroup('Back Matter', sectionList.filter(s => s.category === 'back'));
+
+                [frontSection, bodySection, backSection].forEach(section => sectionGrid.appendChild(section));
+                sectionsContainer.appendChild(sectionGrid);
+                form.appendChild(sectionsContainer);
+            }
+
+            const errorText = document.createElement('div');
+            errorText.style.cssText = 'color:#ff8080;font-size:12px;display:none;';
+            form.appendChild(errorText);
+
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;margin-top:8px;';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.cssText = 'padding:10px 18px;background:#3a3a3a;color:#fff;border:none;border-radius:6px;cursor:pointer;';
+
+            const createBtn = document.createElement('button');
+            createBtn.type = 'submit';
+            createBtn.textContent = 'Create Book';
+            createBtn.style.cssText = 'padding:10px 18px;background:#007acc;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;';
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(createBtn);
+            form.appendChild(actions);
+
+            dialog.appendChild(header);
+            dialog.appendChild(form);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            const cleanup = (payload) => {
+                window.removeEventListener('keydown', handleKeydown);
+                overlay.remove();
+                resolve(payload);
+            };
+
+            const handleKeydown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            };
+
+            cancelBtn.onclick = () => cleanup(null);
+            overlay.onclick = (event) => {
+                if (event.target === overlay) {
+                    cleanup(null);
+                }
+            };
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const title = titleInput.value.trim();
+                const author = authorInput.value.trim();
+                if (!title || !author) {
+                    errorText.textContent = 'Title and author are required.';
+                    errorText.style.display = 'block';
+                    return;
+                }
+
+                let selectedSections = null;
+                if (sectionsContainer) {
+                    selectedSections = [];
+                    sectionsContainer.querySelectorAll('input[data-section-id]:checked').forEach(cb => {
+                        selectedSections.push(cb.dataset.sectionId);
+                    });
+                }
+
+                cleanup({
+                    title,
+                    author,
+                    description: descriptionInput.value.trim(),
+                    sections: selectedSections,
+                    chapterCount: Math.max(1, parseInt(chapterCountInput.value, 10) || 1),
+                    appendixCount: Math.max(0, parseInt(appendixCountInput.value, 10) || 0),
+                    showChapterNumbers: numberingToggle.checked,
+                    technicalStyle: technicalStyleSelect ? technicalStyleSelect.value : null
+                });
+            });
+
+            window.addEventListener('keydown', handleKeydown);
+            setTimeout(() => titleInput.focus(), 30);
+        });
+    }
+
+    createSectionGroup(title, sections) {
+        const group = document.createElement('div');
+        group.style.cssText = 'display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid #333;border-radius:10px;background:#1b1b1b;min-height:0;';
+        
+        const groupTitle = document.createElement('h3');
+        groupTitle.textContent = title;
+        groupTitle.style.cssText = 'color:#fff;font-size:14px;font-weight:600;margin:0;';
+        
+        const list = document.createElement('div');
+        list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;';
+        
+        sections.forEach(section => {
+            const item = document.createElement('label');
+            item.style.cssText = 'display:flex;align-items:center;color:#ddd;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:6px;transition:background 0.2s;background:#202020;gap:8px;';
+            item.onmouseenter = () => item.style.background = '#3a3a3a';
+            item.onmouseleave = () => item.style.background = '#202020';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = section.checked;
+            checkbox.dataset.sectionId = section.id;
+            checkbox.style.cssText = 'margin:0;';
+            if (section.auto) {
+                checkbox.disabled = true;
+                checkbox.style.opacity = '0.6';
+            }
+            
+            const name = document.createElement('span');
+            name.textContent = section.name;
+            name.style.cssText = 'flex:1;min-width:0;';
+            
+            if (section.auto) {
+                const badge = document.createElement('span');
+                badge.textContent = 'Auto';
+                badge.style.cssText = 'background:#007acc;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600;';
+                item.appendChild(checkbox);
+                item.appendChild(name);
+                item.appendChild(badge);
+            } else {
+                item.appendChild(checkbox);
+                item.appendChild(name);
+            }
+            
+            list.appendChild(item);
+        });
+        
+        group.appendChild(groupTitle);
+        group.appendChild(list);
+        return group;
     }
 
     getRecentFiles() {
@@ -4438,7 +7197,7 @@ Questions?
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '1.2.0', // Fallback, will be replaced by main process
+            version: '1.3.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -4458,7 +7217,7 @@ Questions?
         // Try to load about-libraries.json for library versions
         let libs = [];
         try {
-            const res = await fetch('./src/renderer/about-libraries.json');
+            const res = await fetch('./about-libraries.json');
             if (res.ok) {
                 libs = await res.json();
             } else {
@@ -4478,6 +7237,8 @@ Questions?
         <br>
         <p><strong>Advanced Features:</strong></p>
         <ul>
+            <li>📚 Book Module - Multi-chapter publishing with HTML/PDF export</li>
+            <li>🎪 Presentation Mode - 28 Beamer-style themes for slideshows</li>
             <li>🔢 Real-time Math Rendering (KaTeX & MathJax)</li>
             <li>📊 Advanced Diagram Support (Mermaid, TikZ, GraphViz)</li>
             <li>🗺️ Mind Mapping (Markmap Integration)</li>

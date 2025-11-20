@@ -1,51 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-                        <div class="menu-dropdown-nested theme-mega-panel">
-                            <div class="theme-groups-grid">
-                                <div class="theme-group-column">
-                                    <div class="theme-category">Classic Beamer Templates:</div>
-                                    <button id="menu-theme-berkeley" class="menu-option theme-option">Berkeley</button>
-                                    <button id="menu-theme-berlin" class="menu-option theme-option">Berlin</button>
-                                    <button id="menu-theme-copenhagen" class="menu-option theme-option">Copenhagen</button>
-                                    <button id="menu-theme-darmstadt" class="menu-option theme-option">Darmstadt</button>
-                                    <button id="menu-theme-warsaw" class="menu-option theme-option">Warsaw</button>
-                                    <button id="menu-theme-madrid" class="menu-option theme-option">Madrid</button>
-                                    <button id="menu-theme-annarbor" class="menu-option theme-option">AnnArbor</button>
-                                    <button id="menu-theme-cambridgeus" class="menu-option theme-option">CambridgeUS</button>
-                                    <button id="menu-theme-pittsburgh" class="menu-option theme-option">Pittsburgh</button>
-                                    <button id="menu-theme-rochester" class="menu-option theme-option">Rochester</button>
-                                    <button id="menu-theme-boadilla" class="menu-option theme-option">Boadilla</button>
-                                    <button id="menu-theme-antibes" class="menu-option theme-option">Antibes</button>
-                                    <button id="menu-theme-juanlespins" class="menu-option theme-option">JuanLesPins</button>
-                                    <button id="menu-theme-montpellier" class="menu-option theme-option">Montpellier</button>
-                                    <button id="menu-theme-malmoe" class="menu-option theme-option">Malmoe</button>
-                                    <button id="menu-theme-singapore" class="menu-option theme-option">Singapore</button>
-                                    <button id="menu-theme-szeged" class="menu-option theme-option">Szeged</button>
-                                    <button id="menu-theme-hannover" class="menu-option theme-option">Hannover</button>
-                                    <button id="menu-theme-marburg" class="menu-option theme-option">Marburg</button>
-                                    <button id="menu-theme-goettingen" class="menu-option theme-option">Goettingen</button>
-                                </div>
-                                <div class="theme-group-column">
-                                    <div class="theme-category">Color Variants:</div>
-                                    <button id="menu-theme-berkeley-dark" class="menu-option theme-option">Berkeley Dark</button>
-                                    <button id="menu-theme-berlin-light" class="menu-option theme-option">Berlin Light</button>
-                                    <button id="menu-theme-copenhagen-blue" class="menu-option theme-option">Copenhagen Blue</button>
-                                    <button id="menu-theme-madrid-green" class="menu-option theme-option">Madrid Green</button>
-                                    <hr>
-                                    <div class="theme-category">Modern Custom Themes:</div>
-                                    <button id="menu-theme-simple-light" class="menu-option theme-option">Simple Light</button>
-                                    <button id="menu-theme-simple-dark" class="menu-option theme-option">Simple Dark</button>
-                                    <button id="menu-theme-minimal-gray" class="menu-option theme-option">Minimal Gray</button>
-                                    <button id="menu-theme-corporate-blue" class="menu-option theme-option">Corporate Blue</button>
-                                    <button id="menu-theme-aurora-forge" class="menu-option theme-option">Aurora Black / Red</button>
-                                    <button id="menu-theme-ddt-signature" class="menu-option theme-option">DDT Signature</button>
-                                    <button id="menu-theme-strata-pulse" class="menu-option theme-option">Strata Pulse</button>
-                                    <div id="custom-themes-header" class="theme-category" style="display: none;">Saved Custom Themes:</div>
-                                    <div id="custom-theme-list" style="display: none;"></div>
-                                </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarkDD Editor</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Menu Bar -->
+        <div id="menu-bar" class="menu-bar">
+            <div class="menu-item">
+                <span class="menu-label">File</span>
+                <div class="menu-dropdown">
+                    <button id="menu-new" class="menu-option">New File <span class="shortcut">Ctrl+N</span></button>
+                    <button id="menu-open" class="menu-option">Open <span class="shortcut">Ctrl+O</span></button>
+                    <button id="menu-save" class="menu-option">Save <span class="shortcut">Ctrl+S</span></button>
+                    <button id="menu-save-as" class="menu-option">Save As <span class="shortcut">Ctrl+Shift+S</span></button>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Open Recent ▶</span>
+                        <div class="menu-dropdown-nested" id="menu-recent-files">
+                            <div id="menu-recent-files-items">
+                                <button class="menu-option" disabled>No recent files</button>
                             </div>
+                            <hr>
+                            <button id="menu-clear-recent" class="menu-option">Clear Recent Files</button>
                         </div>
+                    </div>
+                    <hr>
+                    <button id="menu-export-html" class="menu-option">Export as HTML</button>
+                    <button id="menu-export-pdf" class="menu-option">Export as PDF</button>
+                    <hr>
+                    <button id="menu-exit" class="menu-option">Exit <span class="shortcut">Ctrl+Q</span></button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Edit</span>
+                <div class="menu-dropdown">
+                    <button id="menu-undo" class="menu-option">Undo <span class="shortcut">Ctrl+Z</span></button>
+                    <button id="menu-redo" class="menu-option">Redo <span class="shortcut">Ctrl+Y</span></button>
+                    <hr>
+                    <button id="menu-cut" class="menu-option">Cut <span class="shortcut">Ctrl+X</span></button>
+                    <button id="menu-copy" class="menu-option">Copy <span class="shortcut">Ctrl+C</span></button>
+                    <button id="menu-paste" class="menu-option">Paste <span class="shortcut">Ctrl+V</span></button>
+                    <hr>
+                    <button id="menu-select-all" class="menu-option">Select All <span class="shortcut">Ctrl+A</span></button>
+                    <hr>
+                    <button id="menu-bold" class="menu-option">Bold <span class="shortcut">Ctrl+B</span></button>
+                    <button id="menu-italic" class="menu-option">Italic <span class="shortcut">Ctrl+I</span></button>
+                    <button id="menu-highlight" class="menu-option">Highlight <span class="shortcut">Ctrl+U</span></button>
+                    <button id="menu-strikethrough" class="menu-option">Strikethrough <span class="shortcut">Ctrl+Alt+S</span></button>
                     <button id="menu-superscript" class="menu-option">Superscript</button>
                     <button id="menu-subscript" class="menu-option">Subscript</button>
                     <button id="menu-keyboard-key" class="menu-option">Keyboard Key</button>
@@ -107,46 +111,50 @@
                     <hr>
                     <div class="menu-submenu">
                         <span class="menu-option">Choose Theme ▶</span>
-                        <div class="menu-dropdown-nested">
-                            <!-- Classic Beamer Themes -->
-                            <div class="theme-category">Classic Beamer Themes:</div>
-                            <button id="menu-theme-berkeley" class="menu-option theme-option">Berkeley</button>
-                            <button id="menu-theme-berlin" class="menu-option theme-option">Berlin</button>
-                            <button id="menu-theme-copenhagen" class="menu-option theme-option">Copenhagen</button>
-                            <button id="menu-theme-darmstadt" class="menu-option theme-option">Darmstadt</button>
-                            <button id="menu-theme-warsaw" class="menu-option theme-option">Warsaw</button>
-                            <button id="menu-theme-madrid" class="menu-option theme-option">Madrid</button>
-                            <button id="menu-theme-annarbor" class="menu-option theme-option">AnnArbor</button>
-                            <button id="menu-theme-cambridgeus" class="menu-option theme-option">CambridgeUS</button>
-                            <button id="menu-theme-pittsburgh" class="menu-option theme-option">Pittsburgh</button>
-                            <button id="menu-theme-rochester" class="menu-option theme-option">Rochester</button>
-                            <button id="menu-theme-boadilla" class="menu-option theme-option">Boadilla</button>
-                            <button id="menu-theme-antibes" class="menu-option theme-option">Antibes</button>
-                            <button id="menu-theme-juanlespins" class="menu-option theme-option">JuanLesPins</button>
-                            <button id="menu-theme-montpellier" class="menu-option theme-option">Montpellier</button>
-                            <button id="menu-theme-malmoe" class="menu-option theme-option">Malmoe</button>
-                            <button id="menu-theme-singapore" class="menu-option theme-option">Singapore</button>
-                            <button id="menu-theme-szeged" class="menu-option theme-option">Szeged</button>
-                            <button id="menu-theme-hannover" class="menu-option theme-option">Hannover</button>
-                            <button id="menu-theme-marburg" class="menu-option theme-option">Marburg</button>
-                            <button id="menu-theme-goettingen" class="menu-option theme-option">Goettingen</button>
-                            <hr>
-                            <!-- Color Variants -->
-                            <div class="theme-category">Color Variants:</div>
-                            <button id="menu-theme-berkeley-dark" class="menu-option theme-option">Berkeley Dark</button>
-                            <button id="menu-theme-berlin-light" class="menu-option theme-option">Berlin Light</button>
-                            <button id="menu-theme-copenhagen-blue" class="menu-option theme-option">Copenhagen Blue</button>
-                            <button id="menu-theme-madrid-green" class="menu-option theme-option">Madrid Green</button>
-                            <hr>
-                            <!-- Modern Minimalist Themes -->
-                            <div class="theme-category">Modern Themes:</div>
-                            <button id="menu-theme-simple-light" class="menu-option theme-option">Simple Light</button>
-                            <button id="menu-theme-simple-dark" class="menu-option theme-option">Simple Dark</button>
-                            <button id="menu-theme-minimal-gray" class="menu-option theme-option">Minimal Gray</button>
-                            <button id="menu-theme-corporate-blue" class="menu-option theme-option">Corporate Blue</button>
-                            <button id="menu-theme-aurora-forge" class="menu-option theme-option">Aurora Black / Red</button>
-                            <button id="menu-theme-ddt-signature" class="menu-option theme-option">DDT Signature</button>
-                            <button id="menu-theme-strata-pulse" class="menu-option theme-option">Strata Pulse</button>
+                        <div class="menu-dropdown-nested theme-mega-panel">
+                            <div class="theme-groups-grid">
+                                <div class="theme-group-column">
+                                    <div class="theme-category">Classic Beamer Templates:</div>
+                                    <button id="menu-theme-berkeley" class="menu-option theme-option">Berkeley</button>
+                                    <button id="menu-theme-berlin" class="menu-option theme-option">Berlin</button>
+                                    <button id="menu-theme-copenhagen" class="menu-option theme-option">Copenhagen</button>
+                                    <button id="menu-theme-darmstadt" class="menu-option theme-option">Darmstadt</button>
+                                    <button id="menu-theme-warsaw" class="menu-option theme-option">Warsaw</button>
+                                    <button id="menu-theme-madrid" class="menu-option theme-option">Madrid</button>
+                                    <button id="menu-theme-annarbor" class="menu-option theme-option">AnnArbor</button>
+                                    <button id="menu-theme-cambridgeus" class="menu-option theme-option">CambridgeUS</button>
+                                    <button id="menu-theme-pittsburgh" class="menu-option theme-option">Pittsburgh</button>
+                                    <button id="menu-theme-rochester" class="menu-option theme-option">Rochester</button>
+                                    <button id="menu-theme-boadilla" class="menu-option theme-option">Boadilla</button>
+                                    <button id="menu-theme-antibes" class="menu-option theme-option">Antibes</button>
+                                    <button id="menu-theme-juanlespins" class="menu-option theme-option">JuanLesPins</button>
+                                    <button id="menu-theme-montpellier" class="menu-option theme-option">Montpellier</button>
+                                    <button id="menu-theme-malmoe" class="menu-option theme-option">Malmoe</button>
+                                    <button id="menu-theme-singapore" class="menu-option theme-option">Singapore</button>
+                                    <button id="menu-theme-szeged" class="menu-option theme-option">Szeged</button>
+                                    <button id="menu-theme-hannover" class="menu-option theme-option">Hannover</button>
+                                    <button id="menu-theme-marburg" class="menu-option theme-option">Marburg</button>
+                                    <button id="menu-theme-goettingen" class="menu-option theme-option">Goettingen</button>
+                                </div>
+                                <div class="theme-group-column">
+                                    <div class="theme-category">Color Variants:</div>
+                                    <button id="menu-theme-berkeley-dark" class="menu-option theme-option">Berkeley Dark</button>
+                                    <button id="menu-theme-berlin-light" class="menu-option theme-option">Berlin Light</button>
+                                    <button id="menu-theme-copenhagen-blue" class="menu-option theme-option">Copenhagen Blue</button>
+                                    <button id="menu-theme-madrid-green" class="menu-option theme-option">Madrid Green</button>
+                                    <hr>
+                                    <div class="theme-category">Modern Custom Themes:</div>
+                                    <button id="menu-theme-simple-light" class="menu-option theme-option">Simple Light</button>
+                                    <button id="menu-theme-simple-dark" class="menu-option theme-option">Simple Dark</button>
+                                    <button id="menu-theme-minimal-gray" class="menu-option theme-option">Minimal Gray</button>
+                                    <button id="menu-theme-corporate-blue" class="menu-option theme-option">Corporate Blue</button>
+                                    <button id="menu-theme-aurora-forge" class="menu-option theme-option">Aurora Black / Red</button>
+                                    <button id="menu-theme-ddt-signature" class="menu-option theme-option">DDT Signature</button>
+                                    <button id="menu-theme-strata-pulse" class="menu-option theme-option">Strata Pulse</button>
+                                    <div id="custom-themes-header" class="theme-category" style="display: none;">Saved Custom Themes:</div>
+                                    <div id="custom-theme-list" style="display: none;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <hr>
@@ -186,54 +194,100 @@
                     <div class="menu-submenu">
                         <span class="menu-option">Slide Transitions ▶</span>
                         <div class="menu-dropdown-nested">
-                            <div class="menu-submenu theme-submenu-group">
-                                <span class="menu-option">Beamer Templates ▶</span>
-                                <div class="menu-dropdown-nested theme-dropdown-scroll">
-                                    <div class="theme-category">Classic Beamer Themes:</div>
-                                    <button id="menu-theme-berkeley" class="menu-option theme-option">Berkeley</button>
-                                    <button id="menu-theme-berlin" class="menu-option theme-option">Berlin</button>
-                                    <button id="menu-theme-copenhagen" class="menu-option theme-option">Copenhagen</button>
-                                    <button id="menu-theme-darmstadt" class="menu-option theme-option">Darmstadt</button>
-                                    <button id="menu-theme-warsaw" class="menu-option theme-option">Warsaw</button>
-                                    <button id="menu-theme-madrid" class="menu-option theme-option">Madrid</button>
-                                    <button id="menu-theme-annarbor" class="menu-option theme-option">AnnArbor</button>
-                                    <button id="menu-theme-cambridgeus" class="menu-option theme-option">CambridgeUS</button>
-                                    <button id="menu-theme-pittsburgh" class="menu-option theme-option">Pittsburgh</button>
-                                    <button id="menu-theme-rochester" class="menu-option theme-option">Rochester</button>
-                                    <button id="menu-theme-boadilla" class="menu-option theme-option">Boadilla</button>
-                                    <button id="menu-theme-antibes" class="menu-option theme-option">Antibes</button>
-                                    <button id="menu-theme-juanlespins" class="menu-option theme-option">JuanLesPins</button>
-                                    <button id="menu-theme-montpellier" class="menu-option theme-option">Montpellier</button>
-                                    <button id="menu-theme-malmoe" class="menu-option theme-option">Malmoe</button>
-                                    <button id="menu-theme-singapore" class="menu-option theme-option">Singapore</button>
-                                    <button id="menu-theme-szeged" class="menu-option theme-option">Szeged</button>
-                                    <button id="menu-theme-hannover" class="menu-option theme-option">Hannover</button>
-                                    <button id="menu-theme-marburg" class="menu-option theme-option">Marburg</button>
-                                    <button id="menu-theme-goettingen" class="menu-option theme-option">Goettingen</button>
-                                </div>
-                            </div>
-                            <div class="menu-submenu theme-submenu-group">
-                                <span class="menu-option">Custom Templates ▶</span>
-                                <div class="menu-dropdown-nested theme-dropdown-scroll">
-                                    <div class="theme-category">Color Variants:</div>
-                                    <button id="menu-theme-berkeley-dark" class="menu-option theme-option">Berkeley Dark</button>
-                                    <button id="menu-theme-berlin-light" class="menu-option theme-option">Berlin Light</button>
-                                    <button id="menu-theme-copenhagen-blue" class="menu-option theme-option">Copenhagen Blue</button>
-                                    <button id="menu-theme-madrid-green" class="menu-option theme-option">Madrid Green</button>
-                                    <hr>
-                                    <div class="theme-category">Modern Themes:</div>
-                                    <button id="menu-theme-simple-light" class="menu-option theme-option">Simple Light</button>
-                                    <button id="menu-theme-simple-dark" class="menu-option theme-option">Simple Dark</button>
-                                    <button id="menu-theme-minimal-gray" class="menu-option theme-option">Minimal Gray</button>
-                                    <button id="menu-theme-corporate-blue" class="menu-option theme-option">Corporate Blue</button>
-                                    <button id="menu-theme-aurora-forge" class="menu-option theme-option">Aurora Black / Red</button>
-                                    <button id="menu-theme-ddt-signature" class="menu-option theme-option">DDT Signature</button>
-                                    <button id="menu-theme-strata-pulse" class="menu-option theme-option">Strata Pulse</button>
-                                    <div id="custom-themes-header" class="theme-category" style="display: none;">Saved Custom Themes:</div>
-                                    <div id="custom-theme-list" style="display: none;"></div>
-                                </div>
-                            </div>
+                            <button id="menu-transition-none" class="menu-option">None (instant)</button>
+                            <button id="menu-transition-fade" class="menu-option">Fade</button>
+                            <button id="menu-transition-slide" class="menu-option">Slide</button>
+                            <button id="menu-transition-zoom" class="menu-option">Zoom</button>
                         </div>
+                    </div>
+                    <hr>
+                    <button id="menu-presentation-customize-colors" class="menu-option">Customize Colors...</button>
+                    <button id="menu-presentation-save-theme" class="menu-option">Save Current Theme...</button>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Color Presets ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-color-preset-blue" class="menu-option">Blue Professional</button>
+                            <button id="menu-color-preset-red" class="menu-option">Red Vibrant</button>
+                            <button id="menu-color-preset-green" class="menu-option">Green Fresh</button>
+                            <button id="menu-color-preset-purple" class="menu-option">Purple Creative</button>
+                            <button id="menu-color-preset-orange" class="menu-option">Orange Energetic</button>
+                            <button id="menu-color-preset-dark" class="menu-option">Dark Mode</button>
+                            <button id="menu-color-preset-crimson-horizon" class="menu-option">Crimson Horizon</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Book</span>
+                <div class="menu-dropdown">
+                    <div class="menu-submenu">
+                        <span class="menu-option">New Book Project ▶ <span class="shortcut">Ctrl+Alt+B</span></span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-book-new-classical" class="menu-option">📚 Classical Book</button>
+                            <button id="menu-book-new-wiki" class="menu-option">🌐 Wiki Documentation</button>
+                            <button id="menu-book-new-help" class="menu-option">❓ Help Documentation</button>
+                            <button id="menu-book-new-technical" class="menu-option">⚙️ Technical Docs</button>
+                        </div>
+                    </div>
+                    <button id="menu-book-open" class="menu-option">Open Book Project...</button>
+                    <hr>
+                    <button id="menu-book-mode-toggle" class="menu-option">
+                        <input type="checkbox" id="menu-book-mode-enabled" style="margin-right: 8px;">
+                        Enable Book Mode
+                    </button>
+                    <hr>
+                    <button id="menu-book-open-summary" class="menu-option">Edit SUMMARY.md</button>
+                    <button id="menu-book-open-config" class="menu-option">Edit book.config.json</button>
+                    <button id="menu-book-add-chapter" class="menu-option">Add New Chapter...</button>
+                    <hr>
+                    <button id="menu-book-build-all" class="menu-option">Build All Formats <span class="shortcut">Ctrl+Alt+Shift+B</span></button>
+                    <button id="menu-book-build-html" class="menu-option">Build HTML Only</button>
+                    <button id="menu-book-export-pdf" class="menu-option">Export as PDF</button>
+                    <hr>
+                    <button id="menu-book-serve" class="menu-option">Preview Book Locally <span class="shortcut">Ctrl+Alt+P</span></button>
+                    <button id="menu-book-stop-serve" class="menu-option">Stop Preview Server</button>
+                    <button id="menu-book-watch" class="menu-option">
+                        <input type="checkbox" id="menu-book-watch-toggle" style="margin-right: 8px;">
+                        Auto-rebuild on Changes
+                    </button>
+                    <hr>
+                    <button id="menu-book-search" class="menu-option">Search in Book... <span class="shortcut">Ctrl+Alt+F</span></button>
+                </div>
+            </div>
+            <div class="menu-item">
+                <span class="menu-label">Help</span>
+                <div class="menu-dropdown">
+                    <button id="menu-help-markdd" class="menu-option">MarkDD Editor Guide</button>
+                    <button id="menu-help-showcase" class="menu-option">MarkDD Feature Showcase</button>
+                    <hr>
+                    <button id="menu-help-presentation" class="menu-option">Presentation Mode Guide</button>
+                    <button id="menu-help-presentation-showcase" class="menu-option">Presentation Examples</button>
+                    <hr>
+                    <button id="menu-help-book" class="menu-option">Book Mode Guide</button>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Book Templates & Examples ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-help-book-classical" class="menu-option">Classical Book Example</button>
+                            <button id="menu-help-book-wiki" class="menu-option">Wiki Example</button>
+                            <button id="menu-help-book-help" class="menu-option">Help Documentation Example</button>
+                            <button id="menu-help-book-technical" class="menu-option">Technical Docs Example</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <button id="menu-about" class="menu-option">About MarkDD Editor</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div id="toolbar" class="toolbar">
+            <div class="toolbar-group">
+                <button id="newBtn" class="toolbar-btn" title="New File (Ctrl+N)">
+                    <span class="icon">📄</span>
+                </button>
+                <button id="openBtn" class="toolbar-btn" title="Open File (Ctrl+O)">
+                    <span class="icon">📁</span>
+                </button>
                 <button id="saveBtn" class="toolbar-btn" title="Save File (Ctrl+S)">
                     <span class="icon">💾</span>
                 </button>
@@ -623,6 +677,114 @@
             </div>
         </div>
 
+        <!-- Book Mode Panel -->
+        <div id="book-mode-panel" class="book-mode-panel" style="display: none;">
+            <div class="book-mode-container">
+                <!-- Book Navigation Sidebar -->
+                <aside class="book-nav-sidebar">
+                    <div class="book-nav-header">
+                        <h2 id="book-project-title" class="book-project-title">Book Project</h2>
+                        <div class="book-nav-header-actions">
+                            <button id="book-title-edit" class="book-title-edit" title="Rename Book">✏️</button>
+                            <button id="book-mode-close" class="book-mode-close" title="Exit Book Mode">&times;</button>
+                        </div>
+                    </div>
+                    
+                    <div class="book-nav-controls">
+                        <button id="book-nav-refresh" class="book-nav-btn" title="Refresh Structure">
+                            <span class="icon">🔄</span> Refresh
+                        </button>
+                        <button id="book-nav-add-chapter" class="book-nav-btn" title="Add Chapter">
+                            <span class="icon">➕</span> Add Chapter
+                        </button>
+                    </div>
+
+                    <!-- Table of Contents Tree -->
+                    <div class="book-toc-container">
+                        <h3 class="book-toc-title">Table of Contents</h3>
+                        <div id="book-toc-tree" class="book-toc-tree">
+                            <p class="book-toc-placeholder">No chapters loaded. Create or open a book project.</p>
+                        </div>
+                    </div>
+
+                    <!-- Book Search -->
+                    <div class="book-search-container">
+                        <input type="text" id="book-search-input" class="book-search-input" placeholder="Search in book..." />
+                        <div id="book-search-results" class="book-search-results" style="display: none;">
+                            <p class="book-search-placeholder">No results</p>
+                        </div>
+                    </div>
+
+                    <!-- Book Actions -->
+                    <div class="book-actions-container">
+                        <button id="book-action-build-all" class="book-action-btn book-action-primary">
+                            <span class="icon">🚀</span> Build All
+                        </button>
+                        <button id="book-action-preview" class="book-action-btn">
+                            <span class="icon">👁️</span> Preview
+                        </button>
+                        <button id="book-action-export-pdf" class="book-action-btn">
+                            <span class="icon">📄</span> PDF
+                        </button>
+                    </div>
+
+                    <!-- Book Style Controls -->
+                    <div class="book-style-controls">
+                        <label for="book-style-select" class="book-style-label">HTML Style</label>
+                        <select id="book-style-select" class="book-style-select">
+                            <!-- Options populated dynamically -->
+                        </select>
+                        <p class="book-style-hint">Select Midnight for dark mode or Classic/Wiki for light exports.</p>
+                    </div>
+                </aside>
+
+                <!-- Book Content Editor/Preview -->
+                <div class="book-content-area">
+                    <!-- Chapter Editor -->
+                    <div class="book-editor-section">
+                        <div class="book-editor-header">
+                            <span id="book-current-chapter" class="book-current-chapter">No chapter selected</span>
+                            <div class="book-editor-controls">
+                                <button id="book-editor-save" class="book-editor-btn" title="Save Chapter">
+                                    <span class="icon">💾</span> Save
+                                </button>
+                                <button id="book-editor-preview-toggle" class="book-editor-btn active" title="Toggle Preview">
+                                    <span class="icon">👁️</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="book-editor-container">
+                            <textarea id="book-chapter-editor" class="book-chapter-editor" placeholder="Select a chapter from the sidebar to edit..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview -->
+                    <div class="book-preview-section">
+                        <div class="book-preview-header">
+                            <span class="book-preview-title">Live Preview</span>
+                            <div class="book-preview-controls">
+                                <button id="book-preview-fullscreen" class="book-preview-btn" title="Fullscreen">
+                                    <span class="icon">⛶</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="book-chapter-preview" class="book-chapter-preview">
+                            <div class="book-preview-placeholder">
+                                <h2>Welcome to Book Mode</h2>
+                                <p>Create or open a book project to get started.</p>
+                                <ul>
+                                    <li>Hierarchical chapter navigation</li>
+                                    <li>Live markdown preview with math & diagrams</li>
+                                    <li>Full-text search with Lunr.js</li>
+                                    <li>Export to HTML and PDF</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Status Bar -->
         <div id="status-bar" class="status-bar">
             <div class="status-left">
@@ -664,6 +826,8 @@
     <script src="js/enhanced-markmap-integration.js"></script>
     <script src="js/kityminder-integration.js"></script>
     <script src="js/presentation.js"></script>
+    <script src="js/book.js"></script>
+    <script src="js/book-examples.js"></script>
     
     <!-- Initialize everything after DOM is ready -->
     <script>

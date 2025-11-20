@@ -2,9 +2,12 @@ const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut } = require('
 const path = require('path');
 const fs = require('fs');
 const { getVersion } = require('../version');
+const { BookEngine } = require('../common/book-engine');
 
 let mainWindow;
 let currentFile = null;
+const bookEngine = new BookEngine(console);
+let activeBookServe = null;
 
 const isDev = process.argv.includes('--dev');
 
@@ -293,6 +296,217 @@ app.whenReady().then(() => {
         }
       }
     }
+  }
+});
+
+ipcMain.handle('book-select-directory', async (event, options = {}) => {
+  const dialogOptions = {
+    title: options.title || 'Select Book Folder',
+    defaultPath: options.defaultPath || app.getPath('documents'),
+    properties: ['openDirectory']
+  };
+  if (options.allowCreate !== false) {
+    dialogOptions.properties.push('createDirectory');
+  }
+  const result = await dialog.showOpenDialog(mainWindow, dialogOptions);
+  if (result.canceled || !result.filePaths || !result.filePaths.length) {
+    return { canceled: true };
+  }
+  return { canceled: false, path: result.filePaths[0] };
+});
+
+ipcMain.handle('book-save-dialog', async (event, options = {}) => {
+  const dialogOptions = {
+    title: options.title || 'Save Book Output',
+    defaultPath: options.defaultPath || path.join(app.getPath('documents'), options.defaultName || 'book-output'),
+    filters: options.filters || []
+  };
+  const result = await dialog.showSaveDialog(mainWindow, dialogOptions);
+  if (result.canceled || !result.filePath) {
+    return { canceled: true };
+  }
+  return { canceled: false, filePath: result.filePath };
+});
+
+ipcMain.handle('book-init-project', async (event, payload = {}) => {
+  try {
+    const info = await bookEngine.initProject(payload.targetDir, payload.config || {});
+    logInfo('BookInit', `Initialized project at ${payload.targetDir}`);
+    return { success: true, data: info };
+  } catch (error) {
+    logError('BookInit', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-create-temp-example', async (event, payload = {}) => {
+  try {
+    const tempDir = await bookEngine.createTempExample(payload.type, payload.config, payload.chapters, payload.structure);
+    logInfo('BookTempExample', `Created temp example at ${tempDir}`);
+    return { success: true, tempDir };
+  } catch (error) {
+    logError('BookTempExample', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-build', async (event, payload = {}) => {
+  try {
+    const result = await bookEngine.build(payload.rootDir, payload.options || {});
+    logInfo('BookBuild', `Book built to ${result.outputDir}`);
+    return {
+      success: true,
+      outputDir: result.outputDir,
+      metadata: result.manifest.metadata,
+      chapters: result.manifest.chapters
+    };
+  } catch (error) {
+    logError('BookBuild', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-export-pdf', async (event, payload = {}) => {
+  try {
+    await bookEngine.exportPdf(payload.rootDir, payload.outputPath, payload.options || {});
+    logInfo('BookPDF', `PDF exported to ${payload.outputPath}`);
+    return { success: true, filePath: payload.outputPath };
+  } catch (error) {
+    logError('BookPDF', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-serve', async (event, payload = {}) => {
+  try {
+    const result = await bookEngine.serve(payload.rootDir, { watch: payload.watch, port: payload.port });
+    activeBookServe = { rootDir: payload.rootDir, port: result.port };
+    logInfo('BookServe', `Serving book at http://localhost:${result.port}`);
+    return { success: true, port: result.port };
+  } catch (error) {
+    logError('BookServe', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-stop-server', async () => {
+  try {
+    await bookEngine.stopServer();
+    activeBookServe = null;
+    logInfo('BookServe', 'Book server stopped');
+    return { success: true };
+  } catch (error) {
+    logError('BookServe', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-load-structure', async (event, payload = {}) => {
+  try {
+    const config = await bookEngine.loadConfig(payload.rootDir);
+    const summary = await bookEngine.loadSummary(payload.rootDir, config);
+    logInfo('BookLoad', `Loaded structure for ${config.title}`);
+    return {
+      success: true,
+      data: {
+        config,
+        structure: summary.tree,
+        summaryText: summary.raw,
+        rootDir: payload.rootDir
+      }
+    };
+  } catch (error) {
+    logError('BookLoad', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-search', async (event, payload = {}) => {
+  try {
+    const { rootDir, query } = payload;
+    if (!query || query.trim().length < 2) {
+      return { success: true, results: [] };
+    }
+
+    // Use BookEngine search method (to be implemented)
+    const results = await bookEngine.searchContent(rootDir, query);
+    logInfo('BookSearch', `Found ${results.length} results for "${query}"`);
+    return { success: true, results };
+  } catch (error) {
+    logError('BookSearch', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Chapter Management Handlers
+ipcMain.handle('book-add-chapter', async (event, payload = {}) => {
+  try {
+    const { rootDir, title, position } = payload;
+    const result = await bookEngine.addChapter(rootDir, title, position);
+    logInfo('BookAddChapter', `Added chapter "${title}"`);
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookAddChapter', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-remove-chapter', async (event, payload = {}) => {
+  try {
+    const { rootDir, slug } = payload;
+    const result = await bookEngine.removeChapter(rootDir, slug);
+    logInfo('BookRemoveChapter', `Removed chapter "${slug}"`);
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookRemoveChapter', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-reorder-chapters', async (event, payload = {}) => {
+  try {
+    const { rootDir, newOrder } = payload;
+    const result = await bookEngine.reorderChapters(rootDir, newOrder);
+    logInfo('BookReorderChapters', 'Reordered chapters');
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookReorderChapters', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-add-appendix', async (event, payload = {}) => {
+  try {
+    const { rootDir, title } = payload;
+    const result = await bookEngine.addAppendix(rootDir, title);
+    logInfo('BookAddAppendix', `Added appendix "${title}"`);
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookAddAppendix', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-remove-appendix', async (event, payload = {}) => {
+  try {
+    const { rootDir, slug } = payload;
+    const result = await bookEngine.removeAppendix(rootDir, slug);
+    logInfo('BookRemoveAppendix', `Removed appendix "${slug}"`);
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookRemoveAppendix', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('book-get-structure', async (event, payload = {}) => {
+  try {
+    const { rootDir } = payload;
+    const result = await bookEngine.getBookStructure(rootDir);
+    return { success: true, ...result };
+  } catch (error) {
+    logError('BookGetStructure', error);
+    return { success: false, error: error.message };
   }
 });
 
@@ -1314,6 +1528,7 @@ ipcMain.handle('preview-presentation', async (event, { html }) => {
       throw new Error('Failed to initialise preview window');
     }
 
+    // Stop any in-flight navigation before loading fresh content
     presentationWindow.webContents.stop();
 
     const base64Html = Buffer.from(html, 'utf-8').toString('base64');
@@ -1436,7 +1651,7 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
       marginsType: 0, // No margins - controlled by CSS
       printBackground: true,
       landscape: true,
-      preferCSSPageSize: true,
+      preferCSSPageSize: true, // Honor CSS-defined page size
       scale: 1.0, // Ensure no scaling
       displayHeaderFooter: false
     });
