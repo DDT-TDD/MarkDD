@@ -217,7 +217,8 @@ class MarkDDApp {
         this.logInfo('App', 'Checking dependencies...');
         
         if (!window.libraryLoader) {
-            throw new Error('LibraryLoader not available');
+            this.logInfo('App', 'LibraryLoader not available yet - will retry after libraries load');
+            return; // Don't throw - libraries may still be loading
         }
 
         const loadedLibraries = window.libraryLoader.getLoadedLibraries();
@@ -229,10 +230,48 @@ class MarkDDApp {
         const missingRequired = requiredLibraries.filter(lib => !loadedLibraries.includes(lib));
         
         if (missingRequired.length > 0) {
-            throw new Error(`Missing required libraries: ${missingRequired.join(', ')}. Please check your internet connection.`);
+            // Don't throw - wait for libraries to load in background
+            this.logInfo('App', `Waiting for libraries: ${missingRequired.join(', ')}`);
+            
+            // Start a background task to wait for required libraries
+            this.waitForRequiredLibraries(requiredLibraries);
+            return;
         }
         
         this.logInfo('App', 'All required dependencies are available');
+    }
+    
+    /**
+     * Wait for required libraries to load in background
+     * This allows the UI to appear immediately while heavy libraries load
+     */
+    async waitForRequiredLibraries(requiredLibraries) {
+        let attempts = 0;
+        const maxAttempts = 100; // 10 seconds total
+        
+        while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+            
+            if (window.libraryLoader) {
+                const loadedLibraries = window.libraryLoader.getLoadedLibraries();
+                const stillMissing = requiredLibraries.filter(lib => !loadedLibraries.includes(lib));
+                
+                if (stillMissing.length === 0) {
+                    this.logInfo('App', 'Required libraries now available - updating preview');
+                    // Trigger a preview refresh now that libraries are ready
+                    if (this.preview && this.editor) {
+                        const content = this.editor.getContent();
+                        if (content) {
+                            this.preview.updatePreview(content);
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+        
+        this.logInfo('App', 'Warning: Some libraries may not have loaded - math rendering may be limited');
     }
 
     logError(context, error) {
@@ -356,74 +395,105 @@ class MarkDDApp {
             
             this.logInfo('Components', 'Tab system will be initialized after UI setup');
             
-            this.logInfo('Components', 'Initializing integrations...');
+            this.logInfo('Components', 'Initializing integrations (non-blocking)...');
             
-            // Wait for integration classes to be available
-            await this.waitForIntegrationClasses();
+            // FAST STARTUP: Initialize integrations without blocking
+            // If classes aren't ready yet, use stubs - they'll be available for later operations
+            this.initializeIntegrationsNonBlocking();
             
-            // Prefer enhanced markmap implementation if available
-            if (window.EnhancedMarkmapIntegration) {
-                this.markmapIntegration = new EnhancedMarkmapIntegration();
-                this.logInfo('Components', 'Using enhanced Markmap integration');
-                // Initialize markmap integration
-                await this.markmapIntegration.init();
-            } else if (window.MarkmapIntegration) {
-                this.markmapIntegration = new MarkmapIntegration();
-                this.logInfo('Components', 'Using standard Markmap integration');
-                // Standard markmap integration initializes automatically in constructor
-            } else {
-                this.logError('Components', 'No Markmap integration class available');
-                // Create a stub to prevent errors
-                this.markmapIntegration = {
-                    showMarkmapFromEditor: () => console.warn('Markmap integration not available')
-                };
-            }
-            
-            if (window.TikZIntegration) {
-                this.tikzIntegration = new TikZIntegration();
-                this.logInfo('Components', 'TikZ integration loaded');
-            } else {
-                this.logError('Components', 'TikZ integration not available');
-                this.tikzIntegration = {
-                    insertTikZTemplate: () => console.warn('TikZ integration not available'),
-                    isReady: () => true
-                };
-            }
-            
-            // Initialize KityMinder integration
-            if (window.KityMinderIntegration) {
-                this.kityMinderIntegration = new KityMinderIntegration();
-                await this.kityMinderIntegration.init();
-                window.kityMinderIntegration = this.kityMinderIntegration; // For dialog callbacks
-                this.logInfo('Components', 'KityMinder integration initialized');
-            } else {
-                this.logError('Components', 'KityMinder integration not available');
-                this.kityMinderIntegration = {
-                    newMindmap: () => console.warn('KityMinder integration not available'),
-                    isReady: () => false
-                };
-            }
-
-            // Initialize enhanced LaTeX integration
-            if (window.LaTeXIntegration) {
-                this.latexIntegration = new LaTeXIntegration();
-                await this.latexIntegration.init();
-                this.logInfo('Components', 'Enhanced LaTeX integration initialized');
-            } else {
-                this.logError('Components', 'LaTeX integration not available');
-                this.latexIntegration = {
-                    renderDocument: () => '<div class="latex-error">LaTeX integration not available</div>',
-                    isReady: () => false
-                };
-            }
-            
-            await this.waitForIntegrations();
-            this.logInfo('Components', 'All integrations initialized');
+            this.logInfo('Components', 'Core components initialized');
             
         } catch (error) {
             this.logError('Components', error);
             throw error;
         }
+    }
+    
+    /**
+     * Initialize integrations without blocking the main initialization
+     * This allows the UI to appear immediately while heavy integrations load in background
+     */
+    initializeIntegrationsNonBlocking() {
+        // Prefer enhanced markmap implementation if available
+        if (window.EnhancedMarkmapIntegration) {
+            this.markmapIntegration = new EnhancedMarkmapIntegration();
+            this.logInfo('Components', 'Using enhanced Markmap integration');
+            // Initialize markmap integration in background
+            this.markmapIntegration.init().catch(err => {
+                console.warn('[App] Markmap init warning:', err.message);
+            });
+        } else if (window.MarkmapIntegration) {
+            this.markmapIntegration = new MarkmapIntegration();
+            this.logInfo('Components', 'Using standard Markmap integration');
+        } else {
+            this.logInfo('Components', 'Markmap integration will load later');
+            this.markmapIntegration = {
+                showMarkmapFromEditor: () => console.warn('Markmap integration loading...')
+            };
+            // Retry later when class becomes available
+            this.retryMarkmapInit();
+        }
+        
+        if (window.TikZIntegration) {
+            this.tikzIntegration = new TikZIntegration();
+            this.logInfo('Components', 'TikZ integration loaded');
+        } else {
+            this.logInfo('Components', 'TikZ integration will load later');
+            this.tikzIntegration = {
+                insertTikZTemplate: () => console.warn('TikZ integration loading...'),
+                isReady: () => false
+            };
+        }
+        
+        // Initialize KityMinder integration
+        if (window.KityMinderIntegration) {
+            this.kityMinderIntegration = new KityMinderIntegration();
+            window.kityMinderIntegration = this.kityMinderIntegration;
+            this.kityMinderIntegration.init().catch(err => {
+                console.warn('[App] KityMinder init warning:', err.message);
+            });
+            this.logInfo('Components', 'KityMinder integration initialized');
+        } else {
+            this.logInfo('Components', 'KityMinder integration will load later');
+            this.kityMinderIntegration = {
+                newMindmap: () => console.warn('KityMinder integration loading...'),
+                isReady: () => false
+            };
+        }
+
+        // Initialize enhanced LaTeX integration
+        if (window.LaTeXIntegration) {
+            this.latexIntegration = new LaTeXIntegration();
+            this.latexIntegration.init().catch(err => {
+                console.warn('[App] LaTeX init warning:', err.message);
+            });
+            this.logInfo('Components', 'Enhanced LaTeX integration initialized');
+        } else {
+            this.logInfo('Components', 'LaTeX integration will load later');
+            this.latexIntegration = {
+                renderDocument: () => '<div class="latex-info">LaTeX integration loading...</div>',
+                isReady: () => false
+            };
+        }
+    }
+    
+    /**
+     * Retry Markmap initialization after a delay if it wasn't available initially
+     */
+    retryMarkmapInit() {
+        setTimeout(() => {
+            if (window.EnhancedMarkmapIntegration && !this.markmapIntegration.showMarkmapFromEditor.toString().includes('loading')) {
+                return; // Already initialized
+            }
+            if (window.EnhancedMarkmapIntegration) {
+                this.markmapIntegration = new EnhancedMarkmapIntegration();
+                this.markmapIntegration.init().catch(() => {});
+                this.logInfo('Components', 'Markmap integration initialized (delayed)');
+            } else if (window.MarkmapIntegration) {
+                this.markmapIntegration = new MarkmapIntegration();
+                this.logInfo('Components', 'Markmap integration initialized (delayed)');
+            }
+        }, 2000);
     }
 
     async waitForRenderer() {
@@ -7141,14 +7211,23 @@ Questions?
      * Open comprehensive feature showcase document
      */
     async openHelpShowcase() {
-        const showcasePath = 'COMPREHENSIVE-FEATURES-SHOWCASE.md';
+        const showcaseFile = 'COMPREHENSIVE-FEATURES-SHOWCASE.md';
         if (typeof require !== 'undefined') {
             const { ipcRenderer } = require('electron');
             const path = require('path');
             try {
-                // Get current working directory and construct full path
-                const cwd = await ipcRenderer.invoke('get-cwd');
-                const fullPath = path.join(cwd, showcasePath);
+                // First try examples folder (packaged builds)
+                const examplesResult = await ipcRenderer.invoke('get-examples-path');
+                let fullPath;
+                
+                if (examplesResult.success) {
+                    fullPath = path.join(examplesResult.path, showcaseFile);
+                } else {
+                    // Fallback to current working directory (dev mode)
+                    const cwd = await ipcRenderer.invoke('get-cwd');
+                    fullPath = path.join(cwd, showcaseFile);
+                }
+                
                 const result = await ipcRenderer.invoke('read-file', fullPath);
                 const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
                 
@@ -7169,26 +7248,35 @@ Questions?
      * Open comprehensive presentation test document
      */
     async openHelpPresentation() {
-        const presentationPath = 'COMPREHENSIVE-PRESENTATION-TEST.md';
+        const presentationFile = 'SAMPLE-PRESENTATION.md';
         if (typeof require !== 'undefined') {
             const { ipcRenderer } = require('electron');
             const path = require('path');
             try {
-                // Get current working directory and construct full path
-                const cwd = await ipcRenderer.invoke('get-cwd');
-                const fullPath = path.join(cwd, presentationPath);
+                // First try examples folder (packaged builds)
+                const examplesResult = await ipcRenderer.invoke('get-examples-path');
+                let fullPath;
+                
+                if (examplesResult.success) {
+                    fullPath = path.join(examplesResult.path, presentationFile);
+                } else {
+                    // Fallback to current working directory (dev mode)
+                    const cwd = await ipcRenderer.invoke('get-cwd');
+                    fullPath = path.join(cwd, presentationFile);
+                }
+                
                 const result = await ipcRenderer.invoke('read-file', fullPath);
                 const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
                 
                 if (typeof content === 'string') {
                     await this.openFile(fullPath, content);
-                    this.showMessage('Opened Comprehensive Presentation Test');
+                    this.showMessage('Opened Sample Presentation');
                 } else {
-                    this.showError('Could not read presentation test file');
+                    this.showError('Could not read presentation file');
                 }
             } catch (error) {
-                console.error('[App] Failed to open presentation test:', error);
-                this.showError('Failed to open presentation test file: ' + error.message);
+                console.error('[App] Failed to open presentation:', error);
+                this.showError('Failed to open presentation file: ' + error.message);
             }
         }
     }
@@ -7197,7 +7285,7 @@ Questions?
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '1.3.0', // Fallback, will be replaced by main process
+            version: '1.3.1', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };

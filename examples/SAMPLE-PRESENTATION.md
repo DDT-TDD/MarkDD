@@ -2,7 +2,7 @@
 theme: berkeley
 title: MarkDD Presentation Demo
 author: MarkDD Team
-date: November 8, 2025
+date: Sample Presentation
 ---
 
 # Welcome to MarkDD Presentations

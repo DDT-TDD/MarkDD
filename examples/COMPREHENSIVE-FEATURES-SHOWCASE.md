@@ -1,36 +1,43 @@
-# MarkDD Editor v1.2 - Complete Feature Showcase
+# MarkDD Editor - Complete Feature Showcase
 
-**Version 1.2.0** - Advanced Markdown Editor with Presentation System
+**Advanced Markdown Editor** with Presentations, Book Publishing, and Professional Rendering
 
-This document demonstrates all features available in MarkDD Editor v1.2.
+This document demonstrates all features available in MarkDD Editor.
 
 ## Table of Contents
 [TOC]
 
 ---
 
-## ✨ What's New in Version 1.2
+## ✨ Key Features
 
-### Major Features (v1.2.0)
-- 🎭 **Beamer-Style Presentations** - Create professional presentations in Markdown with 28 themes
-  - Live preview in separate window
-  - Export to standalone HTML and PDF
-  - YAML front-matter for theme, title, author, date
-  - Slide transitions (fade, slide, zoom)
-  - Table of contents and navigation (left, top, none)
-  - Headers, footers, progress bars, slide counters
-  - Full math, diagram, and code support in slides
-- 🧪 **Chemistry Equations** - Full mhchem support for chemical formulas and reactions
-- ⚡ **Performance Optimizations** - Faster tab rendering and startup (v1.1.1)
+### 📚 Book Publishing System
+- **Complete book workflow** - From manuscript to HTML/PDF
+- **4 book types** - Classical books, Wiki, Help systems, Technical documents
+- **13 technical templates** - Reports, plans, proposals, manuals, and more
+- **5 professional themes** - Dark mode, Classic print, Wiki, Help Center, Professional
+- **Full-text search** - Lunr.js powered client-side search
+- **Live preview server** - Auto-rebuild on changes
 
-### Core Features (v1.1)
-- ✅ **Custom Container Blocks** - Full support for `:::info`, `:::warning`, `:::danger`, `:::tip`, `:::note` blocks with optional titles
-- ✅ **Draggable Search & Replace** - Non-blocking, movable find & replace window (Ctrl+F) that doesn't gray out the editor
-- ✅ **Manual Refresh Control** - Toggle live preview on/off with dedicated manual refresh button (Ctrl+R) when live preview is disabled
-- ✅ **KityMinder Editing** - Full editing capability restored for saved mind maps (click ✏️ Edit button)
-- ✅ **Clean Exports** - HTML and PDF exports no longer include interactive buttons or "View JSON" / "Edit" controls
-- ✅ **Image Plugin** - Automatic responsive images with lazy loading and figure captions
-- ✅ **Video Plugin** - YouTube links automatically convert to embedded videos (see example in the video section)
+### 🎭 Presentation System
+- **28 professional themes** - Classic Beamer styles plus modern variants
+- **Live preview** - See your slides in real-time
+- **Multiple exports** - HTML and PDF output
+- **Easy syntax** - Just write Markdown with `---` separators
+
+### 🧪 Math & Chemistry
+- **LaTeX math** - KaTeX and MathJax support
+- **Chemistry equations** - Full mhchem support for formulas and reactions
+- **Advanced environments** - align, equation, gather, and more
+
+### Core Features
+- ✅ **Custom Container Blocks** - `:::info`, `:::warning`, `:::danger`, `:::tip`, `:::note` blocks
+- ✅ **Draggable Search & Replace** - Non-blocking find & replace (Ctrl+F)
+- ✅ **Manual Refresh Control** - Toggle live preview with manual refresh (Ctrl+R)
+- ✅ **KityMinder Mind Maps** - Full editing capability for mind maps
+- ✅ **Clean Exports** - Professional HTML and PDF exports
+- ✅ **Image Plugin** - Responsive images with lazy loading
+- ✅ **Video Plugin** - YouTube auto-embedding
 
 ---
 

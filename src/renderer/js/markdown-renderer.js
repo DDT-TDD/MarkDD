@@ -434,15 +434,51 @@ class MarkdownRenderer {
         }
 
         if (!this.markedParse) {
-            console.error('[MarkdownRenderer] Marked normalization failed:', {
-                typeofMarked: typeof this.marked,
-                keys: this.marked ? Object.keys(this.marked) : null
-            });
-            throw new Error(`Marked library is not available. Please check your internet connection and refresh the page.`);
+            // Wait for Marked to be available (up to 5 seconds)
+            console.log('[MarkdownRenderer] Marked not available yet, waiting...');
+            for (let i = 0; i < 50; i++) {
+                await new Promise(r => setTimeout(r, 100));
+                this.marked = window.marked;
+                if (this.marked) {
+                    if (typeof this.marked === 'function') {
+                        this.markedParse = this.marked;
+                    } else if (typeof this.marked.parse === 'function') {
+                        this.markedParse = (src, opts) => this.marked.parse(src, opts);
+                    } else if (typeof this.marked.marked === 'function') {
+                        this.markedParse = (src, opts) => this.marked.marked(src, opts);
+                    }
+                    if (this.markedParse) break;
+                }
+            }
+            
+            if (!this.markedParse) {
+                console.error('[MarkdownRenderer] Marked normalization failed:', {
+                    typeofMarked: typeof this.marked,
+                    keys: this.marked ? Object.keys(this.marked) : null
+                });
+                throw new Error(`Marked library is not available. Please check your internet connection and refresh the page.`);
+            }
         }
         
+        // KaTeX is optional - wait briefly but don't fail if not available
         if (typeof this.katex !== 'object' || this.katex === null) {
-            throw new Error(`KaTeX library is not available. Please check your internet connection and refresh the page.`);
+            console.log('[MarkdownRenderer] KaTeX not available yet, waiting...');
+            for (let i = 0; i < 30; i++) { // Wait up to 3 seconds
+                await new Promise(r => setTimeout(r, 100));
+                this.katex = window.katex;
+                if (typeof this.katex === 'object' && this.katex !== null) {
+                    console.log('[MarkdownRenderer] KaTeX now available');
+                    break;
+                }
+            }
+            
+            if (typeof this.katex !== 'object' || this.katex === null) {
+                console.warn('[MarkdownRenderer] KaTeX not available - math rendering may be limited');
+                // Create a stub that returns an error message
+                this.katex = {
+                    renderToString: (tex) => `<span class="katex-error" title="${tex}">[Math: ${tex}]</span>`
+                };
+            }
         }
         
         console.log('⚡⚡⚡ [MarkdownRenderer] About to call initializeMarked()');

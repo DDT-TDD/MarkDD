@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { getVersion } = require('../version');
@@ -10,6 +10,53 @@ const bookEngine = new BookEngine(console);
 let activeBookServe = null;
 
 const isDev = process.argv.includes('--dev');
+
+// ============================================================================
+// SINGLE INSTANCE LOCK
+// Prevents multiple instances of the app when double-clicking files.
+// If a second instance is launched, it sends the file path to the first instance.
+// ============================================================================
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running - quit this one
+  console.log('[Main] Another instance is already running. Quitting this instance.');
+  app.quit();
+} else {
+  // This is the primary instance - handle second-instance events
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('[Main] Second instance detected, command line:', commandLine);
+    
+    // Focus the main window if it exists
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+      
+      // Check if a file was passed in the command line
+      for (let i = 1; i < commandLine.length; i++) {
+        const arg = commandLine[i];
+        if (!arg.startsWith('--') && !arg.endsWith('.exe')) {
+          if (arg.endsWith('.md') || arg.endsWith('.markdown')) {
+            try {
+              if (fs.existsSync(arg)) {
+                console.log('[Main] Opening file from second instance:', arg);
+                // Send to renderer to open in a new tab
+                if (mainWindow.webContents) {
+                  mainWindow.webContents.send('open-file-from-system', arg);
+                }
+                break;
+              }
+            } catch (err) {
+              console.log('[Main] Error checking file from second instance:', err.message);
+            }
+          }
+        }
+      }
+    }
+  });
+}
 
 // Enhanced logging for debugging
 function logError(context, error) {
@@ -34,11 +81,60 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
-      webSecurity: false
+      webSecurity: false,
+      spellcheck: true  // Enable spellcheck for context menu corrections
     },
     icon: path.join(__dirname, '../assets/icons/icon.png'),
     titleBarStyle: 'default',
     show: false
+  });
+
+  // ============================================================================
+  // SPELLCHECK CONTEXT MENU
+  // Shows spelling suggestions when right-clicking on misspelled words
+  // ============================================================================
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    // Build context menu with spell check suggestions
+    const menuTemplate = [];
+    
+    // Add spelling suggestions if there are any
+    if (params.misspelledWord && params.dictionarySuggestions.length > 0) {
+      // Add each suggestion
+      params.dictionarySuggestions.forEach(suggestion => {
+        menuTemplate.push({
+          label: suggestion,
+          click: () => {
+            mainWindow.webContents.replaceMisspelling(suggestion);
+          }
+        });
+      });
+      
+      // Add separator after suggestions
+      menuTemplate.push({ type: 'separator' });
+      
+      // Add "Add to Dictionary" option
+      menuTemplate.push({
+        label: 'Add to Dictionary',
+        click: () => {
+          mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord);
+        }
+      });
+      
+      menuTemplate.push({ type: 'separator' });
+    }
+    
+    // Standard edit menu items (always shown)
+    menuTemplate.push(
+      { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+      { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+      { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+      { type: 'separator' },
+      { label: 'Select All', role: 'selectAll' }
+    );
+    
+    // Show the context menu
+    const contextMenu = Menu.buildFromTemplate(menuTemplate);
+    contextMenu.popup();
   });
 
   // Enhanced error handling for renderer process
@@ -521,9 +617,18 @@ app.on('window-all-closed', () => {
   }
 });
 
+// Flag to prevent infinite loop in before-quit handler
+let isQuitting = false;
+
 // Handle before-quit: check for unsaved changes
 app.on('before-quit', (event) => {
   logInfo('Main', 'before-quit event triggered');
+  
+  // If we've already confirmed quit, allow it to proceed
+  if (isQuitting) {
+    logInfo('Main', 'Quit already confirmed, proceeding...');
+    return;
+  }
   
   // Only block quit if there's an open window with unsaved changes
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -538,6 +643,7 @@ app.on('before-quit', (event) => {
     const responseTimeout = setTimeout(() => {
       if (!hasResponded) {
         logInfo('Main', 'No response to unsaved tabs check (timeout), allowing quit');
+        isQuitting = true;
         app.quit();
       }
     }, 2000); // 2 second timeout
@@ -563,11 +669,13 @@ app.on('before-quit', (event) => {
         }).then((buttonIndex) => {
           if (buttonIndex.response === 1) {
             // User chose to exit without saving
+            isQuitting = true;
             app.quit();
           }
         });
       } else {
         // No unsaved changes, proceed with quit
+        isQuitting = true;
         app.quit();
       }
     };
@@ -1287,6 +1395,32 @@ ipcMain.handle('read-third-party-licenses', async () => {
       content: 'Third-party licenses information not available'
     };
   }
+});
+
+// Get examples directory path (works in both dev and packaged builds)
+ipcMain.handle('get-examples-path', async () => {
+  // In packaged builds, resources are in resources/ folder next to the executable
+  // In dev, they're in the project root
+  const possiblePaths = [
+    path.join(process.resourcesPath || '', 'examples'),           // Packaged: resources/examples
+    path.join(__dirname, '..', '..', 'resources', 'examples'),    // Packaged alt: relative to main.js
+    path.join(__dirname, '..', '..', 'examples'),                 // Dev: project root
+    path.join(process.cwd(), 'examples')                          // Dev: cwd
+  ];
+  
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        logInfo('Main', 'Found examples directory at: ' + p);
+        return { success: true, path: p };
+      }
+    } catch (e) {
+      // Continue to next path
+    }
+  }
+  
+  logInfo('Main', 'Examples directory not found, searched: ' + possiblePaths.join(', '));
+  return { success: false, error: 'Examples directory not found' };
 });
 
 // Plugin installation handlers

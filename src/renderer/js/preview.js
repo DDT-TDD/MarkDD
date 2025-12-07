@@ -297,14 +297,27 @@ class Preview {
 
     highlightCode() {
         const codeBlocks = this.element.querySelectorAll('pre code:not(.hljs)');
+        
+        // Remove any previous warning if hljs is now available
+        const existingWarning = this.element.querySelector('.highlightjs-warning');
+        if (existingWarning && window.hljs) {
+            existingWarning.remove();
+        }
+        
         if (!window.hljs) {
-            // Show a warning if highlight.js is not loaded
-            if (!this.element.querySelector('.highlightjs-warning')) {
-                const warning = document.createElement('div');
-                warning.className = 'highlightjs-warning';
-                warning.style = 'color: #b71c1c; background: #fff3f3; padding: 8px; margin: 8px 0; border-radius: 4px; font-size: 0.98em;';
-                warning.innerHTML = '⚠️ Code highlighting is unavailable: highlight.js failed to load.';
-                this.element.prepend(warning);
+            // Don't show warning during initial load - hljs may still be loading
+            // Only log to console, don't pollute the preview
+            console.log('[Preview] highlight.js not yet available, code blocks will be highlighted when ready');
+            
+            // Retry after a short delay (libraries may still be loading)
+            if (!this._hljsRetryScheduled) {
+                this._hljsRetryScheduled = true;
+                setTimeout(() => {
+                    this._hljsRetryScheduled = false;
+                    if (window.hljs) {
+                        this.highlightCode();
+                    }
+                }, 1000);
             }
             return;
         }

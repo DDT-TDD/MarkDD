@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2025-12-07
+
+### Fixed
+
+1. **Application Closing Delay/Failure** ✅
+   - Issue: Application sometimes failed to close or experienced significant delays when closing
+   - Root Cause: Infinite loop in `before-quit` handler - calling `app.quit()` triggered `before-quit` again
+   - Fix: Added `isQuitting` flag to prevent recursive quit attempts
+   - Files: `src/main/main.js`
+   - Status: Resolved
+
+2. **Help Menu Examples Not Found in Packaged Builds** ✅
+   - Issue: "Open Showcase" and "Open Presentation" Help menu items failed in packaged builds
+   - Root Cause: Using `process.cwd()` which varies in packaged apps, examples not copied to build
+   - Fix: Created `examples/` folder, added `get-examples-path` IPC handler with multiple path fallbacks
+   - Files: `src/main/main.js`, `src/renderer/js/app.js`, `package.json`
+   - Status: Resolved
+
+3. **Double-Click Opens Second Instance Instead of New Tab** ✅
+   - Issue: Double-clicking a .md file while MarkDD is running opened a new app instance
+   - Root Cause: Missing `requestSingleInstanceLock()` to prevent multiple instances
+   - Fix: Added single-instance lock with `second-instance` event handler to open file in existing window
+   - Files: `src/main/main.js`
+   - Status: Resolved
+
+4. **Slow Tab UI Initialization (~30 seconds delay)** ✅
+   - Issue: Tab bar appeared up to 30 seconds after the editor window opened
+   - Root Cause: App initialization blocked on library loading (10s timeout) and integration waits (2s)
+   - Fix: Reversed initialization order - load app immediately, load libraries in background
+   - Files: `src/renderer/index.html`, `src/renderer/js/app.js`
+   - Status: Resolved
+
+5. **False "Highlight.js Failed" Warning** ✅
+   - Issue: Warning message appeared even though highlight.js was loading successfully
+   - Root Cause: Preview tried to highlight code before library finished loading
+   - Fix: Removed intrusive warning, added automatic retry when library becomes available
+   - Files: `src/renderer/js/preview.js`
+   - Status: Resolved
+
+6. **Library Loading Tolerance** ✅
+   - Issue: App could fail to start if KaTeX wasn't immediately available
+   - Root Cause: Strict dependency checks threw errors during fast startup
+   - Fix: Made dependency checks non-blocking with automatic retry and graceful fallbacks
+   - Files: `src/renderer/js/app.js`, `src/renderer/js/markdown-renderer.js`
+   - Status: Resolved
+
+7. **Spellcheck Context Menu Missing Corrections** ✅
+   - Issue: Misspelled words were underlined but right-click showed no spelling suggestions
+   - Root Cause: Electron's spellcheck was enabled but no context menu handler was set up
+   - Fix: Added context-menu event handler with spelling suggestions and "Add to Dictionary" option
+   - Files: `src/main/main.js`
+   - Status: Resolved
+
+### Changed
+
+- **Build Configuration** – Examples folder now copied to `resources/examples/` in packaged builds
+- **Help Menu** – Now uses robust path resolution for example files (works in dev and packaged builds)
+- **Path Handling** – Improved error handling for file path resolution
+- **Startup Performance** – Application now starts instantly with libraries loading in background
+- **Integration Loading** – Non-blocking initialization for optional integrations (Markmap, TikZ, KityMinder)
+
+### Added
+
+- **Examples Folder** – Centralized location for example/showcase files:
+  - `COMPREHENSIVE-FEATURES-SHOWCASE.md`
+  - `SAMPLE-PRESENTATION.md`
+- **IPC Handler** – New `get-examples-path` handler for cross-platform example file resolution
+- **Single Instance Lock** – Prevents multiple app instances; new files open as tabs in existing window
+- **Spellcheck Context Menu** – Right-click on misspelled words now shows spelling suggestions and "Add to Dictionary" option
+
+---
+
 ## [1.3.0] - 2025-11-20
 
 ### Added

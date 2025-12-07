@@ -838,41 +838,29 @@
         
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('[Main] ===== DOMContentLoaded EVENT FIRED =====');
-            console.log('[Main] DOM loaded, starting library loading...');
+            console.log('[Main] DOM loaded, initializing app immediately for fast startup...');
             
             try {
-                // Load all libraries first (with extended timeout for comprehensive loading)
-                console.log('[Main] Loading libraries...');
-                const libraryPromise = window.libraryLoader ? window.libraryLoader.loadAllLibraries() : Promise.resolve(0);
-                const timeoutPromise = new Promise(resolve => setTimeout(() => {
-                    console.warn('[Main] Library loading timeout (10s) - continuing anyway');
-                    return resolve(-1);
-                }, 10000));
-                const librariesLoaded = await Promise.race([libraryPromise, timeoutPromise]);
+                // ================================================================
+                // FAST STARTUP: Initialize app FIRST, load libraries in background
+                // This ensures tabs appear instantly instead of waiting 10+ seconds
+                // ================================================================
                 
-                if (librariesLoaded === -1) {
-                    console.warn('[Main] Library loading timed out after 10 seconds - continuing with partial libraries');
-                } else if (librariesLoaded > 0) {
-                    console.log(`[Main] ${librariesLoaded} libraries loaded successfully`);
-                } else {
-                    console.warn('[Main] Library loading failed - continuing with basic functionality');
+                // Check if TabManager and TabUI are ready (they're loaded synchronously)
+                if (!window.TabManager || !window.TabUI) {
+                    console.error('[Main] Critical: TabManager or TabUI not loaded!');
+                    throw new Error('Tab system failed to load');
                 }
                 
-                console.log('[Main] Waiting briefly for integration scripts...');
+                console.log('[Main] Tab system ready, loading app immediately...');
                 
-                // Wait for integration classes to be available (with reduced timeout)
-                await waitForIntegrationScripts();
-                
-                console.log('[Main] Integration scripts check complete, loading app...');
-                
-                // Load app.js dynamically after everything is ready
                 // GUARD: Prevent multiple initialization if app.js is already loaded
                 if (window.markddApp || window.__markddAppInstance) {
                     console.warn('[Main] MarkDDApp already exists - skipping duplicate initialization');
-                    console.warn('[Main] This prevents the "two tabs but only one real" issue');
                     return;
                 }
                 
+                // Load app.js immediately - don't wait for libraries
                 const appScript = document.createElement('script');
                 appScript.src = 'js/app.js';
                 appScript.onload = () => {
@@ -884,29 +872,40 @@
                         return;
                     }
                     
-                    // Initialize the main app
+                    // Initialize the main app - tabs will appear immediately
                     window.markddApp = new MarkDDApp();
-                    console.log('[Main] MarkDDApp instantiation completed');
-                    
-                    // Test script disabled to prevent sample content from appearing
-                    // Uncomment below to run automated tests
-                    /*
-                    const testScript = document.createElement('script');
-                    testScript.src = 'js/markdd-test.js';
-                    testScript.onload = () => {
-                        console.log('[Main] Test script loaded successfully');
-                        // Tests will run automatically when loaded
-                    };
-                    testScript.onerror = () => {
-                        console.warn('[Main] Test script failed to load - skipping automated tests');
-                    };
-                    document.head.appendChild(testScript);
-                    */
+                    console.log('[Main] MarkDDApp instantiation completed - UI should be visible now');
                 };
                 appScript.onerror = () => {
                     throw new Error('Failed to load app.js');
                 };
                 document.head.appendChild(appScript);
+                
+                // ================================================================
+                // BACKGROUND LIBRARY LOADING: Load heavy libraries after app starts
+                // This doesn't block the UI - diagrams/math will render when ready
+                // ================================================================
+                console.log('[Main] Starting background library loading...');
+                
+                // Load libraries in background with shorter timeout (5s instead of 10s)
+                const libraryPromise = window.libraryLoader ? window.libraryLoader.loadAllLibraries() : Promise.resolve(0);
+                const timeoutPromise = new Promise(resolve => setTimeout(() => {
+                    console.warn('[Main] Library loading timeout (5s) - continuing anyway');
+                    return resolve(-1);
+                }, 5000));
+                
+                // Don't await - let it run in background
+                Promise.race([libraryPromise, timeoutPromise]).then(librariesLoaded => {
+                    if (librariesLoaded === -1) {
+                        console.warn('[Main] Library loading timed out - some features may load later');
+                    } else if (librariesLoaded > 0) {
+                        console.log(`[Main] ${librariesLoaded} libraries loaded successfully in background`);
+                    } else {
+                        console.warn('[Main] Library loading completed with issues');
+                    }
+                }).catch(err => {
+                    console.warn('[Main] Background library loading error:', err.message);
+                });
                 
             } catch (error) {
                 console.error('[Main] Failed to initialize application:', error);
@@ -927,29 +926,6 @@
                 }
             }
         });
-
-        async function waitForIntegrationScripts() {
-            let attempts = 0;
-            const maxAttempts = 20; // 2 seconds total
-            
-            while (attempts < maxAttempts) {
-                const hasMarkmap = window.EnhancedMarkmapIntegration;
-                const hasTikz = window.NodeTikZIntegration || window.TikZIntegration;
-                const hasTabManager = window.TabManager;
-                const hasTabUI = window.TabUI;
-                
-                if (hasMarkmap && hasTikz && hasTabManager && hasTabUI) {
-                    console.log('[Main] All integration classes are ready');
-                    return;
-                }
-                
-                console.log(`[Main] Waiting for integrations... Markmap: ${!!hasMarkmap}, TikZ: ${!!hasTikz}, TabManager: ${!!hasTabManager}, TabUI: ${!!hasTabUI}`);
-                await new Promise(resolve => setTimeout(resolve, 100));
-                attempts++;
-            }
-            
-            console.warn('[Main] Timeout waiting for integration scripts, but continuing anyway...');
-        }
     </script>
 </body>
 <script>
