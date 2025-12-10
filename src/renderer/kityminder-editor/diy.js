@@ -4,7 +4,8 @@
         html += '<a class="diy export" data-type="md">' + _lang_pack[_lang_default]['panels']['export'] + 'MD</a>',
         html += '<a class="diy export" data-type="png">' + _lang_pack[_lang_default]['panels']['export'] + 'PNG</a>',
         //html += '<a class="diy export" data-type="svg">' + _lang_pack[_lang_default]['panels']['export'] + 'SVG</a>',
-        html += '<button class="diy input">' + _lang_pack[_lang_default]['panels']['import'] + '<input type="file" id="fileImport"></button>';
+        html += '<button class="diy input">' + _lang_pack[_lang_default]['panels']['import'] + '<input type="file" id="fileImport" accept=".json,.md,.xmind,.mmap,.mm"></button>';
+    
     $('.editor-title').append(html);
 
     $('.diy').css({
@@ -96,9 +97,13 @@
                     $(fileImport).val('');
                 });
                 break;
+            case 'mm':
+                // FreeMind/Freeplane format - read as XML text and convert
+                importFreeMindFile(file);
+                break;
             default:
                 console.log("File not supported!");
-                alert('Only markdown json mindmanager xmind file !');
+                alert('Supported formats: Markdown (.md), JSON (.json), XMind (.xmind), MindManager (.mmap), FreeMind (.mm)');
                 return;
         }
         function readContent(importType, file) {
@@ -112,6 +117,225 @@
             reader.readAsText(file);
         }
     });
+    
+    // FreeMind (.mm) file import handler
+    function importFreeMindFile(file) {
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let content = reader.result;
+                let parser = new DOMParser();
+                let xmlDoc = parser.parseFromString(content, 'text/xml');
+                
+                // Check for parse errors
+                let parseError = xmlDoc.querySelector('parsererror');
+                if (parseError) {
+                    throw new Error('Invalid XML format');
+                }
+                
+                // Convert FreeMind XML to KityMinder JSON format
+                let kityMinderData = convertFreeMindToKityMinder(xmlDoc);
+                
+                // Import the converted data
+                editor.minder.importJson(kityMinderData);
+                $(fileImport).val('');
+                console.log('[KityMinder] FreeMind file imported successfully');
+            } catch (error) {
+                console.error('[KityMinder] FreeMind import error:', error);
+                alert('Failed to import FreeMind file: ' + error.message);
+                $(fileImport).val('');
+            }
+        };
+        reader.readAsText(file);
+    }
+    
+    // Convert FreeMind XML to KityMinder format
+    function convertFreeMindToKityMinder(xmlDoc) {
+        let mapEl = xmlDoc.querySelector('map');
+        if (!mapEl) {
+            throw new Error('Invalid FreeMind file: No map element found');
+        }
+        
+        let rootNode = mapEl.querySelector('node');
+        if (!rootNode) {
+            throw new Error('Invalid FreeMind file: No root node found');
+        }
+        
+        function convertNode(nodeElement) {
+            let text = nodeElement.getAttribute('TEXT') || 
+                       nodeElement.getAttribute('text') || 
+                       'Untitled';
+            
+            let nodeData = {
+                data: { 
+                    text: text,
+                    id: 'fm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+                },
+                children: []
+            };
+            
+            // Get link/hyperlink
+            let link = nodeElement.getAttribute('LINK') || nodeElement.getAttribute('link');
+            if (link) {
+                nodeData.data.hyperlink = link;
+            }
+            
+            // Get note (richcontent with TYPE="NOTE")
+            let noteEl = nodeElement.querySelector('richcontent[TYPE="NOTE"]');
+            if (noteEl) {
+                nodeData.data.note = noteEl.textContent.trim();
+            }
+            
+            // Get icons for priority/progress
+            let icons = nodeElement.querySelectorAll('icon');
+            icons.forEach(function(icon) {
+                let builtin = icon.getAttribute('BUILTIN') || icon.getAttribute('builtin');
+                if (builtin && builtin.includes('full-')) {
+                    nodeData.data.priority = parseInt(builtin.replace(/\D/g, '')) || 1;
+                }
+            });
+            
+            // Get children nodes (direct children only)
+            let childNodes = nodeElement.querySelectorAll(':scope > node');
+            childNodes.forEach(function(child) {
+                nodeData.children.push(convertNode(child));
+            });
+            
+            return nodeData;
+        }
+        
+        return {
+            root: convertNode(rootNode),
+            template: 'default',
+            theme: 'fresh-blue',
+            version: '1.4.50'
+        };
+    }
+    
+    // Global flag for text centering
+    var textCenteringEnabled = true;
+    
+    // Keyboard shortcut for text centering: Ctrl+Shift+C
+    $(document).on('keydown', function(e) {
+        // Ctrl+Shift+C to toggle text centering
+        if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+            e.preventDefault();
+            textCenteringEnabled = !textCenteringEnabled;
+            applyTextCenteringToAllNodes();
+            
+            // Show visual feedback
+            showCenteringToast(textCenteringEnabled ? 'Text Centering: ON' : 'Text Centering: OFF');
+            console.log('[KityMinder] Text centering:', textCenteringEnabled ? 'enabled' : 'disabled');
+        }
+    });
+    
+    // Show a brief toast notification
+    function showCenteringToast(message) {
+        var existingToast = document.getElementById('centering-toast');
+        if (existingToast) existingToast.remove();
+        
+        var toast = document.createElement('div');
+        toast.id = 'centering-toast';
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; top: 60px; left: 50%; transform: translateX(-50%); ' +
+            'background: rgba(0,0,0,0.8); color: white; padding: 8px 16px; border-radius: 4px; ' +
+            'font-size: 13px; z-index: 10000; transition: opacity 0.3s;';
+        document.body.appendChild(toast);
+        
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 1500);
+    }
+    
+    // Apply text centering to all nodes in the mind map
+    function applyTextCenteringToAllNodes() {
+        if (!editor || !editor.minder) {
+            console.log('[KityMinder] Editor not ready for text centering');
+            return;
+        }
+        
+        try {
+            // Find the SVG paper element - it's inside .minder-editor
+            var paper = document.querySelector('.minder-editor svg');
+            if (!paper) {
+                paper = document.querySelector('svg.kity-paper');
+            }
+            if (!paper) {
+                console.log('[KityMinder] SVG paper not found');
+                return;
+            }
+            
+            // Find all text groups (groups with id starting with "node_text")
+            var textGroups = paper.querySelectorAll('g[id^="node_text"]');
+            console.log('[KityMinder] Found', textGroups.length, 'text groups');
+            
+            textGroups.forEach(function(textGroup) {
+                var textElements = textGroup.querySelectorAll('text');
+                // Only center if there are multiple lines (more than 1 text element)
+                if (textElements.length > 1) {
+                    centerTextElements(textElements, textCenteringEnabled);
+                }
+            });
+            
+            console.log('[KityMinder] Text centering applied:', textCenteringEnabled ? 'ON' : 'OFF');
+        } catch (e) {
+            console.log('[KityMinder] Text centering error:', e);
+        }
+    }
+    
+    // Center text elements within a text group
+    function centerTextElements(textElements, shouldCenter) {
+        if (!textElements || textElements.length === 0) return;
+        
+        // Calculate the max width among all text lines
+        var maxWidth = 0;
+        var widths = [];
+        textElements.forEach(function(textEl) {
+            try {
+                var bbox = textEl.getBBox();
+                widths.push(bbox.width);
+                if (bbox.width > maxWidth) maxWidth = bbox.width;
+            } catch (e) {
+                widths.push(0);
+            }
+        });
+        
+        // Apply centering to each text element
+        textElements.forEach(function(textEl, index) {
+            try {
+                var bbox = textEl.getBBox();
+                if (shouldCenter) {
+                    // Center: set x to center position with text-anchor middle
+                    var centerX = maxWidth / 2;
+                    textEl.setAttribute('x', centerX);
+                    textEl.setAttribute('text-anchor', 'middle');
+                } else {
+                    // Left align: set x to 0 with text-anchor start
+                    textEl.setAttribute('x', '0');
+                    textEl.setAttribute('text-anchor', 'start');
+                }
+            } catch (e) {}
+        });
+    }
+    
+    // Hook into minder events to maintain text centering after renders
+    function setupTextCenteringHook() {
+        if (!editor || !editor.minder) {
+            setTimeout(setupTextCenteringHook, 500);
+            return;
+        }
+        
+        // Listen for render events and re-apply centering
+        editor.minder.on('contentchange layoutfinish noderender', function() {
+            if (textCenteringEnabled) {
+                setTimeout(applyTextCenteringToAllNodes, 100);
+            }
+        });
+        
+        // Apply initial centering
+        setTimeout(applyTextCenteringToAllNodes, 200);
+    }
 
     window.onload = function () {
         // init loading mindmap diagram and the existed mindmap data or create new default mindmap json data
@@ -128,6 +352,9 @@
         editor.minder.importData('json', data_json).then(function (data) {
             //console.log(data);
             $(data_json).val('');
+            
+            // Setup text centering hook after data is loaded
+            setupTextCenteringHook();
         });
 
         //set a timmer to sync mindmap data to parent diagram to save data per 1s

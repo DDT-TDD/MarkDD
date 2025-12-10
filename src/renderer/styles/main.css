@@ -2763,6 +2763,85 @@ body {
     text-decoration: none;
 }
 
+/* Table of Contents */
+.markdd-toc {
+    background: var(--code-bg, #f8f9fa);
+    border: 1px solid var(--border-color, #e1e5e9);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+}
+
+.markdd-toc > ul {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.markdd-toc ul {
+    padding-left: 20px;
+    list-style: none;
+}
+
+.markdd-toc li {
+    margin: 6px 0;
+    line-height: 1.5;
+}
+
+.markdd-toc a {
+    color: var(--accent-color, #0969da);
+    text-decoration: none;
+}
+
+.markdd-toc a:hover {
+    text-decoration: underline;
+}
+
+/* Bibliography References */
+.bibliography-ref {
+    color: var(--accent-color, #0969da);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.bibliography-ref:hover {
+    text-decoration: underline;
+}
+
+/* Bibliography Section */
+.bibliography-section {
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid var(--border-color, #d0d7de);
+}
+
+.bibliography-section h3 {
+    color: var(--text-color, #24292f);
+    margin: 0 0 1em 0;
+    font-size: 1.25em;
+    font-weight: 600;
+}
+
+.bibliography-section ol {
+    padding-left: 1.5em;
+    margin: 0;
+}
+
+.bibliography-section li {
+    margin-bottom: 0.5em;
+    color: var(--text-secondary, #57606a);
+}
+
+.bibliography-section li a {
+    color: var(--accent-color, #0969da);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.bibliography-section li a:hover {
+    text-decoration: underline;
+}
+
 .footnote-ref:hover,
 .footnote-backref:hover {
     text-decoration: underline;

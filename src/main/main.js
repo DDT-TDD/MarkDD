@@ -214,6 +214,71 @@ function createWindow() {
     }
   });
 
+  // Handle window close event - check for unsaved tabs before closing
+  mainWindow.on('close', (event) => {
+    // If already quitting or closing, allow it
+    if (isQuitting || isClosingWindow) {
+      return;
+    }
+
+    logInfo('Main', 'Window close event triggered');
+    
+    // Prevent default close
+    event.preventDefault();
+    
+    // Set flag to prevent re-entry
+    isClosingWindow = true;
+    
+    // Request unsaved tabs check from renderer
+    mainWindow.webContents.send('check-unsaved-tabs-for-close');
+    
+    // Wait for response with a timeout
+    let hasResponded = false;
+    const responseTimeout = setTimeout(() => {
+      if (!hasResponded) {
+        logInfo('Main', 'No response to unsaved tabs check for close (timeout), allowing close');
+        isClosingWindow = false;
+        isQuitting = true;
+        mainWindow.destroy();
+      }
+    }, 2000);
+    
+    const handleCloseResponse = async (event, result) => {
+      if (hasResponded) return;
+      hasResponded = true;
+      clearTimeout(responseTimeout);
+      ipcMain.removeListener('unsaved-tabs-close-response', handleCloseResponse);
+      
+      logInfo('Main', 'Unsaved tabs for close query result:', result);
+      
+      if (result.hasUnsaved) {
+        const dialogResult = await handleUnsavedTabsDialog(result, 'close');
+        
+        if (dialogResult.proceed) {
+          if (dialogResult.saveAll) {
+            // Request renderer to save all tabs, then close
+            mainWindow.webContents.send('save-all-tabs-then-close');
+          } else {
+            // User chose don't save, proceed with close
+            isClosingWindow = false;
+            isQuitting = true;
+            mainWindow.destroy();
+          }
+        } else {
+          // Cancelled - reset flag and stay open
+          isClosingWindow = false;
+        }
+      } else {
+        // No unsaved changes, proceed with close
+        isClosingWindow = false;
+        isQuitting = true;
+        mainWindow.destroy();
+      }
+    };
+    
+    ipcMain.once('unsaved-tabs-close-response', handleCloseResponse);
+  });
+
   // Handle window closed
   mainWindow.on('closed', () => {
     logInfo('Main', 'Main window closed');
@@ -619,6 +684,39 @@ app.on('window-all-closed', () => {
 
 // Flag to prevent infinite loop in before-quit handler
 let isQuitting = false;
+let isClosingWindow = false;
+
+// Helper function to handle unsaved tabs with proper dialog
+async function handleUnsavedTabsDialog(unsavedResult, action = 'quit') {
+  if (!unsavedResult.hasUnsaved) {
+    return { proceed: true, saveAll: false };
+  }
+
+  // Build file list for display
+  const fileList = unsavedResult.tabs.map(t => `• ${t.title}`).join('\n');
+  const actionText = action === 'quit' ? 'exit' : 'close the window';
+  
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: 'Unsaved Changes',
+    message: `You have ${unsavedResult.count} file(s) with unsaved changes:`,
+    detail: `${fileList}\n\nDo you want to save your changes before you ${actionText}?`,
+    buttons: ['Save All', 'Don\'t Save', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true
+  });
+
+  switch (result.response) {
+    case 0: // Save All
+      return { proceed: true, saveAll: true };
+    case 1: // Don't Save
+      return { proceed: true, saveAll: false };
+    case 2: // Cancel
+    default:
+      return { proceed: false, saveAll: false };
+  }
+}
 
 // Handle before-quit: check for unsaved changes
 app.on('before-quit', (event) => {
@@ -649,7 +747,7 @@ app.on('before-quit', (event) => {
     }, 2000); // 2 second timeout
     
     // This will be called when renderer responds
-    const handleResponse = (event, result) => {
+    const handleResponse = async (event, result) => {
       if (hasResponded) return;
       hasResponded = true;
       clearTimeout(responseTimeout);
@@ -658,21 +756,19 @@ app.on('before-quit', (event) => {
       logInfo('Main', 'Unsaved tabs query result:', result);
       
       if (result.hasUnsaved) {
-        // Show confirmation dialog
-        dialog.showMessageBox(mainWindow, {
-          type: 'question',
-          title: 'Unsaved Changes',
-          message: `You have ${result.count} file(s) with unsaved changes. Do you want to exit anyway?`,
-          buttons: ['Cancel', 'Exit Without Saving'],
-          defaultId: 0,
-          cancelId: 0
-        }).then((buttonIndex) => {
-          if (buttonIndex.response === 1) {
-            // User chose to exit without saving
+        const dialogResult = await handleUnsavedTabsDialog(result, 'quit');
+        
+        if (dialogResult.proceed) {
+          if (dialogResult.saveAll) {
+            // Request renderer to save all tabs, then quit
+            mainWindow.webContents.send('save-all-tabs-then-quit');
+          } else {
+            // User chose don't save, proceed with quit
             isQuitting = true;
             app.quit();
           }
-        });
+        }
+        // If not proceed (cancelled), do nothing - stay in app
       } else {
         // No unsaved changes, proceed with quit
         isQuitting = true;
@@ -681,6 +777,41 @@ app.on('before-quit', (event) => {
     };
     
     ipcMain.on('unsaved-tabs-response', handleResponse);
+  }
+});
+
+// Handle save-all-complete from renderer (for quit)
+ipcMain.on('save-all-complete', (event, result) => {
+  logInfo('Main', 'Save all complete:', result);
+  if (result.success) {
+    isQuitting = true;
+    app.quit();
+  } else {
+    // Some saves failed, show error
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Save Failed',
+      message: 'Failed to save some files. Please try saving them manually.',
+      detail: result.error || 'Unknown error occurred.'
+    });
+  }
+});
+
+// Handle save-all-complete from renderer (for close window)
+ipcMain.on('save-all-complete-close', (event, result) => {
+  logInfo('Main', 'Save all complete for close:', result);
+  isClosingWindow = false;
+  if (result.success) {
+    isQuitting = true;
+    mainWindow.destroy();
+  } else {
+    // Some saves failed, show error
+    dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Save Failed',
+      message: 'Failed to save some files. Please try saving them manually.',
+      detail: result.error || 'Unknown error occurred.'
+    });
   }
 });
 

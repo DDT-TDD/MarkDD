@@ -919,6 +919,289 @@ class MarkdownRenderer {
                 }
             }]
         });
+
+        // --- NEW EXTENSIONS: Emoji, TOC, Footnotes, Bibliography ---
+        
+        // Initialize state for TOC, Footnotes, and Bibliography
+        this.tocHeadings = [];
+        this.footnotes = [];
+        this.bibliographyRefs = [];
+        this.collectBibliography = localStorage.getItem('collect-bibliography-refs') !== 'false'; // Default true
+        
+        // Store reference to this for use in walkTokens
+        const self = this;
+        
+        this.marked.use({
+            walkTokens: (token) => {
+                if (token.type === 'heading') {
+                    const text = token.text || '';
+                    const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+                    self.tocHeadings.push({ depth: token.depth, text, id });
+                }
+                if (token.type === 'footnoteDef') {
+                    self.footnotes.push({ id: token.id, text: token.text });
+                }
+                if (token.type === 'bibliography') {
+                    // Collect unique bibliography references
+                    if (!self.bibliographyRefs.find(r => r.id === token.id)) {
+                        self.bibliographyRefs.push({ id: token.id });
+                    }
+                }
+            },
+            extensions: [
+                // Emoji Extension
+                {
+                    name: 'emoji',
+                    level: 'inline',
+                    start(src) { return src.match(/:/)?.index; },
+                    tokenizer(src) {
+                        const rule = /^:([a-z0-9_+-]+):/;
+                        const match = rule.exec(src);
+                        if (match) {
+                            return {
+                                type: 'emoji',
+                                raw: match[0],
+                                name: match[1]
+                            };
+                        }
+                    },
+                    renderer(token) {
+                        const emojiMap = {
+                            'smile': '😄', 'laughing': '😆', 'blush': '😊', 'smiley': '😃',
+                            'relaxed': '☺️', 'smirk': '😏', 'heart_eyes': '😍', 'kissing_heart': '😘',
+                            'kissing_closed_eyes': '😚', 'flushed': '😳', 'relieved': '😌', 'satisfied': '😆',
+                            'grin': '😁', 'wink': '😉', 'stuck_out_tongue_winking_eye': '😜', 'stuck_out_tongue_closed_eyes': '😝',
+                            'grinning': '😀', 'kissing': '😗', 'kissing_smiling_eyes': '😙', 'stuck_out_tongue': '😛',
+                            'sleeping': '😴', 'worried': '😟', 'frowning': '😦', 'anguished': '😧',
+                            'open_mouth': '😮', 'grimacing': '😬', 'confused': '😕', 'hushed': '😯',
+                            'expressionless': '😑', 'unamused': '😒', 'sweat_smile': '😅', 'sweat': '😓',
+                            'disappointed_relieved': '😥', 'weary': '😩', 'pensive': '😔', 'disappointed': '😞',
+                            'confounded': '😖', 'fearful': '😨', 'cold_sweat': '😰', 'persevere': '😣',
+                            'cry': '😢', 'sob': '😭', 'joy': '😂', 'astonished': '😲',
+                            'scream': '😱', 'tired_face': '😫', 'angry': '😠', 'rage': '😡',
+                            'triumph': '😤', 'mask': '😷', 'sunglasses': '😎', 'dizzy_face': '😵',
+                            'imp': '👿', 'smiling_imp': '😈', 'neutral_face': '😐', 'no_mouth': '😶',
+                            'innocent': '😇', 'alien': '👽', 'yellow_heart': '💛', 'blue_heart': '💙',
+                            'purple_heart': '💜', 'heart': '❤️', 'green_heart': '💚', 'broken_heart': '💔',
+                            'heartbeat': '💓', 'heartpulse': '💗', 'two_hearts': '💕', 'revolving_hearts': '💞',
+                            'cupid': '💘', 'sparkling_heart': '💖', 'sparkles': '✨', 'star': '⭐',
+                            'star2': '🌟', 'dizzy': '💫', 'boom': '💥', 'collision': '💥',
+                            'anger': '💢', 'exclamation': '❗', 'question': '❓', 'grey_exclamation': '❕',
+                            'grey_question': '❔', 'zzz': '💤', 'dash': '💨', 'sweat_drops': '💦',
+                            'notes': '🎶', 'musical_note': '🎵', 'fire': '🔥', 'poop': '💩',
+                            'thumbsup': '👍', 'thumbsdown': '👎', 'ok_hand': '👌', 'punch': '👊',
+                            'fist': '✊', 'v': '✌️', 'wave': '👋', 'hand': '✋',
+                            'open_hands': '👐', 'point_up': '☝️', 'point_down': '👇', 'point_left': '👈',
+                            'point_right': '👉', 'raised_hands': '🙌', 'pray': '🙏', 'clap': '👏',
+                            'muscle': '💪', 'metal': '🤘', 'fu': '🖕', 'walking': '🚶',
+                            'runner': '🏃', 'running': '🏃', 'couple': '👫', 'family': '👪',
+                            'two_men_holding_hands': '👬', 'two_women_holding_hands': '👭', 'dancer': '💃',
+                            'dancers': '👯', 'ok_woman': '🙆', 'no_good': '🙅', 'information_desk_person': '💁',
+                            'raising_hand': '🙋', 'bride_with_veil': '👰', 'person_with_pouting_face': '🙎',
+                            'person_frowning': '🙍', 'bow': '🙇', 'couplekiss': '💏', 'couple_with_heart': '💑',
+                            'massage': '💆', 'haircut': '💇', 'nail_care': '💅', 'boy': '👦',
+                            'girl': '👧', 'woman': '👩', 'man': '👨', 'baby': '👶',
+                            'older_woman': '👵', 'older_man': '👴', 'person_with_blond_hair': '👱', 'man_with_gua_pi_mao': '👲',
+                            'man_with_turban': '👳', 'construction_worker': '👷', 'cop': '👮', 'angel': '👼',
+                            'princess': '👸', 'smiley_cat': '😺', 'smile_cat': '😸', 'heart_eyes_cat': '😻',
+                            'kissing_cat': '😽', 'smirk_cat': '😼', 'scream_cat': '🙀', 'crying_cat_face': '😿',
+                            'joy_cat': '😹', 'pouting_cat': '😾', 'japanese_ogre': '👹', 'japanese_goblin': '👺',
+                            'see_no_evil': '🙈', 'hear_no_evil': '🙉', 'speak_no_evil': '🙊', 'guardsman': '💂',
+                            'skull': '💀', 'feet': '🐾', 'lips': '👄', 'kiss': '💋',
+                            'droplet': '💧', 'ear': '👂', 'eyes': '👀', 'nose': '👃',
+                            'tongue': '👅', 'love_letter': '💌', 'bust_in_silhouette': '👤', 'busts_in_silhouette': '👥',
+                            'speech_balloon': '💬', 'thought_balloon': '💭', 'sunny': '☀️', 'umbrella': '☔',
+                            'cloud': '☁️', 'snowflake': '❄️', 'snowman': '⛄', 'zap': '⚡',
+                            'cyclone': '🌀', 'foggy': '🌁', 'ocean': '🌊', 'cat': '🐱',
+                            'dog': '🐶', 'mouse': '🐭', 'hamster': '🐹', 'rabbit': '🐰',
+                            'wolf': '🐺', 'frog': '🐸', 'tiger': '🐯', 'koala': '🐨',
+                            'bear': '🐻', 'pig': '🐷', 'pig_nose': '🐽', 'cow': '🐮',
+                            'boar': '🐗', 'monkey_face': '🐵', 'monkey': '🐒', 'horse': '🐴',
+                            'racehorse': '🐎', 'camel': '🐫', 'sheep': '🐑', 'elephant': '🐘',
+                            'panda_face': '🐼', 'snake': '🐍', 'bird': '🐦', 'baby_chick': '🐤',
+                            'hatched_chick': '🐥', 'hatching_chick': '🐣', 'chicken': '🐔', 'penguin': '🐧',
+                            'turtle': '🐢', 'bug': '🐛', 'honeybee': '🐝', 'ant': '🐜',
+                            'beetle': '🐞', 'snail': '🐌', 'octopus': '🐙', 'tropical_fish': '🐠',
+                            'fish': '🐟', 'whale': '🐳', 'whale2': '🐋', 'dolphin': '🐬',
+                            'cow2': '🐄', 'ram': '🐏', 'rat': '🐀', 'water_buffalo': '🐃',
+                            'tiger2': '🐅', 'rabbit2': '🐇', 'dragon': '🐉', 'goat': '🐐',
+                            'rooster': '🐓', 'dog2': '🐕', 'pig2': '🐖', 'mouse2': '🐁',
+                            'ox': '🐂', 'dragon_face': '🐲', 'blowfish': '🐡', 'crocodile': '🐊',
+                            'dromedary_camel': '🐪', 'leopard': '🐆', 'cat2': '🐈', 'poodle': '🐩',
+                            'paw_prints': '🐾', 'bouquet': '💐', 'cherry_blossom': '🌸', 'tulip': '🌷',
+                            'four_leaf_clover': '🍀', 'rose': '🌹', 'sunflower': '🌻', 'hibiscus': '🌺',
+                            'maple_leaf': '🍁', 'leaves': '🍃', 'fallen_leaf': '🍂', 'herb': '🌿',
+                            'mushroom': '🍄', 'cactus': '🌵', 'palm_tree': '🌴', 'evergreen_tree': '🌲',
+                            'deciduous_tree': '🌳', 'chestnut': '🌰', 'seedling': '🌱', 'blossom': '🌼',
+                            'ear_of_rice': '🌾', 'shell': '🐚', 'globe_with_meridians': '🌐', 'sun_with_face': '🌞',
+                            'full_moon_with_face': '🌝', 'new_moon_with_face': '🌚', 'new_moon': '🌑', 'waxing_crescent_moon': '🌒',
+                            'first_quarter_moon': '🌓', 'waxing_gibbous_moon': '🌔', 'full_moon': '🌕', 'waning_gibbous_moon': '🌖',
+                            'last_quarter_moon': '🌗', 'waning_crescent_moon': '🌘', 'last_quarter_moon_with_face': '🌜', 'first_quarter_moon_with_face': '🌛',
+                            'moon': '🌔', 'earth_africa': '🌍', 'earth_americas': '🌎', 'earth_asia': '🌏',
+                            'volcano': '🌋', 'milky_way': '🌌', 'partly_sunny': '⛅', 'bamboo': '🎍',
+                            'gift_heart': '💝', 'dolls': '🎎', 'school_satchel': '🎒', 'mortar_board': '🎓',
+                            'flags': '🎏', 'fireworks': '🎆', 'sparkler': '🎇', 'wind_chime': '🎐',
+                            'rice_scene': '🎑', 'jack_o_lantern': '🎃', 'ghost': '👻', 'santa': '🎅',
+                            'christmas_tree': '🎄', 'gift': '🎁', 'bell': '🔔', 'no_bell': '🔕',
+                            'tanabata_tree': '🎋', 'tada': '🎉', 'confetti_ball': '🎊', 'balloon': '🎈',
+                            'crystal_ball': '🔮', 'cd': '💿', 'dvd': '📀', 'floppy_disk': '💾',
+                            'camera': '📷', 'video_camera': '📹', 'movie_camera': '🎥', 'computer': '💻',
+                            'tv': '📺', 'iphone': '📱', 'phone': '☎️', 'telephone': '☎️',
+                            'telephone_receiver': '📞', 'pager': '📟', 'fax': '📠', 'minidisc': '💽',
+                            'vhs': '📼', 'sound': '🔉', 'speaker': '🔈', 'mute': '🔇',
+                            'loudspeaker': '📢', 'mega': '📣', 'hourglass': '⏳', 'hourglass_flowing_sand': '⏳',
+                            'alarm_clock': '⏰', 'watch': '⌚', 'radio': '📻', 'satellite': '📡',
+                            'loop': '➿', 'mag': '🔍', 'mag_right': '🔎', 'unlock': '🔓',
+                            'lock': '🔒', 'lock_with_ink_pen': '🔏', 'closed_lock_with_key': '🔐', 'key': '🔑',
+                            'bulb': '💡', 'flashlight': '🔦', 'high_brightness': '🔆', 'low_brightness': '🔅',
+                            'electric_plug': '🔌', 'battery': '🔋', 'calling': '📲', 'email': '📧',
+                            'mailbox': '📫', 'postbox': '📮', 'bath': '🛀', 'bathtub': '🛁',
+                            'shower': '🚿', 'toilet': '🚽', 'wrench': '🔧', 'nut_and_bolt': '🔩',
+                            'hammer': '🔨', 'seat': '💺', 'moneybag': '💰', 'yen': '💴',
+                            'dollar': '💵', 'pound': '💷', 'euro': '💶', 'credit_card': '💳',
+                            'money_with_wings': '💸', 'e-mail': '📧', 'inbox_tray': '📥', 'outbox_tray': '📤',
+                            'envelope': '✉️', 'incoming_envelope': '📨', 'postal_horn': '📯', 'mailbox_closed': '📪',
+                            'mailbox_with_mail': '📬', 'mailbox_with_no_mail': '📭', 'package': '📦', 'door': '🚪',
+                            'smoking': '🚬', 'bomb': '💣', 'gun': '🔫', 'hocho': '🔪',
+                            'pill': '💊', 'syringe': '💉', 'page_facing_up': '📄', 'page_with_curl': '📃',
+                            'bookmark_tabs': '📑', 'bar_chart': '📊', 'chart_with_upwards_trend': '📈', 'chart_with_downwards_trend': '📉',
+                            'scroll': '📜', 'clipboard': '📋', 'calendar': '📅', 'date': '📅',
+                            'card_index': '📇', 'file_folder': '📁', 'open_file_folder': '📂', 'scissors': '✂️',
+                            'pushpin': '📌', 'paperclip': '📎', 'black_nib': '✒️', 'pencil2': '✏️',
+                            'straight_ruler': '📏', 'triangular_ruler': '📐', 'closed_book': '📕', 'green_book': '📗',
+                            'blue_book': '📘', 'orange_book': '📙', 'notebook': '📓', 'notebook_with_decorative_cover': '📔',
+                            'ledger': '📒', 'books': '📚', 'bookmark': '🔖', 'name_badge': '📛',
+                            'microscope': '🔬', 'telescope': '🔭', 'newspaper': '📰', 'football': '🏈',
+                            'basketball': '🏀', 'soccer': '⚽', 'baseball': '⚾', 'tennis': '🎾',
+                            '8ball': '🎱', 'rugby_football': '🏉', 'bowling': '🎳', 'golf': '⛳',
+                            'mountain_bicyclist': '🚵', 'bicyclist': '🚴', 'horse_racing': '🏇', 'snowboarder': '🏂',
+                            'swimmer': '🏊', 'surfer': '🏄', 'ski': '🎿', 'spades': '♠️',
+                            'hearts': '♥️', 'clubs': '♣️', 'diamonds': '♦️', 'gem': '💎',
+                            'ring': '💍', 'trophy': '🏆', 'musical_score': '🎼', 'musical_keyboard': '🎹',
+                            'violin': '🎻', 'space_invader': '👾', 'video_game': '🎮', 'black_joker': '🃏',
+                            'flower_playing_cards': '🎴', 'game_die': '🎲', 'dart': '🎯', 'mahjong': '🀄',
+                            'clapper': '🎬', 'memo': '📝', 'pencil': '📝', 'book': '📖',
+                            'art': '🎨', 'microphone': '🎤', 'headphones': '🎧', 'trumpet': '🎺',
+                            'saxophone': '🎷', 'guitar': '🎸', 'shoe': '👞', 'sandal': '👡',
+                            'high_heel': '👠', 'lipstick': '💄', 'boot': '👢', 'shirt': '👕',
+                            'tshirt': '👕', 'necktie': '👔', 'womans_clothes': '👚', 'dress': '👗',
+                            'running_shirt_with_sash': '🎽', 'jeans': '👖', 'kimono': '👘', 'bikini': '👙',
+                            'ribbon': '🎀', 'tophat': '🎩', 'crown': '👑', 'womans_hat': '👒',
+                            'mans_shoe': '👞', 'closed_umbrella': '🌂', 'briefcase': '💼', 'handbag': '👜',
+                            'pouch': '👝', 'purse': '👛', 'eyeglasses': '👓', 'fishing_pole_and_fish': '🎣',
+                            'coffee': '☕', 'tea': '🍵', 'sake': '🍶', 'baby_bottle': '🍼',
+                            'beer': '🍺', 'beers': '🍻', 'cocktail': '🍸', 'tropical_drink': '🍹',
+                            'wine_glass': '🍷', 'fork_and_knife': '🍴', 'pizza': '🍕', 'hamburger': '🍔',
+                            'fries': '🍟', 'poultry_leg': '🍗', 'meat_on_bone': '🍖', 'spaghetti': '🍝',
+                            'curry': '🍛', 'fried_shrimp': '🍤', 'bento': '🍱', 'sushi': '🍣',
+                            'fish_cake': '🍥', 'rice_ball': '🍙', 'rice_cracker': '🍘', 'rice': '🍚',
+                            'ramen': '🍜', 'stew': '🍲', 'oden': '🍢', 'dango': '🍡',
+                            'egg': '🥚', 'bread': '🍞', 'doughnut': '🍩', 'custard': '🍮',
+                            'icecream': '🍦', 'ice_cream': '🍨', 'shaved_ice': '🍧', 'birthday': '🎂',
+                            'cake': '🍰', 'cookie': '🍪', 'chocolate_bar': '🍫', 'candy': '🍬',
+                            'lollipop': '🍭', 'honey_pot': '🍯', 'apple': '🍎', 'green_apple': '🍏',
+                            'tangerine': '🍊', 'lemon': '🍋', 'cherries': '🍒', 'grapes': '🍇',
+                            'watermelon': '🍉', 'strawberry': '🍓', 'peach': '🍑', 'melon': '🍈',
+                            'banana': '🍌', 'pear': '🍐', 'pineapple': '🍍', 'sweet_potato': '🍠',
+                            'eggplant': '🍆', 'tomato': '🍅', 'corn': '🌽',
+                            // Additional common emojis
+                            'thinking': '🤔', 'thinking_face': '🤔', 'rofl': '🤣', 'upside_down': '🙃',
+                            'hugging': '🤗', 'money_mouth': '🤑', 'nerd': '🤓', 'cowboy': '🤠',
+                            'partying_face': '🥳', 'shushing': '🤫', 'zipper_mouth': '🤐', 'face_with_raised_eyebrow': '🤨',
+                            'monocle': '🧐', 'exploding_head': '🤯', 'hot_face': '🥵', 'cold_face': '🥶',
+                            'pleading_face': '🥺', 'face_holding_back_tears': '🥹', 'saluting_face': '🫡',
+                            'check': '✅', 'x': '❌', 'warning_sign': '⚠️', 'info': 'ℹ️',
+                            'rocket': '🚀', 'gear': '⚙️', 'wrench': '🔧', 'tools': '🛠️',
+                            'light_bulb': '💡', 'magnifying_glass': '🔍', 'pin': '📌', 'link': '🔗',
+                            '+1': '👍', '-1': '👎', '100': '💯', 'zzz': '💤'
+                        };
+                        return emojiMap[token.name] || token.raw;
+                    }
+                },
+                // TOC Extension
+                {
+                    name: 'toc',
+                    level: 'block',
+                    start(src) { return src.match(/\[TOC\]/i)?.index; },
+                    tokenizer(src) {
+                        const rule = /^\[TOC\]/i;
+                        const match = rule.exec(src);
+                        if (match) {
+                            return {
+                                type: 'toc',
+                                raw: match[0]
+                            };
+                        }
+                    },
+                    renderer(token) {
+                        return '<div class="markdd-toc-placeholder"></div>';
+                    }
+                },
+                // Footnotes Extension
+                {
+                    name: 'footnoteRef',
+                    level: 'inline',
+                    start(src) { return src.match(/\[\^/)?.index; },
+                    tokenizer(src) {
+                        // Match footnote references but NOT definitions (which have : after ])
+                        const rule = /^\[\^([a-zA-Z0-9_-]+)\](?!:)/;
+                        const match = rule.exec(src);
+                        if (match) {
+                            return {
+                                type: 'footnoteRef',
+                                raw: match[0],
+                                id: match[1]
+                            };
+                        }
+                    },
+                    renderer(token) {
+                        return `<sup><a href="#fn-${token.id}" id="fnref-${token.id}" class="footnote-ref">[${token.id}]</a></sup>`;
+                    }
+                },
+                {
+                    name: 'footnoteDef',
+                    level: 'block',
+                    start(src) { 
+                        return src.match(/^\[\^/)?.index;
+                    },
+                    tokenizer(src) {
+                        const rule = /^\[\^([a-zA-Z0-9_-]+)\]:\s*([^\n]*(?:\n+((?!(?:\[\^)|(?:\n\n)).+)|)*)/;
+                        const match = rule.exec(src);
+                        if (match) {
+                            return {
+                                type: 'footnoteDef',
+                                raw: match[0],
+                                id: match[1],
+                                text: match[2].trim()
+                            };
+                        }
+                    },
+                    renderer(token) {
+                        return ''; // Hide definition
+                    }
+                },
+                // Bibliography Extension
+                {
+                    name: 'bibliography',
+                    level: 'inline',
+                    start(src) { return src.match(/\[@/)?.index; },
+                    tokenizer(src) {
+                        const rule = /^\[@([a-zA-Z0-9_-]+)\]/;
+                        const match = rule.exec(src);
+                        if (match) {
+                            return {
+                                type: 'bibliography',
+                                raw: match[0],
+                                id: match[1]
+                            };
+                        }
+                    },
+                    renderer(token) {
+                        return `<a href="#bib-${token.id}" class="bibliography-ref">[${token.id}]</a>`;
+                    }
+                }
+            ]
+        });
     }
 
     initializeMermaid() {
@@ -1343,6 +1626,26 @@ class MarkdownRenderer {
     }
 
     async render(markdown, options = {}) {
+        // Reset state for TOC, Footnotes, and Bibliography
+        this.tocHeadings = [];
+        this.footnotes = [];
+        this.bibliographyRefs = [];
+        
+        // Update bibliography collection setting
+        this.collectBibliography = localStorage.getItem('collect-bibliography-refs') !== 'false';
+
+        // Pre-parse footnote definitions and REMOVE them from the markdown
+        // This prevents them from being rendered as regular paragraphs
+        const footnoteDefRegex = /^\[\^([a-zA-Z0-9_-]+)\]:\s*(.+)$/gm;
+        let match;
+        while ((match = footnoteDefRegex.exec(markdown)) !== null) {
+            this.footnotes.push({ id: match[1], text: match[2].trim() });
+        }
+
+        
+        // Remove footnote definitions from the markdown source
+        markdown = markdown.replace(/^\[\^([a-zA-Z0-9_-]+)\]:\s*.+$/gm, '');
+
         if (!markdown || typeof markdown !== 'string') {
             return '<div class="preview-placeholder"><p>Start typing to see preview...</p></div>';
         }
@@ -1442,6 +1745,47 @@ class MarkdownRenderer {
 
         // Step 6: Render with marked (with protected LaTeX, JSON extracted)
         let html = this.markedParse(contentWithExtractedJson);
+
+        // --- NEW FEATURES POST-PROCESSING ---
+        
+        // Generate TOC
+        if (this.tocHeadings && this.tocHeadings.length > 0) {
+            let tocHtml = '<div class="markdd-toc"><ul>';
+            let currentDepth = this.tocHeadings[0].depth;
+            // Normalize depth to start at 1 for the list structure if needed, but simple nesting is fine
+            
+            this.tocHeadings.forEach((heading, index) => {
+                if (index > 0) {
+                    const prevDepth = this.tocHeadings[index-1].depth;
+                    if (heading.depth > prevDepth) {
+                        tocHtml += '<ul>'.repeat(heading.depth - prevDepth);
+                    } else if (heading.depth < prevDepth) {
+                        tocHtml += '</ul>'.repeat(prevDepth - heading.depth);
+                    }
+                }
+                tocHtml += `<li><a href="#${heading.id}">${heading.text}</a></li>`;
+            });
+            // Close any open lists
+            // This is a simplified TOC generator. For robust nesting, a recursive approach is better, 
+            // but this works for basic structures.
+            tocHtml += '</ul></div>'; 
+            
+            html = html.replace('<div class="markdd-toc-placeholder"></div>', tocHtml);
+        } else {
+            html = html.replace('<div class="markdd-toc-placeholder"></div>', '');
+        }
+
+        // Append Footnotes
+        if (this.footnotes && this.footnotes.length > 0) {
+            let footnotesHtml = '<div class="footnotes"><hr><ol>';
+            this.footnotes.forEach(fn => {
+                // Parse footnote content as inline markdown
+                const fnContent = this.markedParse ? this.markedParse(fn.text) : fn.text;
+                footnotesHtml += `<li id="fn-${fn.id}">${fnContent} <a href="#fnref-${fn.id}" class="footnote-backref">↩</a></li>`;
+            });
+            footnotesHtml += '</ol></div>';
+            html += footnotesHtml;
+        }
 
         // DEBUG: Check placeholders after marked processing
         const afterMarked = html.match(/MATH_(?:BLOCK|INLINE)_PLACEHOLDER_\d+|LATEX_ENV_PLACEHOLDER_\d+/g);
@@ -3245,11 +3589,11 @@ class MarkdownRenderer {
                     }
                 }
                 
-                // Method 3: Try static instance method
+                // Method 3: Try static instance method (v3.x returns a Promise)
                 if (!svg && window.Viz && window.Viz.instance && typeof window.Viz.instance === 'function') {
                     try {
                         console.log('[GraphViz] Attempting static instance method');
-                        const viz = window.Viz.instance();
+                        const viz = await window.Viz.instance();
                         // v3.x uses renderSVGElement or render method, not renderString
                         if (typeof viz.renderSVGElement === 'function') {
                             svg = await viz.renderSVGElement(code, { engine });
@@ -4408,6 +4752,19 @@ class MarkdownRenderer {
             
             footnotesHtml += '</ol></div>';
             container.innerHTML += footnotesHtml;
+        }
+        
+        // Add bibliography/references section if enabled and there are references
+        const collectBibliography = localStorage.getItem('collect-bibliography-refs') !== 'false';
+        if (collectBibliography && this.bibliographyRefs && this.bibliographyRefs.length > 0) {
+            let bibliographyHtml = '<div class="bibliography-section"><hr><h3>References</h3><ol>';
+            
+            this.bibliographyRefs.forEach(ref => {
+                bibliographyHtml += `<li id="bib-${ref.id}"><a href="#bib-${ref.id}">[${ref.id}]</a> <em>${ref.id}</em></li>`;
+            });
+            
+            bibliographyHtml += '</ol></div>';
+            container.innerHTML += bibliographyHtml;
         }
     }
 

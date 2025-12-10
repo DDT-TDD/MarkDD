@@ -714,29 +714,97 @@ class MarkDDApp {
         
         // Handle request to check for unsaved tabs (invoked by main process before-quit)
         ipcRenderer.on('check-unsaved-tabs', () => {
-            const unsavedTabs = [];
-            
+            const result = this.getUnsavedTabsInfo();
+            ipcRenderer.send('unsaved-tabs-response', result);
+        });
+        
+        // Handle request to check for unsaved tabs when closing window
+        ipcRenderer.on('check-unsaved-tabs-for-close', () => {
+            const result = this.getUnsavedTabsInfo();
+            ipcRenderer.send('unsaved-tabs-close-response', result);
+        });
+        
+        // Handle save all tabs then quit
+        ipcRenderer.on('save-all-tabs-then-quit', async () => {
+            const result = await this.saveAllUnsavedTabs();
+            ipcRenderer.send('save-all-complete', result);
+        });
+        
+        // Handle save all tabs then close window
+        ipcRenderer.on('save-all-tabs-then-close', async () => {
+            const result = await this.saveAllUnsavedTabs();
+            ipcRenderer.send('save-all-complete-close', result);
+        });
+    }
+    
+    /**
+     * Get information about unsaved tabs
+     * @returns {Object} - { hasUnsaved, count, tabs }
+     */
+    getUnsavedTabsInfo() {
+        const unsavedTabs = [];
+        
+        if (this.tabManager) {
+            const allTabs = this.tabManager.getAllTabs();
+            for (const tabData of allTabs) {
+                if (tabData.isDirty) {
+                    unsavedTabs.push(tabData);
+                }
+            }
+        } else if (this.editor && this.editor.isFileModified()) {
+            // Fallback for non-tab mode
+            unsavedTabs.push({ title: this.editor.currentFile || 'Untitled', isDirty: true });
+        }
+        
+        return {
+            hasUnsaved: unsavedTabs.length > 0,
+            count: unsavedTabs.length,
+            tabs: unsavedTabs.map(t => ({ title: t.title, filepath: t.filepath }))
+        };
+    }
+    
+    /**
+     * Save all unsaved tabs
+     * @returns {Promise<Object>} - { success, error }
+     */
+    async saveAllUnsavedTabs() {
+        try {
             if (this.tabManager) {
                 const allTabs = this.tabManager.getAllTabs();
-                for (const tabData of allTabs) {
-                    if (tabData.isDirty) {
-                        unsavedTabs.push(tabData);
+                const unsavedTabs = allTabs.filter(t => t.isDirty);
+                
+                for (const tabData of unsavedTabs) {
+                    // Switch to tab and save
+                    this.tabManager.switchTab(tabData.id);
+                    
+                    // Small delay to allow UI to update
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    // Save the file
+                    const saved = await this.saveFile();
+                    if (!saved) {
+                        // User cancelled save dialog for new file - offer to skip or cancel all
+                        const skipOrCancel = confirm(
+                            `Could not save "${tabData.title}". Continue saving other files?`
+                        );
+                        if (!skipOrCancel) {
+                            return { success: false, error: `User cancelled while saving ${tabData.title}` };
+                        }
                     }
                 }
             } else if (this.editor && this.editor.isFileModified()) {
-                // Fallback for non-tab mode
-                unsavedTabs.push({ title: this.editor.currentFile || 'Untitled', isDirty: true });
+                // Single editor mode
+                const saved = await this.saveFile();
+                if (!saved) {
+                    return { success: false, error: 'User cancelled save' };
+                }
             }
             
-            const result = {
-                hasUnsaved: unsavedTabs.length > 0,
-                count: unsavedTabs.length,
-                tabs: unsavedTabs.map(t => ({ title: t.title, filepath: t.filepath }))
-            };
-            
-            // Send result back to main process
-            ipcRenderer.send('unsaved-tabs-response', result);
-        });
+            return { success: true };
+        } catch (error) {
+            console.error('[App] Error saving all tabs:', error);
+            return { success: false, error: error.message || 'Unknown error' };
+        }
     }
 
     setupMenuHandlers() {
@@ -1311,6 +1379,8 @@ class MarkDDApp {
         this.bindButton('imageBtn', () => this.insertImage());
         this.bindButton('tableBtn', () => this.editor.insertTable());
         this.bindButton('tocBtn', () => this.insertTOC());
+        this.bindButton('footnoteBtn', () => this.insertFootnote());
+        this.bindButton('emojiBtn', () => this.showEmojiPicker());
         
         // Special content buttons
         this.bindButton('mathBtn', () => this.editor.insertMath());
@@ -3705,6 +3775,10 @@ A: Verify files exist and contain matching text.
         if (settingsBtn && typeof this.showSettingsModal === 'function') {
             this.bindButton('menu-settings', () => this.showSettingsModal());
         }
+        // New Tools menu items: Insert TOC, Footnote, Emoji
+        this.bindButton('menu-insert-toc', () => this.insertTOC());
+        this.bindButton('menu-insert-footnote', () => this.insertFootnote());
+        this.bindButton('menu-insert-emoji', () => this.showEmojiPicker());
         
         // Markdown numbering toggles
         const headingNumberToggle = document.getElementById('heading-number-toggle');
@@ -4274,10 +4348,115 @@ A: Verify files exist and contain matching text.
      * Insert Table of Contents marker
      */
     insertTOC() {
-        const cursor = this.editor.getCursor();
         const tocMarker = '\n[TOC]\n\n';
-        this.editor.insertText(tocMarker, cursor);
+        this.editor.insertText(tocMarker);
         this.showMessage('Table of Contents marker inserted. It will generate TOC from your headings.');
+    }
+
+    /**
+     * Insert Footnote reference and definition
+     */
+    insertFootnote() {
+        // Generate a unique footnote ID
+        const footnoteId = this.footnoteCounter ? ++this.footnoteCounter : (this.footnoteCounter = 1);
+        
+        // Insert the reference at cursor
+        const reference = `[^${footnoteId}]`;
+        this.editor.insertText(reference);
+        
+        // Get current content and append definition at the end
+        const content = this.editor.getContent();
+        const definition = `\n\n[^${footnoteId}]: Your footnote text here.`;
+        this.editor.setContent(content + definition);
+        
+        this.showMessage(`Footnote [^${footnoteId}] inserted. Definition added at the end of the document.`);
+    }
+
+    /**
+     * Show Emoji Picker popup
+     */
+    showEmojiPicker() {
+        // Common emojis for quick selection
+        const emojis = [
+            { code: 'smile', emoji: '😄' }, { code: 'heart', emoji: '❤️' }, { code: 'thumbsup', emoji: '👍' },
+            { code: 'fire', emoji: '🔥' }, { code: 'star', emoji: '⭐' }, { code: 'rocket', emoji: '🚀' },
+            { code: 'check', emoji: '✅' }, { code: 'warning', emoji: '⚠️' }, { code: 'info', emoji: 'ℹ️' },
+            { code: 'question', emoji: '❓' }, { code: 'bulb', emoji: '💡' }, { code: 'sparkles', emoji: '✨' },
+            { code: 'tada', emoji: '🎉' }, { code: 'eyes', emoji: '👀' }, { code: 'thinking', emoji: '🤔' },
+            { code: 'clap', emoji: '👏' }, { code: 'muscle', emoji: '💪' }, { code: 'wave', emoji: '👋' },
+            { code: 'coffee', emoji: '☕' }, { code: 'book', emoji: '📖' }, { code: 'pencil', emoji: '✏️' },
+            { code: 'computer', emoji: '💻' }, { code: 'gear', emoji: '⚙️' }, { code: 'link', emoji: '🔗' }
+        ];
+        
+        // Create popup
+        let popup = document.getElementById('emoji-picker-popup');
+        if (popup) {
+            popup.remove();
+        }
+        
+        popup = document.createElement('div');
+        popup.id = 'emoji-picker-popup';
+        popup.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-primary, #fff);
+            border: 1px solid var(--border-color, #e1e5e9);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 320px;
+        `;
+        
+        popup.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0;">Insert Emoji</h4>
+                <button id="emoji-close" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;">
+                ${emojis.map(e => `<button class="emoji-btn" data-code="${e.code}" style="font-size: 24px; padding: 8px; background: var(--bg-secondary, #f5f5f5); border: 1px solid var(--border-color, #ddd); border-radius: 6px; cursor: pointer;" title=":${e.code}:">${e.emoji}</button>`).join('')}
+            </div>
+            <div style="margin-top: 12px;">
+                <input type="text" id="emoji-search" placeholder="Or type emoji code (e.g., smile)" style="width: 100%; padding: 8px; border: 1px solid var(--border-color, #ddd); border-radius: 4px; box-sizing: border-box;">
+            </div>
+            <p style="margin: 8px 0 0; font-size: 12px; color: #666;">Tip: Type :emoji_name: in the editor</p>
+        `;
+        
+        document.body.appendChild(popup);
+        
+        // Event handlers
+        popup.querySelector('#emoji-close').addEventListener('click', () => popup.remove());
+        
+        popup.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const code = btn.getAttribute('data-code');
+                this.editor.insertText(`:${code}:`);
+                popup.remove();
+            });
+        });
+        
+        const searchInput = popup.querySelector('#emoji-search');
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const code = searchInput.value.trim().replace(/^:|:$/g, '');
+                if (code) {
+                    this.editor.insertText(`:${code}:`);
+                    popup.remove();
+                }
+            }
+        });
+        
+        // Close on outside click
+        setTimeout(() => {
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target.id !== 'emojiBtn') {
+                    popup.remove();
+                    document.removeEventListener('click', closePopup);
+                }
+            });
+        }, 100);
     }
 
     async insertImageFile(file) {
@@ -5813,50 +5992,37 @@ Questions?
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
         if (tabName === 'enabled') {
-            document.getElementById('enabled-plugins-tab').classList.add('active');
-            document.getElementById('plugins-list').classList.add('active');
-        } else if (tabName === 'install') {
-            document.getElementById('install-plugins-tab').classList.add('active');
-            document.getElementById('install-plugins-list').classList.add('active');
-            this.loadAvailablePlugins();
+            const tab = document.getElementById('enabled-plugins-tab');
+            const list = document.getElementById('plugins-list');
+            if (tab) tab.classList.add('active');
+            if (list) list.classList.add('active');
         }
     }
 
     populatePluginsModal() {
-        // Populate enabled plugins list
-        const list = document.getElementById('plugins-list');
-        if (list && window.markddListPlugins) {
-            const plugins = window.markddListPlugins();
-            const firstDiv = list.querySelector('div:first-child');
-            
-            if (plugins.length === 0) {
-                list.insertAdjacentHTML('afterbegin', '<div style="color:#888;">No plugins registered.</div>');
-            } else {
-                let pluginsHTML = '';
-                plugins.forEach(plugin => {
-                    pluginsHTML += `<div class="plugin-row"><label><input type="checkbox" ${plugin.enabled ? 'checked' : ''} data-plugin="${plugin.name}"> <b>${plugin.name}</b> <span style="color:#888;font-size:0.9em;">(${plugin.type})</span></label></div>`;
-                });
-                list.insertAdjacentHTML('afterbegin', pluginsHTML);
-                
-                // Add event listeners for toggles
-                list.querySelectorAll('input[type="checkbox"][data-plugin]').forEach(cb => {
-                    cb.addEventListener('change', (e) => {
-                        const pname = e.target.getAttribute('data-plugin');
-                        if (e.target.checked) {
-                            window.markddEnablePlugin && window.markddEnablePlugin(pname);
-                        } else {
-                            window.markddDisablePlugin && window.markddDisablePlugin(pname);
-                        }
-                        // Optionally trigger a re-render or notify user
-                        if (window.markddApp && window.markddApp.preview) {
-                            window.markddApp.preview.refresh && window.markddApp.preview.refresh();
-                        }
-                    });
-                });
-            }
+        // Features modal now shows static built-in features list (defined in HTML)
+        // Just update the scroll sync status
+        const scrollSyncStatus = document.getElementById('scroll-sync-status');
+        if (scrollSyncStatus && typeof this.isSyncScrollEnabled === 'function') {
+            scrollSyncStatus.textContent = 'Scroll Sync: ' + (this.isSyncScrollEnabled() ? 'Enabled' : 'Disabled');
+            scrollSyncStatus.style.color = this.isSyncScrollEnabled() ? '#007acc' : '#d32f2f';
         }
 
-        // Export with only enabled plugins toggle
+        // Bibliography collection toggle
+        const bibliographyToggle = document.getElementById('collect-bibliography-refs');
+        if (bibliographyToggle) {
+            // Load saved setting (default true)
+            bibliographyToggle.checked = localStorage.getItem('collect-bibliography-refs') !== 'false';
+            bibliographyToggle.addEventListener('change', (e) => {
+                localStorage.setItem('collect-bibliography-refs', e.target.checked ? 'true' : 'false');
+                // Trigger preview update
+                if (this.preview && this.editor) {
+                    this.updatePreview();
+                }
+            });
+        }
+
+        // Export with all features toggle
         const exportToggle = document.getElementById('export-enabled-plugins-only');
         if (exportToggle) {
             exportToggle.checked = window.markddExportEnabledPluginsOnly !== false;
@@ -5864,169 +6030,18 @@ Questions?
                 window.markddExportEnabledPluginsOnly = !!e.target.checked;
             });
         }
-        
-        // Scroll sync status
-        const scrollSyncStatus = document.getElementById('scroll-sync-status');
-        if (scrollSyncStatus && typeof this.isSyncScrollEnabled === 'function') {
-            scrollSyncStatus.textContent = 'Scroll Sync: ' + (this.isSyncScrollEnabled() ? 'Enabled' : 'Disabled');
-            scrollSyncStatus.style.color = this.isSyncScrollEnabled() ? '#007acc' : '#d32f2f';
-        }
-        
-        // Discover plugins button
-        const discoverBtn = document.getElementById('discover-plugins-btn');
-        if (discoverBtn) {
-            discoverBtn.onclick = () => {
-                window.open('https://github.com/BearToCode/carta', '_blank');
-                setTimeout(() => window.open('https://github.com/remarkjs/remark/blob/main/doc/plugins.md#list-of-plugins', '_blank'), 200);
-                setTimeout(() => window.open('https://github.com/remarkjs', '_blank'), 400);
-            };
-        }
     }
 
     async loadAvailablePlugins() {
-        const installList = document.getElementById('install-plugins-list');
-        const loading = document.getElementById('plugin-install-loading');
-        
-        if (!installList) return;
-        
-        loading.style.display = 'block';
-        
-        try {
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                const plugins = await ipcRenderer.invoke('get-available-plugins');
-                
-                loading.style.display = 'none';
-                
-                let html = '';
-                plugins.forEach(plugin => {
-                    const statusClass = plugin.installed ? 'installed' : '';
-                    const statusText = plugin.installed ? 'Installed' : 'Not Installed';
-                    const actionButton = plugin.installed 
-                        ? `<button class="uninstall-btn" data-plugin="${plugin.name}">Uninstall</button>`
-                        : `<button class="install-btn" data-plugin="${plugin.name}">Install</button>`;
-                    
-                    html += `
-                        <div class="install-plugin-item">
-                            <div class="plugin-info">
-                                <div class="plugin-name">${plugin.name}</div>
-                                <div class="plugin-description">${plugin.description}</div>
-                                <div class="plugin-meta">Type: ${plugin.type} | Version: ${plugin.version}</div>
-                            </div>
-                            <div class="plugin-actions">
-                                <span class="plugin-status ${statusClass}">${statusText}</span>
-                                ${actionButton}
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                installList.innerHTML = html;
-                
-                // Add event listeners for install/uninstall buttons
-                installList.querySelectorAll('.install-btn, .uninstall-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const pluginName = e.target.getAttribute('data-plugin');
-                        const isInstall = e.target.classList.contains('install-btn');
-                        
-                        if (isInstall) {
-                            this.installPlugin(pluginName, e.target);
-                        } else {
-                            this.uninstallPlugin(pluginName, e.target);
-                        }
-                    });
-                });
-            }
-        } catch (error) {
-            loading.innerHTML = `<div style="color:#d32f2f;">Error loading plugins: ${error.message}</div>`;
-        }
+        // Plugin installation disabled
     }
 
     async installPlugin(pluginName, buttonEl) {
-        if (typeof require === 'undefined') return;
-        
-        const { ipcRenderer } = require('electron');
-        
-        buttonEl.disabled = true;
-        buttonEl.textContent = 'Installing...';
-        
-        try {
-            const result = await ipcRenderer.invoke('install-plugin', pluginName);
-            
-            if (result.success) {
-                buttonEl.textContent = 'Installed';
-                buttonEl.className = 'uninstall-btn';
-                buttonEl.textContent = 'Uninstall';
-                buttonEl.disabled = false;
-                
-                // Update status
-                const statusEl = buttonEl.parentElement.querySelector('.plugin-status');
-                if (statusEl) {
-                    statusEl.textContent = 'Installed';
-                    statusEl.className = 'plugin-status installed';
-                }
-                
-                this.showMessage(`Plugin ${pluginName} installed successfully. Please restart the application to use it.`);
-            } else {
-                buttonEl.textContent = 'Install Failed';
-                buttonEl.disabled = false;
-                this.showError(`Failed to install ${pluginName}: ${result.error}`);
-                setTimeout(() => {
-                    buttonEl.textContent = 'Install';
-                }, 3000);
-            }
-        } catch (error) {
-            buttonEl.textContent = 'Install Failed';
-            buttonEl.disabled = false;
-            this.showError(`Failed to install ${pluginName}: ${error.message}`);
-            setTimeout(() => {
-                buttonEl.textContent = 'Install';
-            }, 3000);
-        }
+        // Plugin installation disabled
     }
 
     async uninstallPlugin(pluginName, buttonEl) {
-        if (typeof require === 'undefined') return;
-        
-        const { ipcRenderer } = require('electron');
-        
-        if (!confirm(`Are you sure you want to uninstall ${pluginName}?`)) return;
-        
-        buttonEl.disabled = true;
-        buttonEl.textContent = 'Uninstalling...';
-        
-        try {
-            const result = await ipcRenderer.invoke('uninstall-plugin', pluginName);
-            
-            if (result.success) {
-                buttonEl.className = 'install-btn';
-                buttonEl.textContent = 'Install';
-                buttonEl.disabled = false;
-                
-                // Update status
-                const statusEl = buttonEl.parentElement.querySelector('.plugin-status');
-                if (statusEl) {
-                    statusEl.textContent = 'Not Installed';
-                    statusEl.className = 'plugin-status';
-                }
-                
-                this.showMessage(`Plugin ${pluginName} uninstalled successfully. Please restart the application.`);
-            } else {
-                buttonEl.textContent = 'Uninstall Failed';
-                buttonEl.disabled = false;
-                this.showError(`Failed to uninstall ${pluginName}: ${result.error}`);
-                setTimeout(() => {
-                    buttonEl.textContent = 'Uninstall';
-                }, 3000);
-            }
-        } catch (error) {
-            buttonEl.textContent = 'Uninstall Failed';
-            buttonEl.disabled = false;
-            this.showError(`Failed to uninstall ${pluginName}: ${error.message}`);
-            setTimeout(() => {
-                buttonEl.textContent = 'Uninstall';
-            }, 3000);
-        }
+        // Plugin installation disabled
     }
 
     // Event handlers
@@ -6036,6 +6051,22 @@ Questions?
         }
         if (e.ctrlKey || e.metaKey) {
             switch (e.key.toLowerCase()) {
+                case 's':
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        this.saveAsFile();
+                    } else {
+                        this.saveFile();
+                    }
+                    break;
+                case 'o':
+                    e.preventDefault();
+                    this.openFileDialog();
+                    break;
+                case 'n':
+                    e.preventDefault();
+                    this.newFile();
+                    break;
                 case 'b':
                     e.preventDefault();
                     if (this.fileBrowser) {

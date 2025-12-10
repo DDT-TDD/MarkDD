@@ -112,6 +112,38 @@
 			font-size: 12px;
 		}
 		
+		/* Center text toggle button */
+		.center-text-btn {
+			background: linear-gradient(to bottom, #e0f2fe 0%, #bae6fd 100%) !important;
+			border: 1px solid #0ea5e9 !important;
+			border-radius: 4px !important;
+			color: #0369a1 !important;
+			font-size: 12px !important;
+			padding: 6px 10px !important;
+			margin: 6px 4px !important;
+			min-width: 90px !important;
+			cursor: pointer !important;
+			transition: all 0.2s ease !important;
+			font-weight: 500 !important;
+		}
+		
+		.center-text-btn:hover {
+			background: linear-gradient(to bottom, #bae6fd 0%, #7dd3fc 100%) !important;
+			transform: translateY(-1px) !important;
+			box-shadow: 0 2px 6px rgba(14, 165, 233, 0.3) !important;
+		}
+		
+		.center-text-btn:active,
+		.center-text-btn.active {
+			background: linear-gradient(to bottom, #7dd3fc 0%, #38bdf8 100%) !important;
+			transform: translateY(0) !important;
+		}
+		
+		.diy-separator {
+			display: inline-block;
+			vertical-align: middle;
+		}
+		
 		.hidden-frame {
 			display: none;
 		}
@@ -121,11 +153,20 @@
 <body ng-app="kityminderWindow" ng-controller="MainController">
 	<h1 class="editor-title">
 		<span>KityMinder Mind Map Editor</span>
-		<span class="editor-title-hint">Zoom: Ctrl+Scroll | Pan: Drag | Add Node: Enter | Edit: F2</span>
+		<span class="editor-title-hint">Zoom: Ctrl+Scroll | Pan: Drag | Add Node: Enter | Edit: F2 | Center Text: Ctrl+Shift+C</span>
 	</h1>
 	<kityminder-editor on-init="initEditor(editor, minder)" data-theme="fresh-green"></kityminder-editor>
 	<iframe name="frameFile" class="hidden-frame"></iframe>
 </body>
+
+<!-- JSZip for XMind import -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+	// Create 'zip' alias for JSZip - KityMinder core expects 'zip' variable
+	if (typeof JSZip !== 'undefined') {
+		window.zip = JSZip;
+	}
+</script>
 
 <!-- Local bower components JS -->
 <script src="./bower_components/jquery/dist/jquery.js"></script>

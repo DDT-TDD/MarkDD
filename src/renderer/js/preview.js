@@ -573,10 +573,11 @@ class Preview {
                 // Show loading indicator
                 element.innerHTML = this.createLoadingIndicator('GraphViz');
                 
-                // Load Viz.js library with proper configuration for original viz.js v2.1.2
+                // Load Viz.js library - try @viz-js/viz v3.x first, then fallback to v2.x
                 if (!window.Viz) {
-                    // Try multiple CDN sources for original viz.js
                     const cdnUrls = [
+                        'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js',
+                        'https://unpkg.com/@viz-js/viz@3.4.0/lib/viz-standalone.js',
                         'https://unpkg.com/viz.js@2.1.2/viz.js',
                         'https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js'
                     ];
@@ -585,37 +586,77 @@ class Preview {
                     for (const url of cdnUrls) {
                         try {
                             loaded = await window.libraryLoader?.loadScript(url, 'viz.js', () => typeof window.Viz === 'function');
-                            if (loaded) break;
+                            if (loaded) {
+                                console.log(`[GraphViz] Loaded from: ${url}`);
+                                break;
+                            }
                         } catch (e) {
-                            console.warn(`Failed to load from ${url}:`, e);
+                            console.warn(`[GraphViz] Failed to load from ${url}:`, e);
                         }
                     }
                     
-                    if (!loaded) {
+                    if (!loaded && typeof window.Viz !== 'function') {
                         throw new Error('Failed to load Viz.js library from all CDNs');
                     }
                 }
                 
-                // Render GraphViz diagram using sync API
-                let svg;
-                try {
-                    // Use the synchronous Viz.js API
-                    if (typeof window.Viz === 'function') {
-                        console.log('[GraphViz] Using synchronous Viz.js API');
+                // Render GraphViz diagram - support both v2.x and v3.x APIs
+                let svg = null;
+                
+                // Try @viz-js/viz v3.x API first (async, uses Viz.instance())
+                if (!svg && window.Viz && typeof window.Viz.instance === 'function') {
+                    try {
+                        console.log('[GraphViz] Trying @viz-js/viz v3.x API');
+                        const viz = await window.Viz.instance();
+                        if (viz && typeof viz.renderSVGElement === 'function') {
+                            svg = await viz.renderSVGElement(code, { engine });
+                            console.log('[GraphViz] Rendered using v3.x renderSVGElement');
+                        } else if (viz && typeof viz.renderString === 'function') {
+                            const svgText = await viz.renderString(code, { format: 'svg', engine });
+                            if (svgText && svgText.includes('<svg')) {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(svgText, 'image/svg+xml');
+                                svg = doc.documentElement;
+                                console.log('[GraphViz] Rendered using v3.x renderString');
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[GraphViz] v3.x API failed:', e);
+                    }
+                }
+                
+                // Try viz.js v2.x class-based API
+                if (!svg && typeof window.Viz === 'function' && window.Viz.prototype) {
+                    try {
+                        console.log('[GraphViz] Trying viz.js v2.x class API');
+                        const viz = new window.Viz();
+                        if (typeof viz.renderSVGElement === 'function') {
+                            svg = await viz.renderSVGElement(code, { engine });
+                            console.log('[GraphViz] Rendered using v2.x class renderSVGElement');
+                        }
+                    } catch (e) {
+                        console.warn('[GraphViz] v2.x class API failed:', e);
+                    }
+                }
+                
+                // Try original viz.js v1.x/v2.x sync function API
+                if (!svg && typeof window.Viz === 'function') {
+                    try {
+                        console.log('[GraphViz] Trying viz.js sync function API');
                         const svgText = window.Viz(code, { format: 'svg', engine: engine });
-                        if (svgText && svgText.includes('<svg')) {
+                        if (svgText && typeof svgText === 'string' && svgText.includes('<svg')) {
                             const parser = new DOMParser();
                             const doc = parser.parseFromString(svgText, 'image/svg+xml');
                             svg = doc.documentElement;
-                        } else {
-                            throw new Error('Viz.js returned invalid SVG output');
+                            console.log('[GraphViz] Rendered using sync function API');
                         }
-                    } else {
-                        throw new Error('Viz.js function not available');
+                    } catch (e) {
+                        console.warn('[GraphViz] Sync function API failed:', e);
                     }
-                } catch (vizError) {
-                    console.error('[GraphViz] Viz.js rendering error:', vizError);
-                    throw new Error(`GraphViz rendering failed: ${vizError.message}`);
+                }
+                
+                if (!svg) {
+                    throw new Error('GraphViz rendering failed: No compatible Viz.js API found');
                 }
                 
                 element.innerHTML = `<div class="graphviz-diagram" id="${id}">

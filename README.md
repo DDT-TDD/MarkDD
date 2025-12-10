@@ -46,7 +46,7 @@ Author: MarkDD Team
 
 A fully-featured Markdown editor with advanced capabilities, combining the best features from MarkText, VS Code Markdown Preview Enhanced, Markmap, and obsidian-tikzjax.
 
-![MarkDD Editor](https://img.shields.io/badge/Version-1.3.1-blue)
+![MarkDD Editor](https://img.shields.io/badge/Version-1.3.2-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Electron](https://img.shields.io/badge/Electron-38.0.0-blue)
 

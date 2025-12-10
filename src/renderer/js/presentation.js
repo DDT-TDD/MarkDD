@@ -446,6 +446,9 @@ ${navItems}
     <!-- D3.js for markmap and visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     
+    <!-- Viz.js for GraphViz diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
+    
     <!-- TikZJax for LaTeX diagrams -->
     <link rel="stylesheet" type="text/css" href="https://tikzjax.com/v1/fonts.css">
     <script src="https://tikzjax.com/v1/tikzjax.js"></script>
@@ -1242,6 +1245,49 @@ ${navItems}
                     } catch (err) {
                         container.innerHTML = '<div class="vega-error">Error rendering Vega: ' + err.message + '</div>';
                     }
+                }
+            });
+            
+            // Render GraphViz diagrams
+            const graphvizContainers = document.querySelectorAll('.graphviz-container');
+            graphvizContainers.forEach(container => {
+                const code = decodeURIComponent(container.getAttribute('data-graphviz-code') || '');
+                const id = container.getAttribute('data-graphviz-id');
+                const engine = container.getAttribute('data-graphviz-engine') || 'dot';
+                if (code && typeof Viz !== 'undefined') {
+                    const graphvizPromise = (async () => {
+                        try {
+                            let svg = null;
+                            // Try @viz-js/viz v3.x API
+                            if (Viz.instance && typeof Viz.instance === 'function') {
+                                const viz = await Viz.instance();
+                                if (viz && typeof viz.renderSVGElement === 'function') {
+                                    svg = await viz.renderSVGElement(code, { engine });
+                                }
+                            }
+                            // Try sync function API as fallback
+                            if (!svg && typeof Viz === 'function') {
+                                try {
+                                    const svgText = Viz(code, { format: 'svg', engine: engine });
+                                    if (svgText && svgText.includes('<svg')) {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(svgText, 'image/svg+xml');
+                                        svg = doc.documentElement;
+                                    }
+                                } catch (e) {}
+                            }
+                            if (svg) {
+                                container.innerHTML = '';
+                                container.appendChild(svg);
+                                container.classList.add('graphviz-rendered');
+                            } else {
+                                throw new Error('No compatible Viz.js API found');
+                            }
+                        } catch (err) {
+                            container.innerHTML = '<div class="graphviz-error">Error rendering GraphViz: ' + err.message + '</div>';
+                        }
+                    })();
+                    renderingPromises.push(graphvizPromise);
                 }
             });
             

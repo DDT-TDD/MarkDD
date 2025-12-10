@@ -2818,6 +2818,7 @@ class BookEngine {
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
     <script defer src="./assets/book.js"></script>
 </body>
@@ -2841,6 +2842,41 @@ const initMath = () => {
     }
 };
 const initMermaid = () => { if (window.mermaid && window.mermaid.initialize) { window.mermaid.initialize({ startOnLoad: true, theme: '${mermaidTheme}' }); } };
+const initGraphViz = async () => {
+    if (typeof Viz === 'undefined') return;
+    const containers = document.querySelectorAll('.graphviz-container:not(.graphviz-rendered)');
+    for (const container of containers) {
+        const code = decodeURIComponent(container.getAttribute('data-graphviz-code') || '');
+        const engine = container.getAttribute('data-graphviz-engine') || 'dot';
+        if (!code) continue;
+        try {
+            let svg = null;
+            if (Viz.instance && typeof Viz.instance === 'function') {
+                const viz = await Viz.instance();
+                if (viz && typeof viz.renderSVGElement === 'function') {
+                    svg = await viz.renderSVGElement(code, { engine });
+                }
+            }
+            if (!svg && typeof Viz === 'function') {
+                try {
+                    const svgText = Viz(code, { format: 'svg', engine: engine });
+                    if (svgText && svgText.includes('<svg')) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(svgText, 'image/svg+xml');
+                        svg = doc.documentElement;
+                    }
+                } catch (e) {}
+            }
+            if (svg) {
+                container.innerHTML = '';
+                container.appendChild(svg);
+                container.classList.add('graphviz-rendered');
+            }
+        } catch (err) {
+            container.innerHTML = '<div class="graphviz-error">Error: ' + err.message + '</div>';
+        }
+    }
+};
 const loadSearchIndex = async () => {
     const candidates = ['./search-index.json', '../search-index.json'];
     for (const candidate of candidates) {
@@ -2881,6 +2917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initHighlight();
     initMath();
     initMermaid();
+    initGraphViz();
     renderSearch();
 });
 })();`;

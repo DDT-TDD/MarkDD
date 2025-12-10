@@ -568,6 +568,21 @@ ${jsonData}
                         </div>
                     </div>
                     <div class="joplin-dialog-buttons" style="display: flex; gap: 10px; align-items: center;">
+                        <button class="joplin-btn joplin-btn-import" onclick="window.kityMinderIntegration.showImportDialog('${dialogId}')" title="Import from XMind, MindManager, or FreeMind" style="
+                            padding: 8px 16px;
+                            background: rgba(255, 255, 255, 0.15);
+                            color: white;
+                            border: 1px solid rgba(255, 255, 255, 0.3);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 13px;
+                            font-weight: 500;
+                            transition: all 0.2s ease;
+                            backdrop-filter: blur(10px);
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                        "><span style='font-size: 15px;'>📥</span> Import</button>
                         <button class="joplin-btn joplin-btn-fullscreen" onclick="window.kityMinderIntegration.toggleDialogFullscreen('${dialogId}')" title="Toggle Fullscreen (F11)" style="
                             padding: 8px 16px;
                             background: rgba(255, 255, 255, 0.15);
@@ -620,7 +635,7 @@ ${jsonData}
             const buttons = dialog.querySelectorAll('.joplin-btn');
             buttons.forEach(btn => {
                 btn.addEventListener('mouseenter', () => {
-                    if (btn.classList.contains('joplin-btn-fullscreen')) {
+                    if (btn.classList.contains('joplin-btn-fullscreen') || btn.classList.contains('joplin-btn-import')) {
                         btn.style.background = 'rgba(255, 255, 255, 0.25)';
                         btn.style.borderColor = 'rgba(255, 255, 255, 0.5)';
                         btn.style.transform = 'translateY(-2px)';
@@ -636,7 +651,7 @@ ${jsonData}
                     }
                 });
                 btn.addEventListener('mouseleave', () => {
-                    if (btn.classList.contains('joplin-btn-fullscreen')) {
+                    if (btn.classList.contains('joplin-btn-fullscreen') || btn.classList.contains('joplin-btn-import')) {
                         btn.style.background = 'rgba(255, 255, 255, 0.15)';
                         btn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
                         btn.style.transform = 'translateY(0)';
@@ -1233,6 +1248,514 @@ ${jsonData}
         });
         
         console.log('[KityMinderIntegration] Event listeners setup completed');
+    }
+
+    /**
+     * Show import dialog for XMind, MindManager, FreeMind formats
+     * @param {string} dialogId - Parent dialog ID
+     */
+    showImportDialog(dialogId) {
+        // Create file input for importing
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xmind,.mmap,.mm,.xml,.json,.md,.txt';
+        input.style.display = 'none';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                const result = await this.importMindmapFile(file, dialogId);
+                if (result.success) {
+                    // Send imported data to iframe
+                    const dialogInstance = this.dialogInstances.get(dialogId);
+                    if (dialogInstance) {
+                        const iframe = dialogInstance.element.querySelector('#mindmap_iframe');
+                        if (iframe && iframe.contentWindow) {
+                            iframe.contentWindow.postMessage({
+                                type: 'load-mindmap',
+                                data: result.data
+                            }, '*');
+                            console.log('[KityMinderIntegration] Imported mindmap loaded into editor');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[KityMinderIntegration] Import error:', error);
+                alert(`Failed to import mindmap: ${error.message}`);
+            }
+            
+            // Clean up
+            document.body.removeChild(input);
+        };
+        
+        document.body.appendChild(input);
+        input.click();
+    }
+
+    /**
+     * Import mindmap file and convert to KityMinder format
+     * Supports XMind, MindManager, FreeMind/Freeplane, JSON, Markdown, Text
+     * @param {File} file - File to import
+     * @param {string} dialogId - Parent dialog ID
+     * @returns {Promise<Object>} - { success, data, error }
+     */
+    async importMindmapFile(file, dialogId) {
+        const fileName = file.name.toLowerCase();
+        const extension = fileName.substring(fileName.lastIndexOf('.'));
+        
+        console.log(`[KityMinderIntegration] Importing file: ${file.name}, extension: ${extension}`);
+        
+        try {
+            switch (extension) {
+                case '.xmind':
+                    return await this.importXMind(file);
+                case '.mmap':
+                    return await this.importMindManager(file);
+                case '.mm':
+                case '.xml':
+                    return await this.importFreeMind(file);
+                case '.json':
+                    return await this.importJSON(file);
+                case '.md':
+                case '.txt':
+                    return await this.importText(file);
+                default:
+                    throw new Error(`Unsupported file format: ${extension}`);
+            }
+        } catch (error) {
+            console.error('[KityMinderIntegration] Import failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Import XMind file (.xmind)
+     * XMind files are ZIP archives containing content.json
+     * @param {File} file - XMind file
+     * @returns {Promise<Object>} - { success, data }
+     */
+    async importXMind(file) {
+        try {
+            // XMind files are ZIP archives - we need JSZip to extract them
+            if (typeof JSZip === 'undefined') {
+                // Try to load JSZip dynamically
+                await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            }
+            
+            const zip = await JSZip.loadAsync(file);
+            
+            // XMind 8+ format: content.json
+            let contentFile = zip.file('content.json');
+            if (contentFile) {
+                const content = await contentFile.async('string');
+                const xmindData = JSON.parse(content);
+                return { success: true, data: this.convertXMindToKityMinder(xmindData) };
+            }
+            
+            // Legacy XMind format: content.xml
+            contentFile = zip.file('content.xml');
+            if (contentFile) {
+                const content = await contentFile.async('string');
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(content, 'text/xml');
+                return { success: true, data: this.convertXMindXmlToKityMinder(xmlDoc) };
+            }
+            
+            throw new Error('Invalid XMind file: No content.json or content.xml found');
+        } catch (error) {
+            throw new Error(`XMind import failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Convert XMind JSON format to KityMinder format
+     * @param {Object} xmindData - XMind JSON data
+     * @returns {Object} - KityMinder format data
+     */
+    convertXMindToKityMinder(xmindData) {
+        const sheet = Array.isArray(xmindData) ? xmindData[0] : xmindData;
+        const rootTopic = sheet?.rootTopic || sheet?.root || sheet;
+        
+        const convertNode = (topic) => {
+            const node = {
+                data: {
+                    text: topic.title || topic.text || 'Untitled'
+                },
+                children: []
+            };
+            
+            // Copy additional properties
+            if (topic.note) node.data.note = topic.note;
+            if (topic.href) node.data.hyperlink = topic.href;
+            if (topic.labels && topic.labels.length) node.data.resource = topic.labels;
+            if (topic.markers && topic.markers.length) {
+                // Convert markers to priorities/progress
+                topic.markers.forEach(marker => {
+                    if (marker.markerId?.includes('priority')) {
+                        node.data.priority = parseInt(marker.markerId.replace(/\D/g, '')) || 1;
+                    }
+                    if (marker.markerId?.includes('task')) {
+                        node.data.progress = parseInt(marker.markerId.replace(/\D/g, '')) || 0;
+                    }
+                });
+            }
+            
+            // Process children
+            const children = topic.children?.attached || topic.children || [];
+            if (Array.isArray(children)) {
+                children.forEach(child => {
+                    node.children.push(convertNode(child));
+                });
+            }
+            
+            return node;
+        };
+        
+        return {
+            root: convertNode(rootTopic),
+            template: 'default',
+            theme: 'fresh-blue',
+            version: '1.4.43'
+        };
+    }
+
+    /**
+     * Convert XMind XML format to KityMinder format (legacy)
+     * @param {Document} xmlDoc - XMind XML document
+     * @returns {Object} - KityMinder format data
+     */
+    convertXMindXmlToKityMinder(xmlDoc) {
+        const topics = xmlDoc.getElementsByTagName('topic');
+        if (!topics.length) {
+            throw new Error('No topics found in XMind XML');
+        }
+        
+        const convertXmlNode = (topicElement) => {
+            const titleEl = topicElement.querySelector(':scope > title');
+            const node = {
+                data: {
+                    text: titleEl?.textContent || 'Untitled'
+                },
+                children: []
+            };
+            
+            // Get children topics
+            const childrenEl = topicElement.querySelector(':scope > children > topics');
+            if (childrenEl) {
+                const childTopics = childrenEl.querySelectorAll(':scope > topic');
+                childTopics.forEach(child => {
+                    node.children.push(convertXmlNode(child));
+                });
+            }
+            
+            return node;
+        };
+        
+        return {
+            root: convertXmlNode(topics[0]),
+            template: 'default',
+            theme: 'fresh-blue',
+            version: '1.4.43'
+        };
+    }
+
+    /**
+     * Import MindManager file (.mmap)
+     * MindManager files are ZIP archives containing Document.xml
+     * @param {File} file - MindManager file
+     * @returns {Promise<Object>} - { success, data }
+     */
+    async importMindManager(file) {
+        try {
+            if (typeof JSZip === 'undefined') {
+                await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            }
+            
+            const zip = await JSZip.loadAsync(file);
+            const documentFile = zip.file('Document.xml');
+            
+            if (!documentFile) {
+                throw new Error('Invalid MindManager file: No Document.xml found');
+            }
+            
+            const content = await documentFile.async('string');
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(content, 'text/xml');
+            
+            return { success: true, data: this.convertMindManagerToKityMinder(xmlDoc) };
+        } catch (error) {
+            throw new Error(`MindManager import failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Convert MindManager XML to KityMinder format
+     * @param {Document} xmlDoc - MindManager XML document
+     * @returns {Object} - KityMinder format data
+     */
+    convertMindManagerToKityMinder(xmlDoc) {
+        const topics = xmlDoc.getElementsByTagName('Topic') || xmlDoc.getElementsByTagName('topic');
+        if (!topics.length) {
+            // Try OneTopic for root
+            const oneTopics = xmlDoc.getElementsByTagName('OneTopic');
+            if (!oneTopics.length) {
+                throw new Error('No topics found in MindManager XML');
+            }
+        }
+        
+        const convertMmNode = (topicElement) => {
+            // MindManager uses Text/PlainText for topic text
+            let text = 'Untitled';
+            const textEl = topicElement.querySelector('Text PlainText, Text > PlainText, Title');
+            if (textEl) {
+                text = textEl.textContent || text;
+            } else {
+                // Try attribute
+                text = topicElement.getAttribute('PlainText') || topicElement.getAttribute('Text') || text;
+            }
+            
+            const node = {
+                data: { text },
+                children: []
+            };
+            
+            // Get notes
+            const notesEl = topicElement.querySelector('NotesGroup Note');
+            if (notesEl) {
+                node.data.note = notesEl.textContent;
+            }
+            
+            // Get hyperlink
+            const linkEl = topicElement.querySelector('Hyperlink');
+            if (linkEl) {
+                node.data.hyperlink = linkEl.getAttribute('Url') || linkEl.getAttribute('url');
+            }
+            
+            // Get children - MindManager uses SubTopics
+            const subTopicsEl = topicElement.querySelector('SubTopics');
+            if (subTopicsEl) {
+                const childTopics = subTopicsEl.querySelectorAll(':scope > Topic');
+                childTopics.forEach(child => {
+                    node.children.push(convertMmNode(child));
+                });
+            }
+            
+            return node;
+        };
+        
+        // Find root topic
+        const rootTopic = xmlDoc.querySelector('OneTopic Topic, CentralTopic, Topic');
+        
+        return {
+            root: convertMmNode(rootTopic || topics[0]),
+            template: 'default',
+            theme: 'fresh-blue',
+            version: '1.4.43'
+        };
+    }
+
+    /**
+     * Import FreeMind/Freeplane file (.mm)
+     * FreeMind files are XML documents
+     * @param {File} file - FreeMind file
+     * @returns {Promise<Object>} - { success, data }
+     */
+    async importFreeMind(file) {
+        try {
+            const content = await file.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(content, 'text/xml');
+            
+            // Check for parsing errors
+            const parseError = xmlDoc.querySelector('parsererror');
+            if (parseError) {
+                throw new Error('Invalid XML format');
+            }
+            
+            return { success: true, data: this.convertFreeMindToKityMinder(xmlDoc) };
+        } catch (error) {
+            throw new Error(`FreeMind import failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Convert FreeMind XML to KityMinder format
+     * @param {Document} xmlDoc - FreeMind XML document
+     * @returns {Object} - KityMinder format data
+     */
+    convertFreeMindToKityMinder(xmlDoc) {
+        const mapEl = xmlDoc.querySelector('map');
+        if (!mapEl) {
+            throw new Error('Invalid FreeMind file: No map element found');
+        }
+        
+        const rootNode = mapEl.querySelector('node');
+        if (!rootNode) {
+            throw new Error('Invalid FreeMind file: No root node found');
+        }
+        
+        const convertFmNode = (nodeElement) => {
+            const text = nodeElement.getAttribute('TEXT') || 
+                         nodeElement.getAttribute('text') || 
+                         'Untitled';
+            
+            const node = {
+                data: { text },
+                children: []
+            };
+            
+            // Get link
+            const link = nodeElement.getAttribute('LINK') || nodeElement.getAttribute('link');
+            if (link) {
+                node.data.hyperlink = link;
+            }
+            
+            // Get note (richcontent with TYPE="NOTE")
+            const noteEl = nodeElement.querySelector('richcontent[TYPE="NOTE"]');
+            if (noteEl) {
+                node.data.note = noteEl.textContent?.trim();
+            }
+            
+            // Get icons for priority/progress
+            const icons = nodeElement.querySelectorAll('icon');
+            icons.forEach(icon => {
+                const builtin = icon.getAttribute('BUILTIN') || icon.getAttribute('builtin');
+                if (builtin?.includes('full-')) {
+                    node.data.priority = parseInt(builtin.replace(/\D/g, '')) || 1;
+                }
+            });
+            
+            // Get children nodes
+            const childNodes = nodeElement.querySelectorAll(':scope > node');
+            childNodes.forEach(child => {
+                node.children.push(convertFmNode(child));
+            });
+            
+            return node;
+        };
+        
+        return {
+            root: convertFmNode(rootNode),
+            template: 'default',
+            theme: 'fresh-blue',
+            version: '1.4.43'
+        };
+    }
+
+    /**
+     * Import JSON file (KityMinder native format)
+     * @param {File} file - JSON file
+     * @returns {Promise<Object>} - { success, data }
+     */
+    async importJSON(file) {
+        try {
+            const content = await file.text();
+            const data = JSON.parse(content);
+            
+            // Validate it's a mindmap format
+            if (!data.root && !data.data) {
+                throw new Error('Invalid mindmap JSON format');
+            }
+            
+            // If it's already KityMinder format
+            if (data.root) {
+                return { success: true, data };
+            }
+            
+            // Convert simple format to KityMinder format
+            return { 
+                success: true, 
+                data: {
+                    root: data,
+                    template: 'default',
+                    theme: 'fresh-blue',
+                    version: '1.4.43'
+                }
+            };
+        } catch (error) {
+            throw new Error(`JSON import failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Import text/markdown file and convert to mindmap
+     * Uses indentation to determine hierarchy
+     * @param {File} file - Text or Markdown file
+     * @returns {Promise<Object>} - { success, data }
+     */
+    async importText(file) {
+        try {
+            const content = await file.text();
+            const lines = content.split('\n').filter(line => line.trim());
+            
+            if (!lines.length) {
+                throw new Error('Empty file');
+            }
+            
+            // Build tree from indentation or markdown headers
+            const root = { data: { text: 'Mind Map' }, children: [] };
+            const stack = [{ node: root, level: -1 }];
+            
+            lines.forEach(line => {
+                let level = 0;
+                let text = line;
+                
+                // Check for markdown headers
+                const headerMatch = line.match(/^(#{1,6})\s+(.+)/);
+                if (headerMatch) {
+                    level = headerMatch[1].length - 1;
+                    text = headerMatch[2].trim();
+                } else if (line.match(/^[\-\*\+]\s/)) {
+                    // Bullet point
+                    const indentMatch = line.match(/^(\s*)/);
+                    level = Math.floor((indentMatch?.[1]?.length || 0) / 2) + 1;
+                    text = line.replace(/^[\s\-\*\+]+/, '').trim();
+                } else {
+                    // Plain text with indentation
+                    const indentMatch = line.match(/^(\s*)/);
+                    level = Math.floor((indentMatch?.[1]?.length || 0) / 2);
+                    text = line.trim();
+                }
+                
+                const newNode = { data: { text }, children: [] };
+                
+                // Find parent
+                while (stack.length > 1 && stack[stack.length - 1].level >= level) {
+                    stack.pop();
+                }
+                
+                const parent = stack[stack.length - 1].node;
+                parent.children.push(newNode);
+                stack.push({ node: newNode, level });
+            });
+            
+            // If only one child, make it the root
+            if (root.children.length === 1) {
+                return {
+                    success: true,
+                    data: {
+                        root: root.children[0],
+                        template: 'default',
+                        theme: 'fresh-blue',
+                        version: '1.4.43'
+                    }
+                };
+            }
+            
+            return {
+                success: true,
+                data: {
+                    root: root,
+                    template: 'default',
+                    theme: 'fresh-blue',
+                    version: '1.4.43'
+                }
+            };
+        } catch (error) {
+            throw new Error(`Text import failed: ${error.message}`);
+        }
     }
 
     /**

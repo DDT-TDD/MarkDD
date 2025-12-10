@@ -75,7 +75,10 @@
             <div class="menu-item">
                 <span class="menu-label">Tools</span>
                 <div class="menu-dropdown">
-                    <button id="menu-plugins" class="menu-option">Plugins & Options <span class="shortcut">Ctrl+,</span></button>
+                    <button id="menu-insert-toc" class="menu-option">Insert Table of Contents</button>
+                    <button id="menu-insert-footnote" class="menu-option">Insert Footnote</button>
+                    <button id="menu-insert-emoji" class="menu-option">Insert Emoji 😀</button>
+                    <hr>
                     <button id="menu-settings" class="menu-option">Settings</button>
                 </div>
             </div>
@@ -327,6 +330,12 @@
                 <button id="tocBtn" class="toolbar-btn" title="Insert Table of Contents">
                     <span class="icon">📑</span>
                 </button>
+                <button id="footnoteBtn" class="toolbar-btn" title="Insert Footnote">
+                    <span class="icon">📝</span>
+                </button>
+                <button id="emojiBtn" class="toolbar-btn" title="Insert Emoji">
+                    <span class="icon">😀</span>
+                </button>
             </div>
             
             <div class="toolbar-group">
@@ -380,55 +389,42 @@
                 <button id="exportPdfBtn" class="toolbar-btn" title="Export as PDF">
                     <span class="icon">📄</span>
                 </button>
-                <button id="pluginsBtn" class="toolbar-btn" title="Plugins & Options">
+                <button id="pluginsBtn" class="toolbar-btn" title="Markdown Features">
                     <span class="icon">⚙️</span>
                 </button>
             </div>
-        <!-- Plugins/Options Modal -->
+        <!-- Markdown Features Modal -->
         <div id="plugins-modal" class="modal" style="display:none;">
             <div class="modal-content">
-                <h3>Plugins & Options</h3>
+                <h3>Markdown Features</h3>
                 <button id="plugins-close" class="modal-close">&times;</button>
-                <div id="plugins-tabs" class="modal-tabs">
-                    <button id="enabled-plugins-tab" class="tab-button active">Enabled Plugins</button>
-                    <button id="install-plugins-tab" class="tab-button">Install Plugins</button>
-                </div>
-                <div id="plugins-list" class="tab-content active">
-                    <!-- Dynamically filled with plugin toggles and feature options -->
-                    <div style="margin:18px 0 8px 0;">
+                <div id="plugins-list" class="tab-content active" style="padding: 16px;">
+                    <h4 style="margin: 0 0 12px 0; color: #333;">✅ Built-in Features</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">📑 Table of Contents</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">📝 Footnotes</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">😀 Emoji Support</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">📚 Bibliography</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">📊 GFM Tables</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">💻 Code Highlighting</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">∑ Math (KaTeX/MathJax)</div>
+                        <div style="padding: 8px; background: #f0f9ff; border-radius: 6px;">📈 Diagrams (Mermaid)</div>
+                    </div>
+                    <hr style="margin: 16px 0;">
+                    <h4 style="margin: 0 0 12px 0; color: #333;">⚙️ Options</h4>
+                    <div style="margin:8px 0;">
+                        <label style="font-size:1em;">
+                            <input type="checkbox" id="collect-bibliography-refs" checked>
+                            Collect <b>bibliography references</b> at end of document
+                        </label>
+                    </div>
+                    <div style="margin:8px 0;">
                         <label style="font-size:1em;">
                             <input type="checkbox" id="export-enabled-plugins-only" checked>
-                            Export with <b>only enabled plugins</b>
+                            Export with <b>all features enabled</b>
                         </label>
                     </div>
                     <div id="scroll-sync-status" style="margin:8px 0 12px 0;font-size:0.98em;color:#007acc;"></div>
-                    <div style="margin:10px 0 0 0;">
-                        <button id="discover-plugins-btn" style="font-size:0.98em;padding:4px 12px;">Discover More Plugins</button>
-                        <span style="font-size:0.93em;color:#888;">(Carta, remarkjs, etc.)</span>
-                    </div>
-                </div>
-                <div id="install-plugins-list" class="tab-content">
-                    <!-- Plugin Installation Instructions -->
-                    <div class="plugin-instructions" style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:15px; margin-bottom:15px;">
-                        <h4 style="margin:0 0 10px 0; color:#495057;">📦 Plugin Installation Guide</h4>
-                        <div style="font-size:0.9em; color:#6c757d; line-height:1.5;">
-                            <p style="margin:0 0 8px 0;"><strong>How to install plugins:</strong></p>
-                            <ol style="margin:0 0 10px 0; padding-left:20px;">
-                                <li>Browse available plugins below</li>
-                                <li>Click "Install" button next to desired plugin</li>
-                                <li>Wait for installation to complete</li>
-                                <li><strong>Restart the application</strong> to activate plugins</li>
-                            </ol>
-                            <p style="margin:0; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; font-size:0.85em;">
-                                ⚠️ <strong>Important:</strong> Application restart is required for plugins to take effect.
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <!-- Dynamically filled with available plugins for installation -->
-                    <div id="plugin-install-loading" style="text-align:center;padding:20px;color:#666;">
-                        Loading available plugins...
-                    </div>
                 </div>
             </div>
         </div>

@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.2] - 2025-12-09
+
+### Fixed
+
+1. **Unsaved File Warning on Window Close** ✅
+   - Issue: Closing the window with unsaved tabs did not prompt to save (only closing individual tabs did)
+   - Fix: Added window `close` event handler that shows Save All / Don't Save / Cancel dialog
+   - Files: `src/main/main.js`, `src/renderer/js/app.js`
+   - Status: Resolved
+
+2. **GraphViz Diagrams Not Rendering** ✅
+   - Issue: GraphViz code blocks showed "Viz.js function not available" error
+   - Root Cause: `preview.js` was using old viz.js v2.x API but library-loader loads @viz-js/viz v3.x
+   - Fix: Updated `preview.js` to support both v2.x and v3.x Viz.js APIs
+   - Also fixed GraphViz in Presentations (`presentation.js`) and Book exports (`book-engine.js`)
+   - Files: `src/renderer/js/preview.js`, `src/renderer/js/presentation.js`, `src/common/book-engine.js`
+   - Status: Resolved
+
+3. **KityMinder XMind Import Failing** ✅
+   - Issue: Importing XMind files threw "zip is not defined" error
+   - Root Cause: KityMinder core expects `zip` global variable but JSZip library creates `JSZip`
+   - Fix: Added JSZip library and `window.zip = JSZip` alias in `index-joplin.html`
+   - Files: `src/renderer/kityminder-editor/index-joplin.html`
+   - Status: Resolved
+
+4. **KityMinder MindManager/FreeMind Import Support** ✅
+   - Issue: Missing import support for MindManager (.mmap) and FreeMind (.mm) formats
+   - Fix: Added file format handlers in diy.js with proper XML parsing
+   - Files: `src/renderer/kityminder-editor/diy.js`
+   - Status: Resolved
+
+5. **Keyboard Shortcuts Not Working (Ctrl+S, Ctrl+O, Ctrl+N)** ✅
+   - Issue: Core keyboard shortcuts (Save, Open, New) stopped working
+   - Root Cause: `handleGlobalShortcuts` method was missing handlers for 's', 'o', 'n' keys
+   - Fix: Added Ctrl+S (save), Ctrl+Shift+S (save as), Ctrl+O (open), Ctrl+N (new) handlers
+   - Files: `src/renderer/js/app.js`
+   - Status: Resolved
+
+### Added
+
+- **Bibliography Collection Feature** – New toggle in Markdown Features modal to collect bibliographic references (`[@citation]`) at the end of the document in a "References" section
+- **KityMinder Text Centering** – Press `Ctrl+Shift+C` to toggle text centering for multi-line nodes (shown in hint bar)
+- **KityMinder Import Formats** – Added support for importing XMind (.xmind), MindManager (.mmap), FreeMind (.mm) files
+- **Multiple Tab Close Warning** – Window close now shows count of unsaved tabs with Save All option
+
+### Changed
+
+- **GraphViz API Compatibility** – Now supports @viz-js/viz v3.x, viz.js v2.x class API, and legacy sync API
+- **KityMinder Hint Bar** – Updated to show all keyboard shortcuts including text centering
+
+---
+
 ## [1.3.1] - 2025-12-07
 
 ### Fixed
@@ -76,6 +128,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IPC Handler** – New `get-examples-path` handler for cross-platform example file resolution
 - **Single Instance Lock** – Prevents multiple app instances; new files open as tabs in existing window
 - **Spellcheck Context Menu** – Right-click on misspelled words now shows spelling suggestions and "Add to Dictionary" option
+- **Enhanced Markdown Features** – Built-in support for:
+  - **Emojis** (`:smile:`, `:heart:`)
+  - **Table of Contents** (`[TOC]`)
+  - **Footnotes** (`[^1]` and `[^1]: ...`)
+  - **Bibliography References** (`[@ref]`)
+- **UI Cleanup** – Removed broken "Install Plugins" tab and streamlined Options menu
 
 ---
 
