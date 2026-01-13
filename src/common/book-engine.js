@@ -1188,7 +1188,80 @@ class BookEngine {
         if (markdownItAttrs) {
             md.use(markdownItAttrs);
         }
+        
+        // Add task list support (GitHub-style checkboxes)
+        this.addTaskListSupport(md);
+        
         return md;
+    }
+    
+    /**
+     * Add GitHub-style task list support to markdown-it
+     * Converts `- [ ]` and `- [x]` to proper checkbox list items
+     */
+    addTaskListSupport(md) {
+        // Override the core rule to process task list markers in list items
+        md.core.ruler.after('inline', 'task-lists', function(state) {
+            const tokens = state.tokens;
+            
+            for (let i = 0; i < tokens.length; i++) {
+                if (tokens[i].type !== 'inline') continue;
+                
+                // Check if parent is a list_item
+                let isListItem = false;
+                for (let j = i - 1; j >= 0; j--) {
+                    if (tokens[j].type === 'list_item_open') {
+                        isListItem = true;
+                        // Mark the list item token for task list styling
+                        const content = tokens[i].content;
+                        const taskMatch = content.match(/^\[([ xX])\]\s*/);
+                        
+                        if (taskMatch) {
+                            const isChecked = taskMatch[1].toLowerCase() === 'x';
+                            
+                            // Add classes to the list_item_open token
+                            tokens[j].attrJoin('class', 'task-list-item');
+                            if (isChecked) {
+                                tokens[j].attrJoin('class', 'task-completed');
+                            }
+                            
+                            // Modify the content to include checkbox
+                            const checkedAttr = isChecked ? ' checked' : '';
+                            const remainingContent = content.substring(taskMatch[0].length);
+                            
+                            // Create new inline content with checkbox
+                            tokens[i].content = remainingContent;
+                            
+                            // Update children tokens
+                            if (tokens[i].children && tokens[i].children.length > 0) {
+                                const checkboxToken = new state.Token('html_inline', '', 0);
+                                checkboxToken.content = `<input type="checkbox"${checkedAttr} disabled> `;
+                                
+                                // Remove task marker from first text child
+                                if (tokens[i].children[0] && tokens[i].children[0].type === 'text') {
+                                    tokens[i].children[0].content = tokens[i].children[0].content.replace(/^\[([ xX])\]\s*/, '');
+                                }
+                                
+                                // Insert checkbox at the beginning
+                                tokens[i].children.unshift(checkboxToken);
+                            }
+                            
+                            // Mark parent bullet_list for styling
+                            for (let k = j - 1; k >= 0; k--) {
+                                if (tokens[k].type === 'bullet_list_open') {
+                                    tokens[k].attrJoin('class', 'task-list');
+                                    tokens[k].attrJoin('class', 'contains-task-list');
+                                    break;
+                                }
+                                if (tokens[k].type === 'bullet_list_close') break;
+                            }
+                        }
+                        break;
+                    }
+                    if (tokens[j].type === 'list_item_close') break;
+                }
+            }
+        });
     }
 
     async initProject(targetDir, options = {}) {
@@ -2552,6 +2625,32 @@ class BookEngine {
         
         .chapter-content li {
             margin: 4pt 0;
+        }
+        
+        /* GitHub-style task lists */
+        .chapter-content ul.task-list,
+        .chapter-content ul.contains-task-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .chapter-content ul.task-list ul.task-list {
+            margin-left: 20pt;
+        }
+        
+        .chapter-content li.task-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6pt;
+        }
+        
+        .chapter-content li.task-list-item input[type="checkbox"] {
+            margin-top: 3pt;
+        }
+        
+        .chapter-content li.task-completed {
+            text-decoration: line-through;
+            color: #666;
         }
         
         /* Code blocks */

@@ -1854,6 +1854,32 @@ class Preview {
             margin: 1em 0;
         }
         
+        /* GitHub-style task lists */
+        .task-list, ul.contains-task-list {
+            list-style: none;
+            padding-left: 0;
+            margin-left: 0;
+        }
+        
+        .task-list .task-list {
+            margin-left: 1.25em;
+        }
+        
+        .task-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5em;
+        }
+        
+        .task-list-item input[type="checkbox"] {
+            margin-top: 0.25em;
+        }
+        
+        .task-completed {
+            text-decoration: line-through;
+            color: #6a737d;
+        }
+        
         @media print {
             body { 
                 margin: 0; 

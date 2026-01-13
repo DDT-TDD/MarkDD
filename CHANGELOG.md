@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.3] - 2026-01-13
+
+### Fixed
+
+1. **Task List Rendering (GFM Checkboxes) - Editor Mode** ✅
+   - Issue: Task list items (`- [ ]` and `- [x]`) displayed with both bullet points AND checkboxes
+   - Root Cause: Pre-processing regex rewrote task syntax before marked could generate proper GFM classes; post-processing targeted `li.task-list-item` class that wasn't being generated
+   - Fix: Removed interfering regex, detect task items by checkbox presence, add proper classes dynamically
+   - Files: `src/renderer/js/markdown-renderer.js`, `src/renderer/styles/main.css`
+   - Status: Resolved
+
+2. **Task Lists in Presentation Mode** ✅
+   - Issue: Checkboxes not rendered correctly in presentation slides
+   - Fix: Added `processTaskListsForExport()` method and task list CSS to presentation themes
+   - Files: `src/renderer/js/presentation.js`
+   - Status: Resolved
+
+3. **Task Lists in Book Mode** ✅
+   - Issue: Book exports used markdown-it without task list support
+   - Fix: Added custom `addTaskListSupport()` with markdown-it renderer rules for proper task list HTML
+   - Files: `src/common/book-engine.js`
+   - Status: Resolved
+
+4. **Export Task List Styling** ✅
+   - Issue: Exported HTML files lacked task list CSS, showing bullets in exports
+   - Fix: Added GitHub-style task list CSS to all export HTML templates (preview, presentation, book)
+   - Files: `src/renderer/js/preview.js`, `src/renderer/js/presentation.js`, `src/common/book-engine.js`
+   - Status: Resolved
+
+---
+
 ## [1.3.2] - 2025-12-09
 
 ### Fixed

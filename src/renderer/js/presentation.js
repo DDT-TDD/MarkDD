@@ -535,6 +535,35 @@ ${navItems}
             line-height: 1.4;
         }
         
+        /* GitHub-style task lists in slides */
+        .slide ul.task-list,
+        .slide ul.contains-task-list {
+            list-style: none;
+            padding-left: 0;
+            margin-left: 0;
+        }
+        
+        .slide ul.task-list ul.task-list {
+            margin-left: 1.25em;
+        }
+        
+        .slide li.task-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5em;
+        }
+        
+        .slide li.task-list-item input[type="checkbox"] {
+            margin-top: 0.35em;
+            width: 1.1em;
+            height: 1.1em;
+        }
+        
+        .slide li.task-completed {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        
         .slide code {
             background: rgba(0,0,0,0.1);
             padding: 0.2em 0.4em;
@@ -1766,6 +1795,7 @@ ${navItems}
         });
         
         // Parse markdown content to HTML using marked if available
+        // Task lists (- [ ] and - [x]) are handled in post-processing via processTaskListsForExport
         let htmlContent = content;
         
         // Check for marked in window object
@@ -2097,7 +2127,82 @@ ${navItems}
             }
         });
         
+        // Process task lists - add proper classes for GitHub-style rendering
+        this.processTaskListsForExport(temp);
+        
         return temp.innerHTML;
+    }
+    
+    /**
+     * Process task lists to add proper classes for styling
+     * Handles both checkbox-based detection AND raw [ ] / [x] text patterns
+     */
+    processTaskListsForExport(container) {
+        const allListItems = container.querySelectorAll('li');
+        
+        allListItems.forEach((listItem) => {
+            // First, check if marked already created a checkbox
+            let checkbox = listItem.querySelector('input[type="checkbox"]');
+            
+            // If no checkbox, check for raw task list syntax in the text
+            if (!checkbox) {
+                const textContent = listItem.textContent || '';
+                const taskMatch = textContent.match(/^\s*\[([ xX])\]\s*/);
+                
+                if (taskMatch) {
+                    const isChecked = taskMatch[1].toLowerCase() === 'x';
+                    
+                    // Create a checkbox element
+                    checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.disabled = true;
+                    if (isChecked) {
+                        checkbox.checked = true;
+                    }
+                    
+                    // Remove the [ ] or [x] from the text content
+                    // Need to handle the HTML carefully
+                    const innerHTML = listItem.innerHTML;
+                    listItem.innerHTML = innerHTML.replace(/^\s*\[([ xX])\]\s*/, '');
+                    
+                    // Insert checkbox at the beginning
+                    listItem.insertBefore(checkbox, listItem.firstChild);
+                    listItem.insertBefore(document.createTextNode(' '), checkbox.nextSibling);
+                }
+            }
+            
+            if (!checkbox) return;
+            
+            // Verify checkbox is at the start of the list item
+            const firstChild = listItem.firstChild;
+            const isTaskItem = (firstChild === checkbox) || 
+                (firstChild && firstChild.nodeType === Node.TEXT_NODE && 
+                 firstChild.textContent.trim() === '' && 
+                 listItem.querySelector(':scope > input[type="checkbox"]'));
+            
+            if (!isTaskItem && !listItem.classList.contains('task-list-item')) {
+                // Check if checkbox is a direct child
+                const directCheckbox = Array.from(listItem.childNodes).find(
+                    node => node.nodeName === 'INPUT' && node.type === 'checkbox'
+                );
+                if (!directCheckbox) return;
+            }
+            
+            // Add task-list-item class for styling
+            listItem.classList.add('task-list-item');
+            
+            // Mark completed state
+            if (checkbox.checked) {
+                listItem.classList.add('task-completed');
+            }
+            
+            // Normalize surrounding list markup for styling
+            const parentList = listItem.closest('ul, ol');
+            if (parentList) {
+                parentList.classList.add('task-list');
+                parentList.classList.add('contains-task-list');
+            }
+        });
     }
 
     /**
@@ -2105,6 +2210,14 @@ ${navItems}
      */
     simpleMarkdownToHTML(markdown) {
         let html = markdown;
+        
+        // Process task lists - convert to proper list items with checkboxes
+        html = html.replace(/^(\s*)-\s+\[([ xX])\]\s+(.*)$/gm, (match, indent, checked, text) => {
+            const isChecked = checked.toLowerCase() === 'x';
+            const checkedAttr = isChecked ? ' checked' : '';
+            const completedClass = isChecked ? ' task-completed' : '';
+            return `${indent}<li class="task-list-item${completedClass}"><input type="checkbox"${checkedAttr} disabled> ${text}</li>`;
+        });
         
         // Headers
         html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
@@ -2115,9 +2228,17 @@ ${navItems}
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
         
-        // Lists
-        html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');
-        html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+        // Regular lists (only those not already converted to task lists)
+        html = html.replace(/^-\s+(?!\[)(.+)$/gm, '<li>$1</li>');
+        html = html.replace(/^\*\s+(.+)$/gm, '<li>$1</li>');
+        
+        // Wrap consecutive list items in ul
+        html = html.replace(/(<li[^>]*>.*?<\/li>\n?)+/gs, (match) => {
+            // Check if it contains task list items
+            const hasTaskItems = match.includes('task-list-item');
+            const listClass = hasTaskItems ? 'class="task-list contains-task-list"' : '';
+            return `<ul ${listClass}>\n${match}</ul>\n`;
+        });
         
         // Paragraphs
         const lines = html.split('\n');

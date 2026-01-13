@@ -4695,4 +4695,34 @@ figcaption {
     }
 }
 
+/* GitHub-style task lists */
+.task-list {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+
+.task-list .task-list {
+    margin-left: 1.25em;
+}
+
+.task-list-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+    list-style: none;
+}
+
+.task-list-item input[type="checkbox"] {
+    margin: 0;
+    position: relative;
+    top: 0.1em;
+    flex-shrink: 0;
+}
+
+.task-completed {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
 

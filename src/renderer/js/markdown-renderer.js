@@ -4829,12 +4829,6 @@ class MarkdownRenderer {
         // Process custom extensions and enhanced markdown features
         let processed = content;
         
-        // Process task lists (GitHub style)
-        processed = processed.replace(/^(\s*)-\s+\[([ x])\]\s+(.+)$/gm, (match, indent, checked, text) => {
-            const isChecked = checked === 'x';
-            return `${indent}- <input type="checkbox" ${isChecked ? 'checked' : ''} disabled> ${text}`;
-        });
-        
         // Process admonitions/callouts
         processed = processed.replace(/^>\s*\[!(\w+)\](.*)$/gm, (match, type, title) => {
             const typeClass = type.toLowerCase();
@@ -4912,21 +4906,57 @@ class MarkdownRenderer {
     }
 
     processTaskLists(container) {
-        // Enhanced task list processing with interactions
-        const taskLists = container.querySelectorAll('input[type="checkbox"]');
-        
-        taskLists.forEach((checkbox, index) => {
-            checkbox.id = `task-${index}`;
-            checkbox.disabled = false; // Enable interaction in preview mode
+        // Enhanced task list processing for GitHub-style task lists
+        // Marked may not add task-list-item class, so detect by checkbox presence
+        const allListItems = container.querySelectorAll('li');
+        let taskIndex = 0;
+
+        allListItems.forEach((listItem) => {
+            // Check if this list item starts with a checkbox (task list pattern)
+            const checkbox = listItem.querySelector('input[type="checkbox"]');
+            if (!checkbox) return;
             
+            // Verify checkbox is at the start of the list item (not nested in other content)
+            const firstChild = listItem.firstChild;
+            const isTaskItem = (firstChild === checkbox) || 
+                (firstChild && firstChild.nodeType === Node.TEXT_NODE && 
+                 firstChild.textContent.trim() === '' && 
+                 listItem.querySelector(':scope > input[type="checkbox"]'));
+            
+            if (!isTaskItem && !listItem.classList.contains('task-list-item')) {
+                // Check if checkbox is a direct child
+                const directCheckbox = Array.from(listItem.childNodes).find(
+                    node => node.nodeName === 'INPUT' && node.type === 'checkbox'
+                );
+                if (!directCheckbox) return;
+            }
+
+            // Add task-list-item class for styling
+            listItem.classList.add('task-list-item');
+
+            // Normalize surrounding list markup for styling
+            const parentList = listItem.closest('ul, ol');
+            if (parentList) {
+                parentList.classList.add('task-list');
+                parentList.classList.add('contains-task-list');
+            }
+
+            // Provide stable ids for accessibility
+            if (!checkbox.id) {
+                checkbox.id = `task-${taskIndex++}`;
+            }
+
+            // Keep task checkboxes interactive in preview mode
+            checkbox.disabled = false;
+
+            // Mark completed state visually
+            if (checkbox.checked) {
+                listItem.classList.add('task-completed');
+            }
+
             checkbox.addEventListener('change', (e) => {
-                // Update the corresponding markdown content
                 const checked = e.target.checked;
-                const listItem = e.target.closest('li');
-                
-                if (listItem) {
-                    listItem.classList.toggle('task-completed', checked);
-                }
+                listItem.classList.toggle('task-completed', checked);
             });
         });
     }
