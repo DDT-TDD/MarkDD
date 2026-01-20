@@ -3708,6 +3708,7 @@ A: Verify files exist and contain matching text.
         if (recentMenu) {
             recentMenu.addEventListener('mouseenter', () => this.updateRecentFilesMenu());
         }
+        
         this.bindButton('menu-export-html', () => this.exportHTML());
         this.bindButton('menu-export-pdf', () => this.exportPDF());
         this.bindButton('menu-exit', () => {
@@ -6976,7 +6977,53 @@ Questions?
                 return [];
             }
             const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+
+            const normalized = [];
+            const seen = new Set();
+
+            parsed.forEach(entry => {
+                let filePath = null;
+                let fileName = null;
+                let timestamp = null;
+
+                if (typeof entry === 'string') {
+                    filePath = entry;
+                } else if (entry && typeof entry === 'object') {
+                    filePath = entry.path || entry.filePath || entry.file;
+                    fileName = entry.name || entry.title || entry.filename;
+                    timestamp = typeof entry.timestamp === 'number' ? entry.timestamp : null;
+                }
+
+                if (!filePath || typeof filePath !== 'string') {
+                    return;
+                }
+
+                if (seen.has(filePath)) {
+                    return;
+                }
+
+                seen.add(filePath);
+                normalized.push({
+                    path: filePath,
+                    name: fileName || this.getFileNameFromPath(filePath),
+                    timestamp: timestamp || Date.now()
+                });
+            });
+
+            const sorted = normalized.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            if (sorted.length !== parsed.length) {
+                try {
+                    localStorage.setItem('recent-files', JSON.stringify(sorted));
+                } catch (error) {
+                    console.error('[App] Failed to persist normalized recent files:', error);
+                }
+            }
+
+            return sorted;
         } catch (error) {
             console.error('[App] Failed to parse recent files:', error);
             return [];
@@ -7073,6 +7120,7 @@ Questions?
             return;
         }
 
+        // Clear container
         itemsContainer.innerHTML = '';
 
         const recentFiles = this.getRecentFiles();
@@ -7090,13 +7138,87 @@ Questions?
             return;
         }
 
-        recentFiles.forEach(file => {
+        // Cache fs check results to avoid slow repeated checks
+        if (!this._recentExistsCache) {
+            this._recentExistsCache = new Map();
+        }
+        const existsCache = this._recentExistsCache;
+        let fs = null;
+        if (typeof require !== 'undefined') {
+            try {
+                fs = require('fs');
+            } catch (error) {
+                // fs not available
+            }
+        }
+
+        const self = this;
+
+        recentFiles.forEach((file) => {
             const button = document.createElement('button');
             button.className = 'menu-option recent-file-option';
-            button.textContent = file.name || this.getFileNameFromPath(file.path);
+            button.type = 'button';
+            
+            const fileLabel = file.name || this.getFileNameFromPath(file.path);
+            
+            // Cache file existence check (avoid repeated sync IO on every open)
+            let isMissing = false;
+            if (fs && file.path) {
+                if (existsCache.has(file.path)) {
+                    isMissing = !existsCache.get(file.path);
+                } else {
+                    let exists = false;
+                    try {
+                        exists = fs.existsSync(file.path);
+                    } catch (error) {
+                        exists = false;
+                    }
+                    existsCache.set(file.path, exists);
+                    isMissing = !exists;
+                }
+            }
+            
+            if (isMissing) {
+                button.classList.add('recent-file-missing');
+                button.textContent = `Missing: ${fileLabel}`;
+            } else {
+                button.textContent = fileLabel;
+            }
+            
             button.title = file.path;
-            button.dataset.path = file.path;
-            button.addEventListener('click', () => this.openRecentFileFromMenu(file.path));
+            
+            // Store values in closure
+            const filePath = file.path;
+            const fileIsMissing = isMissing;
+            
+            // Use pointerdown to beat menu close/hover timers and ensure click works
+            let handled = false;
+            button.addEventListener('pointerdown', function(e) {
+                if (e.button !== 0 || handled) {
+                    return;
+                }
+                handled = true;
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (fileIsMissing) {
+                    self.removeRecentFile(filePath);
+                    self.showMessage('Removed missing recent file');
+                    return;
+                }
+
+                self.openRecentFileFromMenu(filePath);
+            });
+
+            // Safety: prevent double-fire if click still happens
+            button.addEventListener('click', function(e) {
+                if (handled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+            });
+            
             itemsContainer.appendChild(button);
         });
 

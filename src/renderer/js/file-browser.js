@@ -532,6 +532,65 @@ class FileBrowser {
         return hasRecord && hasFetch && hasRemove;
     }
 
+    getFileNameFromPath(filePath) {
+        if (!filePath) {
+            return 'Untitled';
+        }
+
+        let baseName = filePath.split(/[\\/]/).pop() || filePath;
+
+        if (typeof require !== 'undefined') {
+            try {
+                const path = require('path');
+                baseName = path.basename(filePath);
+            } catch (error) {
+                console.warn('[FileBrowser] Failed to resolve path module for filename extraction:', error);
+            }
+        }
+
+        return baseName || 'Untitled';
+    }
+
+    normalizeRecentFiles(recentFiles) {
+        if (!Array.isArray(recentFiles)) {
+            return [];
+        }
+
+        const normalized = [];
+        const seen = new Set();
+
+        recentFiles.forEach(entry => {
+            let filePath = null;
+            let fileName = null;
+            let timestamp = null;
+
+            if (typeof entry === 'string') {
+                filePath = entry;
+            } else if (entry && typeof entry === 'object') {
+                filePath = entry.path || entry.filePath || entry.file;
+                fileName = entry.name || entry.title || entry.filename;
+                timestamp = typeof entry.timestamp === 'number' ? entry.timestamp : null;
+            }
+
+            if (!filePath || typeof filePath !== 'string') {
+                return;
+            }
+
+            if (seen.has(filePath)) {
+                return;
+            }
+
+            seen.add(filePath);
+            normalized.push({
+                path: filePath,
+                name: fileName || this.getFileNameFromPath(filePath),
+                timestamp: timestamp || Date.now()
+            });
+        });
+
+        return normalized.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+
     addToRecentFiles(filePath, fileName) {
         if (!filePath) {
             return;
@@ -548,6 +607,8 @@ class FileBrowser {
         } catch (error) {
             console.error('Failed to parse recent files cache:', error);
         }
+
+        recentFiles = this.normalizeRecentFiles(recentFiles);
         
         recentFiles = recentFiles.filter(file => file.path !== filePath);
         recentFiles.unshift({
@@ -580,6 +641,8 @@ class FileBrowser {
                 console.error('Failed to parse recent files cache:', error);
             }
         }
+
+        recentFiles = this.normalizeRecentFiles(recentFiles);
         const recentFilesContainer = document.getElementById('recent-files');
         
         if (!recentFilesContainer) return;
@@ -589,29 +652,49 @@ class FileBrowser {
             return;
         }
         
-        const html = recentFiles.map(file => `
-            <div class="recent-file-item" data-path="${file.path}">
-                <span class="file-icon">📄</span>
-                <div class="file-info">
-                    <div class="file-name">${file.name}</div>
-                    <div class="file-path">${file.path}</div>
-                </div>
-            </div>
-        `).join('');
+        // Clear and rebuild using DOM methods to avoid HTML escaping issues
+        recentFilesContainer.innerHTML = '';
         
-        recentFilesContainer.innerHTML = html;
-        
-        // Add click handlers
-        recentFilesContainer.querySelectorAll('.recent-file-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const filePath = item.getAttribute('data-path');
-                this.openRecentFile(filePath);
+        recentFiles.forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'recent-file-item';
+            item.dataset.path = file.path;
+            
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = '📄';
+            
+            const info = document.createElement('div');
+            info.className = 'file-info';
+            
+            const nameEl = document.createElement('div');
+            nameEl.className = 'file-name';
+            nameEl.textContent = file.name;
+            
+            const pathEl = document.createElement('div');
+            pathEl.className = 'file-path';
+            pathEl.textContent = file.path;
+            
+            info.appendChild(nameEl);
+            info.appendChild(pathEl);
+            item.appendChild(icon);
+            item.appendChild(info);
+            
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[FileBrowser] Recent file clicked:', file.path);
+                this.openRecentFile(file.path);
             });
+            
+            recentFilesContainer.appendChild(item);
         });
     }
 
     async openRecentFile(filePath) {
+        console.log('[FileBrowser] openRecentFile called with:', filePath);
         if (typeof require === 'undefined' || !filePath) {
+            console.log('[FileBrowser] openRecentFile: require unavailable or no path');
             return;
         }
 
@@ -655,6 +738,8 @@ class FileBrowser {
         } catch (error) {
             console.error('Failed to parse recent files cache:', error);
         }
+
+        recentFiles = this.normalizeRecentFiles(recentFiles);
 
         recentFiles = recentFiles.filter(file => file.path !== filePath);
 

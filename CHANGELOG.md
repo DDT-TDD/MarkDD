@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-01-19
+
+### Fixed
+
+1. **Recent Files Links Not Clickable/Opening** ✅
+   - Issue: Recent file items in File > Open Recent menu were not clickable or failed to open
+   - Root Cause: Dynamically created menu buttons weren't receiving click events because they were created after the menu system initialized; the `setupMenuHandlers()` event listeners only attached to static HTML elements
+   - Fix: 
+     - Implemented **event delegation** on `#menu-recent-files-items` container to handle clicks on dynamically created buttons
+     - Replaced innerHTML template generation with DOM `createElement` methods for proper attribute handling
+     - Added `button type="button"` to prevent form submission behavior
+     - Used `data-path` attribute with proper DOM methods instead of inline HTML
+     - Normalized legacy recent file storage formats (string paths, different key names)
+     - Added sorting by timestamp for consistent ordering
+     - Styled missing files in red with one-click removal
+   - Files: `src/renderer/js/app.js`, `src/renderer/js/file-browser.js`, `src/renderer/styles/main.css`
+   - Status: Resolved
+
 ## [1.3.3] - 2026-01-13
 
 ### Fixed

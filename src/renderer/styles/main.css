@@ -1046,6 +1046,15 @@ body {
     text-overflow: ellipsis;
 }
 
+.menu-option.recent-file-missing {
+    color: #b85c5c;
+    opacity: 0.85;
+}
+
+.menu-option.recent-file-missing:hover {
+    color: #d06a6a;
+}
+
 .recent-placeholder {
     text-align: center;
     color: #6c757d;
