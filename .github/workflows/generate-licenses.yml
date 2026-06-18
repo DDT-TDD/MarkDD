@@ -1,0 +1,26 @@
+name: Generate Licenses
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm ci
+      - name: Vendor transitive GitHub licenses
+        run: node ./scripts/vendor-transitive-licenses.js
+      - name: Generate consolidated licenses
+        run: npm run generate-licenses
+      - name: Upload licenses.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: licenses
+          path: licenses/licenses.zip

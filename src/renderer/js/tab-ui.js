@@ -32,6 +32,9 @@ class TabUI {
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            if (window.markddPromptActive) {
+                return;
+            }
             // Ctrl+T: New tab
             if ((e.ctrlKey || e.metaKey) && e.key === 't') {
                 e.preventDefault();

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] - 2026-06-18
+
+### Fixed
+
+1. **PDF Export Puppeteer Launch Safety & BrowserWindow Fallback** ✅
+   - Issue: If Puppeteer launch fails (common in packaged production environments), PDF export fails completely instead of falling back to BrowserWindow printToPDF.
+   - Fix: Added a try-catch launch check around Puppeteer. If it fails, the export logs the error and safely falls back to the BrowserWindow workflow.
+
+2. **Broken Relative Resource/Image Paths in PDF and Presentation Export** ✅
+   - Issue: Loading HTML via `data:` URLs does not provide a base path, causing relative image paths (e.g. `<img src="images/logo.png">`) to render as broken in the PDF.
+   - Fix: Exported HTML is written to a temporary file in the target directory and loaded via a `file://` URL, which is deleted upon completion.
+
+3. **Book Engine PDF Export BrowserWindow Fallback** ✅
+   - Issue: Book PDF export was entirely dependent on Puppeteer, failing completely if Puppeteer was missing or failed to initialize.
+   - Fix: Added a BrowserWindow printToPDF fallback for Book Engine when running inside Electron.
+
+4. **Resilient Local TikZ Server-Side Rendering** ✅
+   - Issue: TikZ rendering hardcoded the path to sibling `References/node-tikzjax-main` directory. Local rendering failed if the folder was not present.
+   - Fix: If sibling folder is missing, the app falls back to requiring `node-tikzjax` from `node_modules` directly.
+
+5. **Indiscriminate HTML Sanitization for export** ✅
+   - Issue: Indiscriminate string replacement of `currentColor` with `#000` could corrupt library JavaScript variables or internal styling.
+   - Fix: Replaced with targeted attribute and property replacement in inline styles, leaving the script content untouched.
+
+6. **Repository Clutter Cleanup and Sync Redundancy** ✅
+   - Issue: The main repository was cluttered with build folders, backup files, and test outputs, requiring a duplicate `Github_sync` folder to push to GitHub.
+   - Fix: Optimized `.gitignore` to ignore packaging outputs, test runs, and backup files. Transferred `.git` to the root workspace `WP` for single-repo direct pushes.
+
 ## [1.4.0] - 2026-01-19
 
 ### Fixed

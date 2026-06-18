@@ -15,7 +15,12 @@ const lunr = require('lunr');
 const hljs = require('highlight.js');
 const { promisify } = require('util');
 const crypto = require('crypto');
-const puppeteer = require('puppeteer');
+let puppeteer = null;
+try {
+    puppeteer = require('puppeteer');
+} catch (err) {
+    // Puppeteer is optional - will use Electron fallback if available
+}
 
 const AUTO_SECTION_IDS = ['title', 'copyright', 'toc'];
 const DEFAULT_SECTIONS_BY_TYPE = {
@@ -2370,71 +2375,144 @@ class BookEngine {
             const outputDir = path.resolve(config.outputDir ? path.join(rootDir, config.outputDir) : path.join(rootDir, 'book-dist'));
             const printPath = path.join(outputDir, 'book-print.html');
             await fse.writeFile(printPath, printHtml, 'utf-8');
+            let pdfExportSuccess = false;
 
-            this.logger.info('[BookEngine] Launching Puppeteer for PDF generation...');
-            const browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-
-            try {
-                const page = await browser.newPage();
-                
-                // Load the print-optimized HTML
-                const fileUrl = `file:///${printPath.replace(/\\/g, '/')}`;
-                this.logger.info(`[BookEngine] Loading print-ready book from ${fileUrl}`);
-                
-                await page.goto(fileUrl, {
-                    waitUntil: 'networkidle0',
-                    timeout: 60000
-                });
-
-                // Wait for fonts and rendering
-                await new Promise(resolve => setTimeout(resolve, 3000));
-
-                // Generate professional book PDF
-                this.logger.info(`[BookEngine] Generating professional book PDF to ${outputPath}`);
-                await page.pdf({
-                    path: outputPath,
-                    format: 'A4',
-                    printBackground: true,
-                    preferCSSPageSize: false,
-                    margin: {
-                        top: '25mm',
-                        right: '20mm',
-                        bottom: '25mm',
-                        left: '25mm'
-                    },
-                    displayHeaderFooter: true,
-                    headerTemplate: `
-                        <div style="width: 100%; font-size: 9pt; padding: 0 20mm; color: #666; border-bottom: 1px solid #ddd;">
-                            <span style="float: left;">${this.escapeHtml(manifest.metadata.title)}</span>
-                            <span style="float: right;"><span class="pageNumber"></span></span>
-                        </div>
-                    `,
-                    footerTemplate: `
-                        <div style="width: 100%; font-size: 8pt; padding: 0 20mm; color: #999; text-align: center;">
-                            <span>${this.escapeHtml(manifest.metadata.author)}</span>
-                        </div>
-                    `
-                });
-
-                this.logger.info('[BookEngine] PDF export completed successfully');
-                
-                // Clean up temporary print file
+            if (puppeteer) {
+                let browser = null;
                 try {
-                    await fse.remove(printPath);
-                } catch (cleanupErr) {
-                    this.logger.warn('[BookEngine] Failed to remove temporary print file:', cleanupErr.message);
+                    this.logger.info('[BookEngine] Launching Puppeteer for PDF generation...');
+                    browser = await puppeteer.launch({
+                        headless: true,
+                        args: ['--no-sandbox', '--disable-setuid-sandbox']
+                    });
+
+                    const page = await browser.newPage();
+                    
+                    // Load the print-optimized HTML
+                    const fileUrl = `file:///${printPath.replace(/\\/g, '/')}`;
+                    this.logger.info(`[BookEngine] Loading print-ready book from ${fileUrl}`);
+                    
+                    await page.goto(fileUrl, {
+                        waitUntil: 'networkidle0',
+                        timeout: 60000
+                    });
+
+                    // Wait for fonts and rendering
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    // Generate professional book PDF
+                    this.logger.info(`[BookEngine] Generating professional book PDF to ${outputPath}`);
+                    await page.pdf({
+                        path: outputPath,
+                        format: 'A4',
+                        printBackground: true,
+                        preferCSSPageSize: false,
+                        margin: {
+                            top: '25mm',
+                            right: '20mm',
+                            bottom: '25mm',
+                            left: '25mm'
+                        },
+                        displayHeaderFooter: true,
+                        headerTemplate: `
+                            <div style="width: 100%; font-size: 9pt; padding: 0 20mm; color: #666; border-bottom: 1px solid #ddd;">
+                                <span style="float: left;">${this.escapeHtml(manifest.metadata.title)}</span>
+                                <span style="float: right;"><span class="pageNumber"></span></span>
+                            </div>
+                        `,
+                        footerTemplate: `
+                            <div style="width: 100%; font-size: 8pt; padding: 0 20mm; color: #999; text-align: center;">
+                                <span>${this.escapeHtml(manifest.metadata.author)}</span>
+                            </div>
+                        `
+                    });
+
+                    this.logger.info('[BookEngine] PDF export completed successfully via Puppeteer');
+                    pdfExportSuccess = true;
+                } catch (puppeteerErr) {
+                    this.logger.warn('[BookEngine] Puppeteer PDF export failed, will check for Electron BrowserWindow fallback:', puppeteerErr.message);
+                } finally {
+                    if (browser) {
+                        try { await browser.close(); } catch (err) {}
+                    }
                 }
-            } finally {
-                await browser.close();
+            }
+
+            if (!pdfExportSuccess) {
+                if (process.versions && process.versions.electron) {
+                    await this.exportWithElectronBrowserWindow(printPath, outputPath, manifest.metadata);
+                } else {
+                    throw new Error('Puppeteer is unavailable or failed, and Electron environment is not detected for fallback.');
+                }
             }
 
             return { success: true, outputPath };
         } catch (error) {
             this.logger.error('[BookEngine] PDF export failed:', error);
             throw error;
+        } finally {
+            // Clean up temporary print file
+            try {
+                if (fs.existsSync(printPath)) {
+                    await fse.remove(printPath);
+                }
+            } catch (cleanupErr) {
+                this.logger.warn('[BookEngine] Failed to remove temporary print file:', cleanupErr.message);
+            }
+        }
+    }
+
+    async exportWithElectronBrowserWindow(printPath, outputPath, metadata) {
+        this.logger.info('[BookEngine] Falling back to Electron BrowserWindow printToPDF workflow...');
+        const { BrowserWindow } = require('electron');
+        const pdfWindow = new BrowserWindow({
+            show: false,
+            webPreferences: {
+                sandbox: false,
+                nodeIntegration: false,
+                contextIsolation: true,
+                zoomFactor: 1.0
+            }
+        });
+
+        try {
+            const fileUrl = `file:///${printPath.replace(/\\/g, '/')}`;
+            this.logger.info(`[BookEngine] BrowserWindow loading print-ready book from ${fileUrl}`);
+            await pdfWindow.loadURL(fileUrl);
+            
+            // Wait for rendering to complete (Wait for MathJax / fonts - similar to Puppeteer's timeout)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            const pdfBuffer = await pdfWindow.webContents.printToPDF({
+                margins: {
+                    top: 0.98,
+                    bottom: 0.98,
+                    left: 0.98,
+                    right: 0.78
+                },
+                printBackground: true,
+                preferCSSPageSize: false,
+                pageSize: 'A4',
+                displayHeaderFooter: true,
+                headerTemplate: `
+                    <div style="width: 100%; font-size: 9pt; padding: 0 20mm; color: #666; border-bottom: 1px solid #ddd;">
+                        <span style="float: left;">${this.escapeHtml(metadata.title || 'Book')}</span>
+                        <span style="float: right;"><span class="pageNumber"></span></span>
+                    </div>
+                `,
+                footerTemplate: `
+                    <div style="width: 100%; font-size: 8pt; padding: 0 20mm; color: #999; text-align: center;">
+                        <span>${this.escapeHtml(metadata.author || '')}</span>
+                    </div>
+                `
+            });
+
+            await fse.writeFile(outputPath, pdfBuffer);
+            this.logger.info('[BookEngine] BrowserWindow PDF export completed successfully');
+        } finally {
+            if (!pdfWindow.isDestroyed()) {
+                pdfWindow.close();
+            }
         }
     }
 

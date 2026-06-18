@@ -43,3 +43,36 @@ yarn-error.log*
 
 # Electron
 *.asar
+
+# Packaging and Build Outputs
+dist-final/
+dist-final_old_versions/
+release/
+
+# Test Outputs and Diagnostics
+test/output-*
+test/placeholder-diagnostics-*
+test/render-failure-*
+test/run_results.json
+test/run_issues.json
+
+# Archive & Backup files
+*.7z
+*.zip
+*.rar
+* - Copy.*
+* - Copy.js
+* - Copy (2).js
+*_backup.js
+*-fixed.js
+*-complete.js
+
+# Local Editor Backup files
+src/renderer/js/*.7z
+src/renderer/js/*-Copy.*
+src/renderer/js/editor-complete.js
+src/renderer/js/editor-fixed.js
+src/renderer/js/markdown-renderer_backup.js
+src/renderer/js/file-browser-clean.js
+src/renderer/js/file-browser-test.js
+

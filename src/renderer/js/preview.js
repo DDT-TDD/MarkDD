@@ -2090,8 +2090,10 @@ class Preview {
             // Replace unquoted usages (rare) and style occurrences
             html = html.replace(/fill=\s*currentColor/gi, 'fill="#000"');
             html = html.replace(/stroke=\s*currentColor/gi, 'stroke="#000"');
-            // Replace inline style occurrences of currentColor
-            html = html.replace(/currentColor/gi, '#000');
+            // Replace inline style occurrences of currentColor for fill/stroke/color safely
+            html = html.replace(/([:;]\s*fill\s*:\s*)currentColor/gi, '$1#000');
+            html = html.replace(/([:;]\s*stroke\s*:\s*)currentColor/gi, '$1#000');
+            html = html.replace(/([:;]\s*color\s*:\s*)currentColor/gi, '$1#000');
             return html;
         } catch (e) {
             console.warn('[Preview] _sanitizeExportHtmlString failed:', e);

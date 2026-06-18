@@ -1031,6 +1031,8 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
       }
     });
 
+    const tempHtmlPath = path.join(path.dirname(targetPath), `.temp-export-${Date.now()}.html`);
+
     try {
       const augmentedHtml = html.replace(/<body([^>]*)>/i, (match, attrs = '') => {
         if (/class=/i.test(attrs)) {
@@ -1039,7 +1041,8 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
         return `<body${attrs} class="doc-pdf-export">`;
       });
 
-      await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(augmentedHtml));
+      await fs.promises.writeFile(tempHtmlPath, augmentedHtml, 'utf-8');
+      await pdfWindow.loadURL('file:///' + tempHtmlPath.replace(/\\/g, '/'));
       await pdfWindow.webContents.executeJavaScript(waitForMathFlagScript);
       await new Promise(resolve => setTimeout(resolve, 250));
 
@@ -1053,11 +1056,17 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
 
       await fs.promises.writeFile(targetPath, pdfBuffer);
     } finally {
+      if (fs.existsSync(tempHtmlPath)) {
+        try { await fs.promises.unlink(tempHtmlPath); } catch (err) {}
+      }
       if (!pdfWindow.isDestroyed()) {
         pdfWindow.close();
       }
     }
   };
+
+  let tempHtmlPathForPuppeteer = null;
+  let browser = null;
 
   try {
     logInfo('PDF', `Starting PDF export: ${fileName}`);
@@ -1091,20 +1100,24 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
     }
 
     if (puppeteer) {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu'
-        ]
-      });
       try {
+        browser = await puppeteer.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--disable-gpu'
+          ]
+        });
         const page = await browser.newPage();
         await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
-        await page.setContent(html, { waitUntil: ['networkidle0', 'load'], timeout: 60000 });
+        
+        tempHtmlPathForPuppeteer = path.join(path.dirname(savePath), `.temp-export-puppeteer-${Date.now()}.html`);
+        await fs.promises.writeFile(tempHtmlPathForPuppeteer, html, 'utf-8');
+        await page.goto('file:///' + tempHtmlPathForPuppeteer.replace(/\\/g, '/'), { waitUntil: ['networkidle0', 'load'], timeout: 60000 });
+        
         await page.evaluate(() => {
           return new Promise((resolve) => {
             if (window.MathJax && window.MathJax.typesetPromise) {
@@ -1122,8 +1135,13 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
           preferCSSPageSize: false,
           displayHeaderFooter: false
         });
-      } finally {
-        await browser.close();
+      } catch (puppeteerErr) {
+        logInfo('PDF', `Puppeteer run failed (${puppeteerErr.message}), falling back to BrowserWindow printToPDF`);
+        if (browser) {
+          await browser.close();
+          browser = null;
+        }
+        await exportWithBrowserWindow(savePath);
       }
     } else {
       await exportWithBrowserWindow(savePath);
@@ -1135,6 +1153,13 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
   } catch (error) {
     logError('PDF', `PDF export failed: ${error.message}`);
     return { success: false, error: error.message };
+  } finally {
+    if (tempHtmlPathForPuppeteer && fs.existsSync(tempHtmlPathForPuppeteer)) {
+      try { await fs.promises.unlink(tempHtmlPathForPuppeteer); } catch (err) {}
+    }
+    if (browser) {
+      try { await browser.close(); } catch (err) {}
+    }
   }
 });
 
@@ -1143,19 +1168,26 @@ ipcMain.handle('render-tikz-server-side', async (event, { tikzCode, isCircuit = 
   try {
     logInfo('TikZ', `Rendering TikZ diagram, isCircuit: ${isCircuit}`);
 
-    // STRICT LOCAL ONLY: Use only local node-tikzjax-main repository
+    // STRICT LOCAL ONLY: Use local node-tikzjax-main repository or require from node_modules
     const localTikZJaxPath = path.join(process.cwd(), 'References', 'node-tikzjax-main', 'dist', 'index.js');
+    let tikzjax = null;
 
-    if (!fs.existsSync(localTikZJaxPath)) {
-      logError('TikZ', `Local node-tikzjax not found at: ${localTikZJaxPath}`);
-      return {
-        success: false,
-        error: `Local node-tikzjax repository not found at ${localTikZJaxPath}. Please ensure the repository is properly cloned.`, 
-        method: 'local-missing'
-      };
+    if (fs.existsSync(localTikZJaxPath)) {
+      tikzjax = require(localTikZJaxPath);
+      logInfo('TikZ', `Using local node-tikzjax from: ${localTikZJaxPath}`);
+    } else {
+      try {
+        tikzjax = require('node-tikzjax');
+        logInfo('TikZ', 'Using node-tikzjax from node_modules');
+      } catch (requireErr) {
+        logError('TikZ', `Local node-tikzjax not found at: ${localTikZJaxPath} and node_modules require failed: ${requireErr.message}`);
+        return {
+          success: false,
+          error: `node-tikzjax could not be loaded. Local repository missing at ${localTikZJaxPath} and node_modules require failed: ${requireErr.message}`,
+          method: 'local-missing'
+        };
+      }
     }
-
-    const tikzjax = require(localTikZJaxPath);
 
     // Helper function to clean up TikZ source code (minimal processing to preserve structure)
     function tidyTikzSource(code) {
@@ -1839,6 +1871,8 @@ ipcMain.handle('save-presentation-html', async (event, { html, title }) => {
 
 // Export presentation as PDF
 ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCount }) => {
+  let tempPresentationHtmlPath = null;
+  let pdfWindow = null;
   try {
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Export Presentation as PDF',
@@ -1855,7 +1889,7 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
     logInfo('Presentation', `Exporting presentation to PDF: ${result.filePath}`);
     
     // Create a window that matches the content size instead of forcing A4
-    const pdfWindow = new BrowserWindow({
+    pdfWindow = new BrowserWindow({
       width: 1920,  // Standard presentation width
       height: 1080, // Standard presentation height
       show: false,
@@ -1874,8 +1908,11 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
       return `<body${attrs} class="print-layout pdf-export">`;
     });
     
-    // Load the presentation HTML with UTF-8 encoding
-    await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(pdfHtml));
+    tempPresentationHtmlPath = path.join(path.dirname(result.filePath), `.temp-presentation-${Date.now()}.html`);
+    await fs.promises.writeFile(tempPresentationHtmlPath, pdfHtml, 'utf-8');
+    
+    // Load the presentation HTML from the temporary file
+    await pdfWindow.loadURL('file:///' + tempPresentationHtmlPath.replace(/\\/g, '/'));
     
     // Wait for rendering to finish inside the presentation (event-driven)
     try {
@@ -1936,15 +1973,19 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
       logError('Presentation', `Failed to disable print layout: ${cleanupError.message}`);
     }
     
-    // Close the PDF window
-    pdfWindow.close();
-    
     logInfo('Presentation', `PDF presentation saved to ${result.filePath}`);
 
     return { success: true, filePath: result.filePath };
   } catch (error) {
     logError('ExportPresentationPDF', error);
     return { success: false, error: error.message };
+  } finally {
+    if (pdfWindow && !pdfWindow.isDestroyed()) {
+      pdfWindow.close();
+    }
+    if (tempPresentationHtmlPath && fs.existsSync(tempPresentationHtmlPath)) {
+      try { await fs.promises.unlink(tempPresentationHtmlPath); } catch (err) {}
+    }
   }
 });
 
