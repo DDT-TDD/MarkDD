@@ -258,6 +258,72 @@
                 </div>
             </div>
             <div class="menu-item">
+                <span class="menu-label">CV</span>
+                <div class="menu-dropdown">
+                    <button id="menu-cv-new" class="menu-option">New CV <span class="shortcut">Ctrl+Shift+U</span></button>
+                    <hr>
+                    <button id="menu-cv-preview" class="menu-option">Preview CV <span class="shortcut">Ctrl+Shift+Y</span></button>
+                    <hr>
+                    <button id="menu-cv-export-html" class="menu-option">Export CV as HTML</button>
+                    <button id="menu-cv-export-pdf" class="menu-option">Export CV as PDF</button>
+                    <hr>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Choose Theme ▶</span>
+                        <div class="menu-dropdown-nested" style="min-width: 220px;">
+                            <button id="menu-cv-theme-classic-latex" class="menu-option cv-theme-option">Classic LaTeX (Serif)</button>
+                            <button id="menu-cv-theme-academic" class="menu-option cv-theme-option">Academic (Sans-Serif)</button>
+                            <button id="menu-cv-theme-modern-sidebar" class="menu-option cv-theme-option">Modern Sidebar (Two-Column)</button>
+                            <button id="menu-cv-theme-minimalist" class="menu-option cv-theme-option">Minimalist (Left Columns)</button>
+                            <button id="menu-cv-theme-decent" class="menu-option cv-theme-option">Decent (Colored Header Bars)</button>
+                            <button id="menu-cv-theme-awesome-cv" class="menu-option cv-theme-option">Awesome CV (Overleaf Style)</button>
+                            <button id="menu-cv-theme-friggeri" class="menu-option cv-theme-option">Friggeri (Modern Left-Margin)</button>
+                            <button id="menu-cv-theme-moderncv-classic" class="menu-option cv-theme-option">ModernCV Classic</button>
+                            <button id="menu-cv-theme-moderncv-casual" class="menu-option cv-theme-option">ModernCV Casual</button>
+                            <button id="menu-cv-theme-executive" class="menu-option cv-theme-option">Executive (Formal Navy/Serif)</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <button id="menu-cv-customize-colors" class="menu-option">Customize Colors...</button>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Color Presets ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-cv-preset-navy" class="menu-option cv-preset-option">Classic Navy</button>
+                            <button id="menu-cv-preset-slate" class="menu-option cv-preset-option">Slate Slate</button>
+                            <button id="menu-cv-preset-green" class="menu-option cv-preset-option">Forest Green</button>
+                            <button id="menu-cv-preset-burgundy" class="menu-option cv-preset-option">Burgundy Academic</button>
+                            <button id="menu-cv-preset-charcoal" class="menu-option cv-preset-option">Charcoal Minimal</button>
+                            <button id="menu-cv-preset-teal" class="menu-option cv-preset-option">Teal Professional</button>
+                            <button id="menu-cv-preset-dark" class="menu-option cv-preset-option">Dark Slate</button>
+                        </div>
+                    </div>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Set Page Size ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-cv-size-a4" class="menu-option cv-size-option">A4 Paper</button>
+                            <button id="menu-cv-size-letter" class="menu-option cv-size-option">US Letter Paper</button>
+                        </div>
+                    </div>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Profile Photo ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-cv-set-photo" class="menu-option">Select Profile Photo...</button>
+                            <button id="menu-cv-remove-photo" class="menu-option">Remove Profile Photo</button>
+                        </div>
+                    </div>
+                    <div class="menu-submenu">
+                        <span class="menu-option">Set Photo Shape ▶</span>
+                        <div class="menu-dropdown-nested">
+                            <button id="menu-cv-shape-round" class="menu-option">Round (Default)</button>
+                            <button id="menu-cv-shape-square" class="menu-option">Square</button>
+                            <button id="menu-cv-shape-rectangle" class="menu-option">Rectangle</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <button id="menu-help-cv" class="menu-option">CV Mode Guide</button>
+                    <button id="menu-help-cv-examples" class="menu-option">CV Examples</button>
+                </div>
+            </div>
+            <div class="menu-item">
                 <span class="menu-label">Help</span>
                 <div class="menu-dropdown">
                     <button id="menu-help-markdd" class="menu-option">MarkDD Editor Guide</button>
@@ -276,6 +342,9 @@
                             <button id="menu-help-book-technical" class="menu-option">Technical Docs Example</button>
                         </div>
                     </div>
+                    <hr>
+                    <button id="menu-help-main-cv" class="menu-option">CV Mode Guide</button>
+                    <button id="menu-help-cv-showcase" class="menu-option">CV Examples</button>
                     <hr>
                     <button id="menu-about" class="menu-option">About MarkDD Editor</button>
                 </div>
@@ -824,6 +893,7 @@
     <script src="js/presentation.js"></script>
     <script src="js/book.js"></script>
     <script src="js/book-examples.js"></script>
+    <script src="js/cv.js"></script>
     
     <!-- Initialize everything after DOM is ready -->
     <script>

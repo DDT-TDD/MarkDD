@@ -163,6 +163,7 @@
     background: transparent;
     box-shadow: none;
     max-width: calc(min(90vw, 360px) + var(--submenu-gutter));
+    overflow: visible !important;
 }
 
 .menu-dropdown.has-submenus::before {

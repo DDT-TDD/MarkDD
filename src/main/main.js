@@ -1786,7 +1786,7 @@ ipcMain.on('window-fullscreen', () => {
 let presentationWindow = null;
 
 // Preview presentation in separate window
-ipcMain.handle('preview-presentation', async (event, { html }) => {
+ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => {
   try {
     logInfo('Presentation', 'Preparing presentation preview window');
 
@@ -1833,15 +1833,20 @@ ipcMain.handle('preview-presentation', async (event, { html }) => {
 
     if (!presentationWindow.isVisible()) {
       presentationWindow.show();
+    } else if (focus) {
+      presentationWindow.focus();
     }
-
-    presentationWindow.focus();
 
     return { success: true };
   } catch (error) {
     logError('PreviewPresentation', error);
     return { success: false, error: error.message };
   }
+});
+
+// Check if presentation preview window is open
+ipcMain.handle('is-presentation-preview-open', () => {
+  return presentationWindow !== null && !presentationWindow.isDestroyed() && presentationWindow.isVisible();
 });
 
 // Save presentation as HTML
@@ -1990,3 +1995,184 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
 });
 
 // ========== END PRESENTATION ADDON IPC HANDLERS ==========
+
+// ========== CV ADDON IPC HANDLERS ==========
+
+// Dialog to select CV profile photo
+ipcMain.handle('select-cv-photo-dialog', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Profile Photo',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Image Files', extensions: ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { filePath: result.filePaths[0] };
+    }
+    return { canceled: true };
+  } catch (error) {
+    return { canceled: true, error: error.message };
+  }
+});
+
+let cvPreviewWindow = null;
+
+// Preview CV in separate window
+ipcMain.handle('preview-cv', async (event, { html, focus = true }) => {
+  try {
+    logInfo('CV', 'Preparing CV preview window');
+
+    const createWindowIfNeeded = () => {
+      if (cvPreviewWindow && !cvPreviewWindow.isDestroyed()) {
+        return;
+      }
+
+      cvPreviewWindow = new BrowserWindow({
+        width: 950,
+        height: 900,
+        show: false,
+        autoHideMenuBar: true,
+        backgroundColor: '#e5e7eb',
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          webSecurity: false,
+          allowRunningInsecureContent: false,
+          backgroundThrottling: false
+        },
+        icon: path.join(__dirname, '../assets/icons/icon.png'),
+        title: 'CV Preview'
+      });
+
+      cvPreviewWindow.on('closed', () => {
+        cvPreviewWindow = null;
+      });
+
+      cvPreviewWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    };
+
+    createWindowIfNeeded();
+
+    if (!cvPreviewWindow) {
+      throw new Error('Failed to initialise preview window');
+    }
+
+    cvPreviewWindow.webContents.stop();
+
+    // Use temporary file to allow local resource resolution
+    const tempPath = path.join(app.getPath('userData'), `temp-cv-preview.html`);
+    await fs.promises.writeFile(tempPath, html, 'utf-8');
+    await cvPreviewWindow.loadURL('file:///' + tempPath.replace(/\\/g, '/'));
+
+    if (!cvPreviewWindow.isVisible()) {
+      cvPreviewWindow.show();
+    } else if (focus) {
+      cvPreviewWindow.focus();
+    }
+
+    return { success: true };
+  } catch (error) {
+    logError('PreviewCV', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Check if CV preview window is open
+ipcMain.handle('is-cv-preview-open', () => {
+  return cvPreviewWindow !== null && !cvPreviewWindow.isDestroyed() && cvPreviewWindow.isVisible();
+});
+
+// Save CV as HTML
+ipcMain.handle('save-cv-html', async (event, { html, title }) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export CV as HTML',
+      defaultPath: `${title || 'cv'}.html`,
+      filters: [
+        { name: 'HTML Files', extensions: ['html'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    await fs.promises.writeFile(result.filePath, html, 'utf-8');
+    logInfo('CV', `HTML CV saved to ${result.filePath}`);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    logError('SaveCVHTML', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Export CV as PDF
+ipcMain.handle('export-cv-pdf', async (event, { html, title }) => {
+  let tempCvHtmlPath = null;
+  let pdfWindow = null;
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export CV as PDF',
+      defaultPath: `${title || 'cv'}.pdf`,
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    logInfo('CV', `Exporting CV to PDF: ${result.filePath}`);
+    
+    pdfWindow = new BrowserWindow({
+      width: 850,
+      height: 1100,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        zoomFactor: 1.0
+      }
+    });
+
+    tempCvHtmlPath = path.join(path.dirname(result.filePath), `.temp-cv-${Date.now()}.html`);
+    await fs.promises.writeFile(tempCvHtmlPath, html, 'utf-8');
+    
+    await pdfWindow.loadURL('file:///' + tempCvHtmlPath.replace(/\\/g, '/'));
+    
+    // Wait slightly for rendering
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Generate PDF (portrait)
+    const pdfData = await pdfWindow.webContents.printToPDF({
+      marginsType: 0,
+      printBackground: true,
+      landscape: false,
+      preferCSSPageSize: true,
+      scale: 1.0,
+      displayHeaderFooter: false
+    });
+
+    await fs.promises.writeFile(result.filePath, pdfData);
+    logInfo('CV', `PDF CV saved to ${result.filePath}`);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    logError('ExportCVPDF', error);
+    return { success: false, error: error.message };
+  } finally {
+    if (pdfWindow && !pdfWindow.isDestroyed()) {
+      pdfWindow.close();
+    }
+    if (tempCvHtmlPath && fs.existsSync(tempCvHtmlPath)) {
+      try { await fs.promises.unlink(tempCvHtmlPath); } catch (err) {}
+    }
+  }
+});
+
+// ========== END CV ADDON IPC HANDLERS ==========

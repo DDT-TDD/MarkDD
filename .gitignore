@@ -39,6 +39,9 @@ yarn-error.log*
 # Temporary files
 *.tmp
 *.temp
+.temp-*
+.temp-cv-*
+.temp-presentation-*
 .cache/
 
 # Electron

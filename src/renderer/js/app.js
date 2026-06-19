@@ -20,6 +20,7 @@ class MarkDDApp {
         this.latexIntegration = null;
         this.presentationManager = null;
         this.bookManager = null;
+        this.cvManager = null;
         
         // Tab system
         this.tabManager = null;
@@ -3956,6 +3957,53 @@ A: Verify files exist and contain matching text.
         
         // ========== END PRESENTATION MENU HANDLERS ==========
         
+        // ========== CV MENU HANDLERS ==========
+        if (!this.cvManager && typeof CVManager !== 'undefined') {
+            this.cvManager = new CVManager();
+        }
+
+        this.bindButton('menu-cv-new', () => this.newCV());
+        this.bindButton('menu-cv-preview', () => this.previewCV());
+        this.bindButton('menu-cv-export-html', () => this.exportCVHTML());
+        this.bindButton('menu-cv-export-pdf', () => this.exportCVPDF());
+
+        // Bind themes
+        const cvThemes = [
+            'classic-latex', 'academic', 'modern-sidebar', 'minimalist',
+            'decent', 'awesome-cv', 'friggeri', 'moderncv-classic',
+            'moderncv-casual', 'executive'
+        ];
+        cvThemes.forEach(theme => {
+            this.bindButton(`menu-cv-theme-${theme}`, () => this.setCVTheme(theme));
+        });
+
+        // Page size
+        this.bindButton('menu-cv-size-a4', () => this.setCVPageSize('a4'));
+        this.bindButton('menu-cv-size-letter', () => this.setCVPageSize('letter'));
+
+        // Color customization
+        this.bindButton('menu-cv-customize-colors', () => this.customizeCVColors());
+
+        // Color presets
+        const cvColorPresets = ['navy', 'slate', 'green', 'burgundy', 'charcoal', 'teal', 'dark'];
+        cvColorPresets.forEach(preset => {
+            this.bindButton(`menu-cv-preset-${preset}`, () => this.applyCVColorPreset(preset));
+        });
+
+        // Help guides
+        this.bindButton('menu-help-cv', () => this.openHelpCV());
+        this.bindButton('menu-help-main-cv', () => this.openHelpCV());
+        this.bindButton('menu-help-cv-examples', () => this.openHelpCVShowcase());
+        this.bindButton('menu-help-cv-showcase', () => this.openHelpCVShowcase());
+
+        // Photo actions
+        this.bindButton('menu-cv-set-photo', () => this.selectCVPhoto());
+        this.bindButton('menu-cv-remove-photo', () => this.removeCVPhoto());
+        this.bindButton('menu-cv-shape-round', () => this.setCVPhotoShape('round'));
+        this.bindButton('menu-cv-shape-square', () => this.setCVPhotoShape('square'));
+        this.bindButton('menu-cv-shape-rectangle', () => this.setCVPhotoShape('rectangle'));
+        // ========== END CV MENU HANDLERS ==========
+        
         // Help menu handlers
         this.bindButton('menu-help-markdd', () => this.openHelpMarkDD());
         this.bindButton('menu-help-showcase', () => this.openHelpShowcase());
@@ -4246,6 +4294,8 @@ A: Verify files exist and contain matching text.
                 }
             }
             this.showMessage('File saved successfully');
+            this.refreshCVPreview(false);
+            this.refreshPresentationPreview(false);
         } else {
             this.showError('Failed to save file');
         }
@@ -4975,6 +5025,7 @@ Questions?
                 
                 const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
                 this.editor.setContent(updatedContent);
+                this.refreshPresentationPreview(false);
             }
         } else {
             this.showError(`Invalid theme: ${theme}`);
@@ -5300,8 +5351,9 @@ Questions?
         this.editor.setContent(updatedContent);
         
         // Refresh preview if in presentation mode
-        if (this.presentationManager && this.previewPanel) {
+        if (this.presentationManager && this.preview) {
             this.updatePreview();
+            this.refreshPresentationPreview(false);
         }
     }
 
@@ -5400,8 +5452,9 @@ Questions?
         this.editor.setContent(updatedContent);
         
         // Refresh preview
-        if (this.presentationManager && this.previewPanel) {
+        if (this.presentationManager && this.preview) {
             this.updatePreview();
+            this.refreshPresentationPreview(false);
         }
         
         this.showMessage(`Table of Contents ${enabled ? 'enabled' : 'disabled'}`);
@@ -5439,8 +5492,9 @@ Questions?
         this.editor.setContent(updatedContent);
         
         // Refresh preview
-        if (this.presentationManager && this.previewPanel) {
+        if (this.presentationManager && this.preview) {
             this.updatePreview();
+            this.refreshPresentationPreview(false);
         }
         
         const delayText = delay === 0 ? 'disabled' : `${delay}ms`;
@@ -5885,8 +5939,9 @@ Questions?
         this.editor.setContent(updatedContent);
         
         // Refresh preview
-        if (this.presentationManager && this.previewPanel) {
+        if (this.presentationManager && this.preview) {
             this.updatePreview();
+            this.refreshPresentationPreview(false);
         }
     }
 
@@ -5962,6 +6017,651 @@ Questions?
     }
     
     // ========== END PRESENTATION ADDON METHODS ==========
+
+    // ========== CV ADDON METHODS ==========
+    
+    /**
+     * Create a new CV from the template
+     */
+    newCV() {
+        if (!this.cvManager) {
+            this.cvManager = new CVManager();
+        }
+        
+        const template = `---
+cv: true
+theme: classic-latex
+paperSize: a4
+name: Jane Doe
+subtitle: Senior Software Architect
+# photo: "profile.jpg" # Optional: Local path, URL, or base64 profile photo
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#1b365d"
+  secondary: "#475569"
+  text: "#1f2937"
+  background: "#ffffff"
+---
+
+## Professional Summary
+
+A highly skilled software architect with over 10 years of experience designing and implementing distributed systems, cloud infrastructure, and modern web applications. Passionate about clean code, performance optimization, and developer productivity.
+
+## Work Experience
+
+### Senior Software Architect | Acme Corporation | Boston, MA | 2021 – Present
+- Led the design and migration of legacy monolith applications to high-performance microservices, improving scalability by 300%.
+- Designed containerized deployments using Kubernetes and Docker on AWS Cloud.
+- Mentored a team of 12 engineers in best practices, design patterns, and test-driven development.
+
+### Technical Lead | Tech Solutions Inc. | Cambridge, MA | 2017 – 2021
+- Spearheaded development of a real-time analytics dashboard used by over 50 enterprise clients.
+- Optimized query performance of PostgreSQL databases, reducing latency by 45%.
+- Implemented continuous integration and continuous delivery (CI/CD) pipelines.
+
+<!-- newpage -->
+
+## Education
+
+### Master of Science in Computer Science | Boston University | Boston, MA | 2015 – 2017
+- Graduated with High Honors (GPA: 3.9/4.0).
+- Thesis on distributed consensus protocols.
+
+### Bachelor of Science in Software Engineering | Northeastern University | Boston, MA | 2011 – 2015
+- Dean's List every semester.
+
+## Key Skills
+
+- **Languages**: JavaScript, TypeScript, Python, Go, C++, SQL
+- **Frameworks & Tools**: React, Node.js, Express, Docker, Kubernetes, AWS, Git
+- **Databases**: PostgreSQL, MongoDB, Redis, Elasticsearch
+- **Methodologies**: Agile, Scrum, CI/CD, Test-Driven Development (TDD)
+`;
+
+        console.log('[App] Creating new CV tab...');
+        const tabId = this.tabManager.createTab('Untitled CV.md', template);
+        this.tabManager.switchTab(tabId);
+        this.editor.setContent(template);
+        if (this.preview) {
+            this.preview.updatePreview(template);
+        }
+        this.showMessage('New CV template created. Edit and use CV menu to preview or export.');
+    }
+
+    /**
+     * Preview current CV in separate window
+     */
+    async previewCV() {
+        if (!this.cvManager) {
+            this.cvManager = new CVManager();
+        }
+        
+        try {
+            const markdown = this.editor.getContent();
+            const parsed = this.cvManager.parseMarkdown(markdown);
+            
+            if (!markdown.includes('cv: true')) {
+                this.showError('This document is not configured as a CV. Add "cv: true" to front-matter.');
+                return;
+            }
+            
+            const result = await this.cvManager.previewCV(markdown, this.editor.currentFile);
+            if (result.success) {
+                this.showMessage('CV preview opened');
+            } else if (!result.canceled) {
+                this.showError('Failed to preview CV: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('Preview failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Export CV as HTML
+     */
+    async exportCVHTML() {
+        if (!this.cvManager) {
+            this.cvManager = new CVManager();
+        }
+        
+        try {
+            const markdown = this.editor.getContent();
+            if (!markdown.includes('cv: true')) {
+                this.showError('This document is not configured as a CV. Add "cv: true" to front-matter.');
+                return;
+            }
+            
+            const result = await this.cvManager.exportHTML(markdown, this.editor.currentFile);
+            if (result.success) {
+                this.showMessage(`CV exported to HTML: ${result.filePath}`);
+            } else if (!result.canceled) {
+                this.showError('Failed to export CV: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('Export failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Export CV as PDF
+     */
+    async exportCVPDF() {
+        if (!this.cvManager) {
+            this.cvManager = new CVManager();
+        }
+        
+        try {
+            const markdown = this.editor.getContent();
+            if (!markdown.includes('cv: true')) {
+                this.showError('This document is not configured as a CV. Add "cv: true" to front-matter.');
+                return;
+            }
+            
+            const result = await this.cvManager.exportPDF(markdown, this.editor.currentFile);
+            if (result.success) {
+                this.showMessage(`CV exported to PDF: ${result.filePath}`);
+            } else if (!result.canceled) {
+                this.showError('Failed to export PDF: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            this.showError('PDF export failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Set CV theme and update front-matter
+     */
+    setCVTheme(theme) {
+        if (!this.cvManager) {
+            this.cvManager = new CVManager();
+        }
+        
+        const success = this.cvManager.availableThemes.includes(theme);
+        if (success) {
+            const themeName = this.cvManager.themeDisplayNames[theme];
+            this.showMessage(`CV theme set to: ${themeName}`);
+            
+            const content = this.editor.getContent();
+            const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+            const match = content.match(frontMatterRegex);
+            
+            if (match) {
+                const frontMatter = match[1];
+                let updatedFrontMatter = frontMatter;
+                
+                if (/^theme:/m.test(frontMatter)) {
+                    updatedFrontMatter = frontMatter.replace(/^theme:.*$/m, `theme: ${theme}`);
+                } else {
+                    updatedFrontMatter = `theme: ${theme}\n${frontMatter}`;
+                }
+                
+                const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+                this.editor.setContent(updatedContent);
+                this.editor.setModified(true);
+                this.editor.updateStatus();
+                this.refreshCVPreview(false);
+            }
+        } else {
+            this.showError(`Invalid theme: ${theme}`);
+        }
+    }
+
+    /**
+     * Set CV paper size
+     */
+    setCVPageSize(size) {
+        this.showMessage(`CV paper size set to: ${size.toUpperCase()}`);
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        if (match) {
+            const frontMatter = match[1];
+            let updatedFrontMatter = frontMatter;
+            
+            if (/^paperSize:/m.test(frontMatter)) {
+                updatedFrontMatter = frontMatter.replace(/^paperSize:.*$/m, `paperSize: ${size}`);
+            } else {
+                updatedFrontMatter = `paperSize: ${size}\n${frontMatter}`;
+            }
+            
+            const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+            this.editor.setContent(updatedContent);
+            this.editor.setModified(true);
+            this.editor.updateStatus();
+            this.refreshCVPreview(false);
+        }
+    }
+
+    /**
+     * Open CV Mode Help dialog
+     */
+    openHelpCV() {
+        const helpContent = `
+        <div style="text-align: left; max-height: 500px; overflow-y: auto; padding: 10px;">
+            <h3>MarkDD CV Mode Guide</h3>
+            <p>Write professional resumes using simple Markdown. The app structures dates, organization lists, page-breaks, and tag badges automatically using standard web technologies.</p>
+            
+            <h4>1. Front-matter settings</h4>
+            <p>Ensure your document starts with the YAML front-matter block:</p>
+            <pre><code class="language-yaml">---
+cv: true
+theme: classic-latex
+name: Your Name
+subtitle: Professional Title
+# photo: "profile.jpg" # Optional: path to your profile photo (local file or URL)
+email: name@email.com
+phone: +1...
+location: City, Country
+website: https://...
+github: username
+linkedin: profile
+colors:
+  primary: "#1b365d"
+---</code></pre>
+            
+            <h4>2. Profile Photo (Optional)</h4>
+            <p>Add a <code>photo</code> property in the front-matter with a relative file path, absolute path, web URL, or base64 data URI. The photo will be rendered beautifully in templates designed for it (like <code>modern-sidebar</code>, <code>moderncv-classic</code>, <code>moderncv-casual</code>, <code>awesome-cv</code>, and <code>academic</code>).</p>
+
+            <h4>3. Alignment helper (Pipes '|')</h4>
+            <p>Use the pipe character in level-3 headings to auto-align details:</p>
+            <pre><code>### Title | Organization | Location | Date</code></pre>
+            <p>This renders the title on the left and the date on the right, with subtitles for company and location in standard academic/LaTeX formats.</p>
+            
+            <h4>4. Custom Spacing & Page breaks</h4>
+            <p>Control print margins and page splits precisely in exports:</p>
+            <ul>
+                <li><code>\\newpage</code> or <code>&lt;!-- newpage --&gt;</code> - forces a page break.</li>
+                <li><code>\\vspace{15px}</code> or <code>&lt;!-- vspace: 15px --&gt;</code> - inserts a custom vertical space.</li>
+            </ul>
+
+            <h4>5. Skills Badges</h4>
+            <p>Any bullet list under a heading containing "Skills" automatically renders as modern rounded tag badges.</p>
+        </div>`;
+        
+        const modal = document.createElement('div');
+        modal.className = 'about-modal';
+        modal.innerHTML = `<div class="about-modal-content" style="max-width: 600px; text-align: left;">
+            ${helpContent}
+            <br>
+            <button id="about-close-btn" style="float: right; margin-top: 10px;">Close</button>
+            <div style="clear: both;"></div>
+        </div>`;
+        document.body.appendChild(modal);
+        document.getElementById('about-close-btn').onclick = () => modal.remove();
+    }
+
+    openHelpCVShowcase() {
+        const showcaseContent = `---
+cv: true
+theme: awesome-cv
+paperSize: a4
+name: Jane Doe
+subtitle: Senior Software Architect
+photo: "https://picsum.photos/200"
+photoShape: round
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#1b365d"
+  secondary: "#475569"
+  text: "#1f2937"
+  background: "#ffffff"
+---
+
+## Professional Summary
+
+A highly skilled software architect with over 10 years of experience designing and implementing distributed systems, cloud infrastructure, and modern web applications. Passionate about clean code, performance optimization, and developer productivity.
+
+## Work Experience
+
+### Senior Software Architect | Acme Corporation | Boston, MA | 2021 – Present
+- Led the design and migration of legacy monolith applications to high-performance microservices, improving scalability by 300%.
+- Designed containerized deployments using Kubernetes and Docker on AWS Cloud.
+- Mentored a team of 12 engineers in best practices, design patterns, and test-driven development.
+
+### Technical Lead | Tech Solutions Inc. | Cambridge, MA | 2017 – 2021
+- Spearheaded development of a real-time analytics dashboard used by over 50 enterprise clients.
+- Optimized query performance of PostgreSQL databases, reducing latency by 45%.
+- Implemented continuous integration and continuous delivery (CI/CD) pipelines.
+
+<!-- newpage -->
+
+## Education
+
+### Master of Science in Computer Science | Massachusetts Institute of Technology | Cambridge, MA | 2015 – 2017
+- Specialization in Distributed Systems and Software Engineering.
+- GPA: 4.0/4.0. Thesis on high-throughput microservices.
+
+### Bachelor of Science in Computer Engineering | Boston University | Boston, MA | 2011 – 2015
+- Graduated with Honors (Magna Cum Laude).
+
+## Technical Skills
+
+- JavaScript, TypeScript, Python, Go, Java, Rust
+- Node.js, React, Next.js, Express, Fastify, Django
+- Docker, Kubernetes, AWS, Terraform, GitHub Actions, CI/CD
+- PostgreSQL, MongoDB, Redis, Elasticsearch
+`;
+
+        this.openHelpDocument('CV Example', showcaseContent);
+    }
+
+    /**
+     * Customize CV theme colors using input forms
+     */
+    async customizeCVColors() {
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        let primary = '#1b365d';
+        let secondary = '#475569';
+        let text = '#1f2937';
+        
+        if (match) {
+            const fm = match[1];
+            const pMatch = fm.match(/^\s*primary:\s*["']?([#\w]+)["']?$/m);
+            const sMatch = fm.match(/^\s*secondary:\s*["']?([#\w]+)["']?$/m);
+            const tMatch = fm.match(/^\s*text:\s*["']?([#\w]+)["']?$/m);
+            
+            // Nested colors block regex
+            const colorBlockMatch = fm.match(/colors:\s*\n(\s{2,}.*\n?)+/);
+            if (colorBlockMatch) {
+                const cb = colorBlockMatch[0];
+                const cbP = cb.match(/^\s{2,}primary:\s*["']?([#\w]+)["']?$/m);
+                const cbS = cb.match(/^\s{2,}secondary:\s*["']?([#\w]+)["']?$/m);
+                const cbT = cb.match(/^\s{2,}text:\s*["']?([#\w]+)["']?$/m);
+                if (cbP) primary = cbP[1];
+                if (cbS) secondary = cbS[1];
+                if (cbT) text = cbT[1];
+            } else {
+                if (pMatch) primary = pMatch[1];
+                if (sMatch) secondary = sMatch[1];
+                if (tMatch) text = tMatch[1];
+            }
+        }
+
+        const dialogResult = await this.showFormDialog({
+            title: 'Customize CV Colors',
+            message: 'Set custom color accents for your CV template.',
+            fields: [
+                { id: 'primaryColor', label: 'Primary Accent (headings, links)', type: 'color', value: primary },
+                { id: 'secondaryColor', label: 'Secondary (subtitles, dates)', type: 'color', value: secondary },
+                { id: 'textColor', label: 'Body Text', type: 'color', value: text }
+            ]
+        });
+
+        if (dialogResult && !dialogResult.canceled) {
+            const { primaryColor, secondaryColor, textColor } = dialogResult.values;
+            const updatedContent = this.updateFrontMatterColorsInEditor(
+                this.editor.getContent(),
+                primaryColor,
+                secondaryColor,
+                textColor
+            );
+            this.editor.setContent(updatedContent);
+            if (this.preview) {
+                this.preview.updatePreview(updatedContent);
+            }
+            this.showMessage('CV Colors updated in front-matter.');
+            this.refreshCVPreview(false);
+        }
+    }
+
+    /**
+     * Helper to write colors block in editor front-matter
+     */
+    updateFrontMatterColorsInEditor(content, primary, secondary, text) {
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        if (!match) return content;
+
+        const fm = match[1];
+        let updatedFm = fm;
+        
+        const colorsBlock = `colors:\n  primary: "${primary}"\n  secondary: "${secondary}"\n  text: "${text}"`;
+        
+        // Replace existing colors block or add a new one
+        if (/colors:\s*\n(\s{2,}.*\n?)+/m.test(fm)) {
+            updatedFm = fm.replace(/colors:\s*\n(\s{2,}.*\n?)+/m, colorsBlock);
+        } else {
+            updatedFm = `${fm.trim()}\n${colorsBlock}`;
+        }
+
+        return content.replace(frontMatterRegex, `---\n${updatedFm}\n---`);
+    }
+
+    /**
+     * Apply a predefined color preset to the CV front-matter
+     */
+    applyCVColorPreset(preset) {
+        const presets = {
+            navy: { primary: '#1b365d', secondary: '#5c768d', text: '#222222' },
+            slate: { primary: '#334155', secondary: '#64748b', text: '#1e293b' },
+            green: { primary: '#166534', secondary: '#15803d', text: '#111827' },
+            burgundy: { primary: '#800020', secondary: '#6b7280', text: '#111827' },
+            charcoal: { primary: '#27272a', secondary: '#71717a', text: '#09090b' },
+            teal: { primary: '#0f766e', secondary: '#565f69', text: '#111827' },
+            dark: { primary: '#60a5fa', secondary: '#94a3b8', text: '#f1f5f9', background: '#0f172a' }
+        };
+        
+        const colors = presets[preset];
+        if (!colors) {
+            this.showError(`Unknown color preset: ${preset}`);
+            return;
+        }
+
+        const updatedContent = this.updateFrontMatterColorsInEditor(
+            this.editor.getContent(),
+            colors.primary,
+            colors.secondary,
+            colors.text
+        );
+
+        // Adjust background for dark mode preset specifically
+        let finalContent = updatedContent;
+        if (preset === 'dark') {
+            finalContent = updatedContent.replace(/colors:\s*\n/i, 'colors:\n  background: "#0f172a"\n  ');
+        } else {
+            // Remove background color for light mode themes if previously set
+            finalContent = updatedContent.replace(/^\s*background:\s*["']?#[0-9A-Fa-f]{6}["']?\s*\n/m, '');
+        }
+
+        this.editor.setContent(finalContent);
+        this.editor.setModified(true);
+        this.editor.updateStatus();
+        this.showMessage(`CV color preset "${preset}" applied.`);
+        this.refreshCVPreview(false);
+    }
+
+    /**
+     * Open Electron open dialog to choose profile photo, resolve path relative to current CV file, and insert into front-matter
+     */
+    async selectCVPhoto() {
+        const markdown = this.editor.getContent();
+        if (!/cv:\s*true/i.test(markdown)) {
+            this.showError('This document is not configured as a CV. Add "cv: true" to front-matter first.');
+            return;
+        }
+
+        if (typeof require === 'undefined') {
+            this.showError('Electron context required to select a file.');
+            return;
+        }
+
+        const { ipcRenderer } = require('electron');
+        const result = await ipcRenderer.invoke('select-cv-photo-dialog');
+        
+        if (result.error) {
+            this.showError(`Failed to select photo: ${result.error}`);
+            return;
+        }
+        if (result.canceled || !result.filePath) {
+            return;
+        }
+
+        let photoPath = result.filePath;
+        const currentFile = this.editor.currentFile;
+        
+        if (currentFile) {
+            try {
+                const path = require('path');
+                const baseDir = path.dirname(currentFile);
+                let relativePath = path.relative(baseDir, photoPath);
+                
+                // If relative path is not excessively deep (upward), use it
+                if (!relativePath.startsWith('..\\..') && !relativePath.startsWith('../..') && !path.isAbsolute(relativePath)) {
+                    photoPath = relativePath.replace(/\\/g, '/'); // Use forward slashes
+                } else {
+                    photoPath = photoPath.replace(/\\/g, '/');
+                }
+            } catch (e) {
+                console.error('[App] Failed to calculate relative photo path:', e);
+                photoPath = photoPath.replace(/\\/g, '/');
+            }
+        } else {
+            photoPath = photoPath.replace(/\\/g, '/');
+        }
+
+        // Update front-matter with the photo path
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = markdown.match(frontMatterRegex);
+        
+        if (match) {
+            const frontMatter = match[1];
+            let updatedFrontMatter = frontMatter;
+            
+            if (/^\s*photo:/m.test(frontMatter)) {
+                updatedFrontMatter = frontMatter.replace(/^\s*photo:.*$/m, `photo: "${photoPath}"`);
+            } else {
+                // Insert photo: "..." before the closing ---
+                updatedFrontMatter = `${frontMatter.trim()}\nphoto: "${photoPath}"`;
+            }
+            
+            const updatedContent = markdown.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+            this.editor.setContent(updatedContent);
+            this.editor.setModified(true);
+            this.editor.updateStatus();
+            this.showMessage('Profile photo updated in front-matter.');
+            this.refreshCVPreview(false);
+        } else {
+            this.showError('Could not find front-matter block to insert the photo property.');
+        }
+    }
+
+    /**
+     * Remove the photo property from the CV front-matter
+     */
+    removeCVPhoto() {
+        const markdown = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = markdown.match(frontMatterRegex);
+        
+        if (match) {
+            const frontMatter = match[1];
+            if (/^\s*photo:/m.test(frontMatter)) {
+                const updatedFrontMatter = frontMatter.replace(/^\s*photo:\s*.*$\n?/m, '');
+                const updatedContent = markdown.replace(frontMatterRegex, `---\n${updatedFrontMatter.trim()}\n---`);
+                this.editor.setContent(updatedContent);
+                this.editor.setModified(true);
+                this.editor.updateStatus();
+                this.showMessage('Profile photo removed.');
+                this.refreshCVPreview(false);
+            } else {
+                this.showMessage('No profile photo property found in front-matter.');
+            }
+        } else {
+            this.showError('Could not find front-matter block.');
+        }
+    }
+
+    /**
+     * Set CV photo shape and update front-matter
+     */
+    setCVPhotoShape(shape) {
+        this.showMessage(`CV photo shape set to: ${shape.toUpperCase()}`);
+        const content = this.editor.getContent();
+        const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+        const match = content.match(frontMatterRegex);
+        
+        if (match) {
+            const frontMatter = match[1];
+            let updatedFrontMatter = frontMatter;
+            
+            if (/^\s*photoShape:/m.test(frontMatter)) {
+                updatedFrontMatter = frontMatter.replace(/^\s*photoShape:.*$/m, `photoShape: ${shape}`);
+            } else {
+                updatedFrontMatter = `photoShape: ${shape}\n${frontMatter}`;
+            }
+            
+            const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+            this.editor.setContent(updatedContent);
+            this.editor.setModified(true);
+            this.editor.updateStatus();
+            this.refreshCVPreview(false);
+        }
+    }
+
+    /**
+     * Refresh CV preview window in the background if it is open
+     */
+    async refreshCVPreview(focus = false) {
+        if (typeof require === 'undefined') return;
+        try {
+            const { ipcRenderer } = require('electron');
+            const isOpen = await ipcRenderer.invoke('is-cv-preview-open');
+            if (isOpen) {
+                const markdown = this.editor.getContent();
+                if (/cv:\s*true/i.test(markdown)) {
+                    if (!this.cvManager) {
+                        this.cvManager = new CVManager();
+                    }
+                    const html = await this.cvManager.generateHTML({
+                        theme: this.cvManager.parseMarkdown(markdown).theme,
+                        paperSize: this.cvManager.parseMarkdown(markdown).paperSize,
+                        markdown: markdown,
+                        currentFilePath: this.editor.currentFile
+                    });
+                    await ipcRenderer.invoke('preview-cv', { html: html, focus: focus });
+                }
+            }
+        } catch (e) {
+            console.error('[App] Failed to background refresh CV preview:', e);
+        }
+    }
+
+    /**
+     * Refresh Presentation preview window in the background if it is open
+     */
+    async refreshPresentationPreview(focus = false) {
+        if (typeof require === 'undefined') return;
+        try {
+            const { ipcRenderer } = require('electron');
+            const isOpen = await ipcRenderer.invoke('is-presentation-preview-open');
+            if (isOpen) {
+                const markdown = this.editor.getContent();
+                if (this.presentationManager) {
+                    this.presentationManager.parseMarkdown(markdown);
+                    const html = await this.presentationManager.generateHTML({ theme: this.presentationManager.currentTheme });
+                    await ipcRenderer.invoke('preview-presentation', { html: html, focus: focus });
+                }
+            }
+        } catch (e) {
+            console.error('[App] Failed to background refresh presentation preview:', e);
+        }
+    }
+
+    // ========== END CV ADDON METHODS ==========
 
     // Markmap integration
     showMarkmap() {
@@ -6172,6 +6872,12 @@ Questions?
     // UI updates
     updateUI() {
         this.updateToolbarStates();
+    }
+
+    updatePreview() {
+        if (this.preview && this.editor) {
+            this.preview.updatePreview(this.editor.getContent());
+        }
     }
 
     updateToolbarStates() {
@@ -6522,14 +7228,62 @@ Questions?
         });
     }
 
+    showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `markdd-toast toast-${type}`;
+        
+        const isError = type === 'error';
+        const bgColor = isError ? 'rgba(239, 68, 68, 0.95)' : 'rgba(16, 185, 129, 0.95)';
+        const icon = isError ? '❌ ' : '✅ ';
+        
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 12px 20px;
+            background: ${bgColor};
+            color: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            z-index: 11000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        
+        toast.textContent = icon + message;
+        document.body.appendChild(toast);
+        
+        toast.offsetHeight; // force reflow
+        
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+        
+        const duration = isError ? 5000 : 3000;
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(20px)';
+            toast.addEventListener('transitionend', () => {
+                toast.remove();
+            });
+        }, duration);
+    }
+
     showMessage(message) {
         console.log(message);
-        // Could show toast notification
+        this.showToast(message, 'success');
     }
 
     showError(message) {
         console.error(message);
-        // Could show error notification
+        this.showToast(message, 'error');
     }
 
     // Custom prompt dialog for Electron (prompt() is not supported)

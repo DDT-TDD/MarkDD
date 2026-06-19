@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-06-19
+
+### Added
+
+1. **New CV Mode Addon** ✅
+   - Added fully-featured CV writing system parsing Markdown with front-matter config.
+   - Designed 10 built-in templates (classic-latex, academic, modern-sidebar, minimalist, decent, awesome-cv, friggeri, moderncv-classic, moderncv-casual, executive) styled similarly to Overleaf templates.
+   - Added support for optional profile photos (`photo` YAML key) with automatic path resolution (relative, absolute, web, or base64) on supported themes (`modern-sidebar`, `moderncv-classic`, `moderncv-casual`, `awesome-cv`, and `academic`).
+   - Built custom parser formatting enhancements: page breaks (`<!-- newpage -->` / `\newpage`), vertical spacers (`<!-- vspace -->` / `\vspace{}`), skills tag cloud lists, and pipe-separated header alignments.
+   - Added CV menu options under top-level CV dropdown menu.
+   - Added 7 predefined color presets and customizable color inputs.
+
+### Fixed
+
+1. **Friggeri Discarded Elements** ✅
+   - Fixed an issue where introductory text summaries placed before the first H2 heading were discarded in the Friggeri theme loop.
+2. **Modern Sidebar Sibling Extraction** ✅
+   - Improved the extraction logic in the sidebar layout to greedily pull all sibling nodes under the Skills section.
+
 ## [1.4.1] - 2026-06-18
 
 ### Fixed
