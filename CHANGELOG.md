@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-06-26
+
+### Added
+
+1. **5 Premium LaTeX CV Templates** ✅
+   - Integrated `forty-seconds`, `twenty-seconds`, `hipster`, `sixty-seconds`, and `entry-level` CV themes based on popular Overleaf designs.
+2. **FontAwesome Icons & Progress Bars** ✅
+   - Added support for FontAwesome 6.4.0 contact icons in CV templates (email, phone, location, website, GitHub, LinkedIn, Twitter).
+   - Added automatic skill rating parsing to render visual progress bars when ratings/percentages are specified.
+3. **Attribution & Licensing Updates** ✅
+   - Updated `THIRD-PARTY-LICENSES.md` to document the licenses of the original LaTeX templates we took inspiration from, along with FontAwesome icon assets.
+4. **Nested Template Submenus** ✅
+   - Replaced flat CV menu options with structured submenus for template insertion in both the main menu and Help dropdown.
+5. **CV-Style Skill Progress Bars & Tag Pills in Presentation Mode** ✅
+   - Added automatic list-parsing logic for slides under headers containing "Skills".
+   - Items with ratings (e.g., `JavaScript | 90%`, `Python | 4/5`) are automatically compiled into beautifully styled CSS progress bars dynamically matched to the slide theme's primary color.
+   - Items without ratings are automatically styled as inline tag pills.
+
+### Fixed
+
+1. **Highlighting and Inline Markup Regressions in Presentation Mode** ✅
+   - Fixed a regression where inline highlighting (e.g. `==Highlighted==`) was not compiled to HTML `<mark>` tags in presentation slides.
+   - Added preprocessing rules to support spoilers (`||`), subscripts (`~`), superscripts (`^`), and keyboard keys (`[[`) in slides.
+2. **Skills Progress Bars Layout Overlap in Presentation Mode** ✅
+   - Disabled theme-defined list bullet pseudo-elements (`::before`/`::after`) specifically on skills lists (`.pres-skills-list li`) to prevent them from overlaying/striking through text.
+   - Refined line height, element display models, and margin layouts for progress bar wrappers to ensure perfect vertical separation.
+
 ## [1.5.0] - 2026-06-19
 
 ### Added

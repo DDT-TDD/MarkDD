@@ -10,7 +10,7 @@ class CVManager {
         this.currentTheme = 'classic-latex'; // Default theme
         this.currentPaperSize = 'a4'; // Default size
         
-        // 10 built-in templates resembling Overleaf CV styles
+        // 15 built-in templates resembling Overleaf CV styles
         this.availableThemes = [
             'classic-latex',
             'academic',
@@ -21,7 +21,12 @@ class CVManager {
             'friggeri',
             'moderncv-classic',
             'moderncv-casual',
-            'executive'
+            'executive',
+            'forty-seconds',
+            'twenty-seconds',
+            'hipster',
+            'sixty-seconds',
+            'entry-level'
         ];
         
         this.themeDisplayNames = {
@@ -34,7 +39,12 @@ class CVManager {
             'friggeri': 'Friggeri (Modern Left-Margin)',
             'moderncv-classic': 'ModernCV Classic',
             'moderncv-casual': 'ModernCV Casual',
-            'executive': 'Executive (Formal Navy/Serif)'
+            'executive': 'Executive (Formal Navy/Serif)',
+            'forty-seconds': 'Forty Seconds CV',
+            'twenty-seconds': 'Twenty Seconds CV',
+            'hipster': 'Simple Hipster CV',
+            'sixty-seconds': 'Sixty Seconds CV',
+            'entry-level': 'Entry Level Resume'
         };
         
         this.metadata = {};
@@ -186,7 +196,7 @@ class CVManager {
             }
         });
 
-        // 3. Process Skills Lists (turn lists under section title containing 'Skill' into tags)
+        // 3. Process Skills Lists (turn lists under section title containing 'Skill' into tags or progress bars)
         let currentSectionTitle = '';
         const children = Array.from(tempDiv.children);
 
@@ -194,12 +204,49 @@ class CVManager {
             if (child.tagName === 'H2' || child.tagName === 'H1') {
                 currentSectionTitle = child.textContent.toLowerCase();
             } else if (child.tagName === 'UL' && currentSectionTitle.includes('skill')) {
-                // Style list items as tag badges
                 child.classList.add('cv-skills-list');
                 const items = child.querySelectorAll('li');
                 items.forEach(item => {
+                    const text = item.textContent;
+                    if (text.includes('|')) {
+                        const parts = text.split('|').map(p => p.trim());
+                        if (parts.length >= 2) {
+                            const name = parts[0];
+                            const ratingStr = parts[1];
+                            let percent = 0;
+                            
+                            if (ratingStr.endsWith('%')) {
+                                percent = parseInt(ratingStr, 10);
+                            } else if (ratingStr.includes('/')) {
+                                const frac = ratingStr.split('/');
+                                const val = parseFloat(frac[0]);
+                                const max = parseFloat(frac[1]);
+                                if (!isNaN(val) && !isNaN(max) && max > 0) {
+                                    percent = Math.round((val / max) * 100);
+                                }
+                            } else {
+                                const val = parseFloat(ratingStr);
+                                if (!isNaN(val)) {
+                                    if (val <= 5) percent = val * 20;
+                                    else if (val <= 10) percent = val * 10;
+                                }
+                            }
+                            
+                            if (percent > 0 && percent <= 100) {
+                                item.classList.add('cv-skill-progress-item');
+                                item.innerHTML = `
+                                    <div class="cv-skill-progress-wrapper">
+                                        <span class="cv-skill-name">${name}</span>
+                                        <div class="cv-skill-progress-bar-bg">
+                                            <div class="cv-skill-progress-bar-fill" style="width: ${percent}%;"></div>
+                                        </div>
+                                    </div>`;
+                                return;
+                            }
+                        }
+                    }
+
                     item.classList.add('cv-skill-item');
-                    // Check if item contains bold prefix (e.g. **Languages**: JS, Python)
                     const strong = item.querySelector('strong');
                     if (strong) {
                         strong.classList.add('cv-skill-label');
@@ -225,7 +272,12 @@ class CVManager {
             'friggeri': { primary: '#2980b9', secondary: '#7f8c8d', text: '#2c3e50', background: '#ffffff' },
             'moderncv-classic': { primary: '#3498db', secondary: '#7f8c8d', text: '#2c3e50', background: '#ffffff' },
             'moderncv-casual': { primary: '#e67e22', secondary: '#7f8c8d', text: '#2c3e50', background: '#ffffff' },
-            'executive': { primary: '#1b365d', secondary: '#5c768d', text: '#222222', background: '#ffffff' }
+            'executive': { primary: '#1b365d', secondary: '#5c768d', text: '#222222', background: '#ffffff' },
+            'forty-seconds': { primary: '#2b3e50', secondary: '#7f8c8d', text: '#2c3e50', background: '#ffffff', sidebarBg: '#f0f2f5', sidebarText: '#2c3e50' },
+            'twenty-seconds': { primary: '#24c0d8', secondary: '#95a5a6', text: '#3d3d3d', background: '#ffffff', sidebarBg: '#3d3d3d', sidebarText: '#ffffff' },
+            'hipster': { primary: '#e05a47', secondary: '#7f8c8d', text: '#333333', background: '#ffffff', sidebarBg: '#f9f9f9', sidebarText: '#333333' },
+            'sixty-seconds': { primary: '#1f4e5b', secondary: '#7f8c8d', text: '#2c3e50', background: '#ffffff', sidebarBg: '#e6ebed', sidebarText: '#1f4e5b' },
+            'entry-level': { primary: '#0f172a', secondary: '#475569', text: '#334155', background: '#ffffff' }
         };
 
         const base = defaultPalettes[theme] || defaultPalettes['classic-latex'];
@@ -268,6 +320,68 @@ class CVManager {
             --cv-bg: ${colors.background};
             --cv-sidebar-bg: ${colors.sidebarBg || '#f3f4f6'};
             --cv-sidebar-text: ${colors.sidebarText || '#1f2937'};
+        }
+        
+        /* Contact info styling */
+        .cv-contact-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 9.5pt;
+        }
+
+        .cv-contact-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cv-contact-icon {
+            color: var(--cv-primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            text-align: center;
+        }
+
+        .cv-contact-value {
+            color: inherit;
+        }
+
+        /* Skills progress bars */
+        .cv-skill-progress-item {
+            list-style: none !important;
+            margin-bottom: 10px !important;
+            padding: 0 !important;
+            width: 100%;
+        }
+
+        .cv-skill-progress-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .cv-skill-name {
+            font-size: 9.5pt;
+            font-weight: 600;
+            color: inherit;
+        }
+
+        .cv-skill-progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .cv-skill-progress-bar-fill {
+            height: 100%;
+            background: var(--cv-primary);
+            border-radius: 3px;
+            transition: width 0.8s ease-in-out;
         }
         
         * {
@@ -1120,6 +1234,487 @@ class CVManager {
             `;
         }
 
+        // 11. Forty Seconds
+        else if (theme === 'forty-seconds') {
+            css += `
+            .cv-page {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                padding: 0 !important;
+                display: flex;
+                min-height: 297mm;
+            }
+            .cv-sidebar {
+                width: 33%;
+                background: var(--cv-sidebar-bg);
+                color: var(--cv-sidebar-text);
+                padding: 35px 20px;
+                display: flex;
+                flex-direction: column;
+                border-right: 1px solid rgba(0,0,0,0.05);
+            }
+            .cv-main-content {
+                width: 67%;
+                padding: 35px 30px;
+                background: var(--cv-bg);
+            }
+            .cv-sidebar h1 {
+                font-size: 18pt;
+                color: var(--cv-primary);
+                margin: 15px 0 5px 0;
+                font-weight: 700;
+                text-align: center;
+            }
+            .cv-sidebar-subtitle {
+                font-size: 10pt;
+                color: var(--cv-secondary);
+                margin-bottom: 25px;
+                text-align: center;
+            }
+            .cv-sidebar-section {
+                margin-bottom: 25px;
+            }
+            .cv-sidebar-section h2 {
+                font-size: 11pt;
+                color: var(--cv-primary);
+                text-transform: uppercase;
+                margin-bottom: 12px;
+                border-bottom: 1.5px solid var(--cv-primary);
+                padding-bottom: 4px;
+                font-weight: 700;
+            }
+            .cv-sidebar-info-item {
+                font-size: 9pt;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .cv-sidebar-info-item .cv-contact-icon {
+                color: var(--cv-primary);
+                opacity: 0.8;
+                font-size: 10pt;
+            }
+            .cv-main-content h2 {
+                font-size: 13pt;
+                font-weight: 700;
+                color: var(--cv-primary);
+                border-left: 4px solid var(--cv-primary);
+                padding-left: 10px;
+                margin-top: 22px;
+                margin-bottom: 12px;
+            }
+            .cv-sidebar .cv-skills-list {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cv-sidebar .cv-skill-item {
+                background: rgba(0,0,0,0.04);
+                color: var(--cv-sidebar-text);
+                border-left: 3px solid var(--cv-primary);
+                padding: 3px 8px;
+            }
+            .cv-sidebar .cv-skill-label {
+                color: var(--cv-primary);
+            }
+            @media print {
+                .cv-page {
+                    display: flex !important;
+                    flex-direction: row !important;
+                }
+                .cv-sidebar {
+                    width: 33% !important;
+                    background: var(--cv-sidebar-bg) !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .cv-main-content {
+                    width: 67% !important;
+                }
+            }
+            `;
+        }
+
+        // 12. Twenty Seconds
+        else if (theme === 'twenty-seconds') {
+            css += `
+            .cv-page {
+                font-family: 'Inter', sans-serif;
+                padding: 0 !important;
+                display: flex;
+                min-height: 297mm;
+            }
+            .cv-sidebar {
+                width: 30%;
+                background: var(--cv-sidebar-bg);
+                color: var(--cv-sidebar-text);
+                padding: 35px 20px;
+                display: flex;
+                flex-direction: column;
+            }
+            .cv-main-content {
+                width: 70%;
+                padding: 35px 30px;
+                background: var(--cv-bg);
+            }
+            .cv-sidebar h1 {
+                font-size: 18pt;
+                color: #ffffff;
+                margin: 15px 0 5px 0;
+                font-weight: 700;
+                text-align: center;
+                letter-spacing: 0.5px;
+            }
+            .cv-sidebar-subtitle {
+                font-size: 10pt;
+                color: rgba(255,255,255,0.7);
+                margin-bottom: 25px;
+                text-align: center;
+            }
+            .cv-sidebar-section {
+                margin-bottom: 25px;
+            }
+            .cv-sidebar-section h2 {
+                font-size: 11pt;
+                color: #ffffff;
+                text-transform: uppercase;
+                margin-bottom: 12px;
+                border-bottom: 1px solid rgba(255,255,255,0.2);
+                padding-bottom: 4px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+            }
+            .cv-sidebar-info-item {
+                font-size: 9pt;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: rgba(255,255,255,0.9);
+            }
+            .cv-sidebar-info-item a {
+                color: #ffffff;
+            }
+            .cv-sidebar-info-item .cv-contact-icon {
+                color: var(--cv-primary);
+                font-size: 10pt;
+            }
+            .cv-main-content h2 {
+                font-size: 13pt;
+                font-weight: 700;
+                color: var(--cv-primary);
+                border-bottom: 1.5px solid var(--cv-primary);
+                padding-bottom: 4px;
+                margin-top: 22px;
+                margin-bottom: 12px;
+            }
+            .cv-sidebar .cv-skills-list {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cv-sidebar .cv-skill-item {
+                background: rgba(255,255,255,0.08);
+                color: #ffffff;
+                border-left: 3px solid var(--cv-primary);
+                padding: 3px 8px;
+            }
+            .cv-sidebar .cv-skill-label {
+                color: #ffffff;
+            }
+            .cv-sidebar .cv-skill-progress-bar-bg {
+                background: rgba(255,255,255,0.2);
+            }
+            .cv-sidebar .cv-skill-progress-bar-fill {
+                background: #ffffff;
+            }
+            .cv-sidebar .cv-skill-name {
+                color: #ffffff;
+            }
+            @media print {
+                .cv-page {
+                    display: flex !important;
+                    flex-direction: row !important;
+                }
+                .cv-sidebar {
+                    width: 30% !important;
+                    background: var(--cv-sidebar-bg) !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .cv-main-content {
+                    width: 70% !important;
+                }
+            }
+            `;
+        }
+
+        // 13. Hipster
+        else if (theme === 'hipster') {
+            css += `
+            .cv-page {
+                font-family: 'Inter', sans-serif;
+                padding: 0 !important;
+                display: flex;
+                min-height: 297mm;
+            }
+            .cv-sidebar {
+                width: 34%;
+                background: var(--cv-sidebar-bg);
+                color: var(--cv-sidebar-text);
+                padding: 35px 20px;
+                display: flex;
+                flex-direction: column;
+                border-right: 1px solid #e5e7eb;
+            }
+            .cv-main-content {
+                width: 66%;
+                padding: 35px 30px;
+                background: var(--cv-bg);
+            }
+            .cv-sidebar-photo img {
+                border: 3px solid var(--cv-primary);
+                padding: 3px;
+            }
+            .cv-sidebar h1 {
+                font-family: Georgia, serif;
+                font-size: 17pt;
+                color: var(--cv-primary);
+                margin: 15px 0 5px 0;
+                font-weight: 700;
+                text-align: center;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            .cv-sidebar-subtitle {
+                font-size: 9.5pt;
+                color: var(--cv-secondary);
+                margin-bottom: 25px;
+                text-align: center;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+            }
+            .cv-sidebar-section {
+                margin-bottom: 25px;
+            }
+            .cv-sidebar-section h2 {
+                font-family: Georgia, serif;
+                font-size: 11pt;
+                color: var(--cv-primary);
+                text-transform: uppercase;
+                margin-bottom: 12px;
+                border-bottom: 1.5px solid var(--cv-primary);
+                padding-bottom: 4px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+            }
+            .cv-sidebar-info-item {
+                font-size: 9pt;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .cv-sidebar-info-item .cv-contact-icon {
+                color: var(--cv-primary);
+                font-size: 10pt;
+            }
+            .cv-main-content h2 {
+                font-family: Georgia, serif;
+                font-size: 12.5pt;
+                font-weight: 700;
+                color: var(--cv-primary);
+                text-transform: uppercase;
+                border-bottom: 1.5px solid var(--cv-primary);
+                padding-bottom: 4px;
+                margin-top: 22px;
+                margin-bottom: 12px;
+                letter-spacing: 0.5px;
+            }
+            .cv-sidebar .cv-skills-list {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cv-sidebar .cv-skill-item {
+                background: #ffffff;
+                color: var(--cv-sidebar-text);
+                border: 1px solid #d1d5db;
+                border-left: 3px solid var(--cv-primary);
+                padding: 3px 8px;
+            }
+            @media print {
+                .cv-page {
+                    display: flex !important;
+                    flex-direction: row !important;
+                }
+                .cv-sidebar {
+                    width: 34% !important;
+                    background: var(--cv-sidebar-bg) !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .cv-main-content {
+                    width: 66% !important;
+                }
+            }
+            `;
+        }
+
+        // 14. Sixty Seconds
+        else if (theme === 'sixty-seconds') {
+            css += `
+            .cv-page {
+                font-family: 'Inter', sans-serif;
+                padding: 0 !important;
+                display: flex;
+                min-height: 297mm;
+            }
+            .cv-sidebar {
+                width: 30%;
+                background: var(--cv-sidebar-bg);
+                color: var(--cv-sidebar-text);
+                padding: 35px 20px;
+                display: flex;
+                flex-direction: column;
+                border-right: 1px solid #e2e8f0;
+            }
+            .cv-main-content {
+                width: 70%;
+                padding: 35px 30px;
+                background: var(--cv-bg);
+            }
+            .cv-sidebar h1 {
+                font-size: 18pt;
+                color: var(--cv-primary);
+                margin: 15px 0 5px 0;
+                font-weight: 700;
+                text-align: center;
+            }
+            .cv-sidebar-subtitle {
+                font-size: 9.5pt;
+                color: var(--cv-secondary);
+                margin-bottom: 25px;
+                text-align: center;
+            }
+            .cv-sidebar-section {
+                margin-bottom: 25px;
+            }
+            .cv-sidebar-section h2 {
+                font-size: 10.5pt;
+                color: var(--cv-primary);
+                text-transform: uppercase;
+                margin-bottom: 12px;
+                border-bottom: 1px solid #cbd5e1;
+                padding-bottom: 4px;
+                font-weight: 700;
+            }
+            .cv-sidebar-info-item {
+                font-size: 9pt;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .cv-sidebar-info-item .cv-contact-icon {
+                color: var(--cv-primary);
+                font-size: 10pt;
+            }
+            .cv-main-content h2 {
+                font-size: 12pt;
+                font-weight: 700;
+                color: var(--cv-primary);
+                border-bottom: 1px dashed var(--cv-primary);
+                padding-bottom: 4px;
+                margin-top: 22px;
+                margin-bottom: 12px;
+            }
+            .cv-sidebar .cv-skills-list {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .cv-sidebar .cv-skill-item {
+                background: rgba(0,0,0,0.03);
+                color: var(--cv-sidebar-text);
+                border: 1px solid rgba(0,0,0,0.08);
+                padding: 3px 8px;
+            }
+            @media print {
+                .cv-page {
+                    display: flex !important;
+                    flex-direction: row !important;
+                }
+                .cv-sidebar {
+                    width: 30% !important;
+                    background: var(--cv-sidebar-bg) !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                .cv-main-content {
+                    width: 70% !important;
+                }
+            }
+            `;
+        }
+
+        // 15. Entry Level
+        else if (theme === 'entry-level') {
+            css += `
+            .cv-page {
+                font-family: 'Inter', -apple-system, sans-serif;
+                line-height: 1.45;
+            }
+            .cv-header {
+                text-align: center;
+                margin-bottom: 25px;
+            }
+            .cv-header h1 {
+                font-size: 24pt;
+                font-weight: 800;
+                letter-spacing: -0.5px;
+                color: var(--cv-primary);
+                margin-bottom: 4px;
+            }
+            .cv-subtitle {
+                font-size: 12pt;
+                color: var(--cv-secondary);
+                font-weight: 500;
+                margin-bottom: 12px;
+            }
+            .cv-contact-info {
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                flex-wrap: wrap;
+                font-size: 9.5pt;
+                color: var(--cv-secondary);
+            }
+            .cv-contact-info .cv-contact-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .cv-contact-info .cv-contact-icon {
+                color: var(--cv-primary);
+            }
+            h2 {
+                font-size: 11pt;
+                font-weight: 700;
+                text-transform: uppercase;
+                border-bottom: 1px solid var(--cv-primary);
+                padding-bottom: 3px;
+                margin-top: 22px;
+                margin-bottom: 10px;
+                color: var(--cv-primary);
+                letter-spacing: 0.5px;
+            }
+            .cv-entry-title {
+                font-weight: bold;
+            }
+            .cv-entry-org {
+                font-weight: normal;
+                color: var(--cv-secondary);
+            }
+            `;
+        }
+
         return css;
     }
 
@@ -1178,13 +1773,15 @@ class CVManager {
         }
 
         // Contact info assembly
+        const useIcons = this.metadata.icons !== false && this.metadata.icons !== 'false';
         const contacts = [];
-        if (email) contacts.push(`<span>Email: ${email}</span>`);
-        if (phone) contacts.push(`<span>Phone: ${phone}</span>`);
-        if (location) contacts.push(`<span>Location: ${location}</span>`);
-        if (website) contacts.push(`<span>Web: <a href="${website}">${website.replace(/^https?:\/\//, '')}</a></span>`);
-        if (github) contacts.push(`<span>GitHub: <a href="https://github.com/${github}">github.com/${github}</a></span>`);
-        if (linkedin) contacts.push(`<span>LinkedIn: <a href="https://linkedin.com/in/${linkedin}">linkedin.com/in/${linkedin}</a></span>`);
+        if (email) contacts.push(this.getContactItemHtml('email', email, useIcons));
+        if (phone) contacts.push(this.getContactItemHtml('phone', phone, useIcons));
+        if (location) contacts.push(this.getContactItemHtml('location', location, useIcons));
+        if (website) contacts.push(this.getContactItemHtml('website', website, useIcons));
+        if (github) contacts.push(this.getContactItemHtml('github', github, useIcons));
+        if (linkedin) contacts.push(this.getContactItemHtml('linkedin', linkedin, useIcons));
+        if (this.metadata.twitter) contacts.push(this.getContactItemHtml('twitter', this.metadata.twitter, useIcons));
 
         // Generate Header HTML depending on layout (e.g. Modern Sidebar separates header)
         let headerHTML = '';
@@ -1256,7 +1853,7 @@ class CVManager {
 
         // Restructure body for specialized layouts
         let pageBodyHTML = '';
-        if (theme === 'modern-sidebar') {
+        if (['modern-sidebar', 'forty-seconds', 'twenty-seconds', 'hipster', 'sixty-seconds'].includes(theme)) {
             const sidebarContacts = contacts.map(c => `<div class="cv-sidebar-info-item">${c}</div>`).join('\n');
             // Split parsed main content to separate out skills
             const temp = document.createElement('div');
@@ -1348,6 +1945,9 @@ class CVManager {
     <!-- KaTeX for math expressions -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Code syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     
@@ -1424,6 +2024,48 @@ class CVManager {
             });
         }
         return { success: false, error: 'Electron IPC not available' };
+    }
+
+    /**
+     * Get contact item HTML structure using FontAwesome icons or text labels
+     */
+    getContactItemHtml(key, value, useIcons) {
+        if (!value) return '';
+        const icons = {
+            email: '<i class="fas fa-envelope"></i>',
+            phone: '<i class="fas fa-phone"></i>',
+            location: '<i class="fas fa-map-marker-alt"></i>',
+            website: '<i class="fas fa-globe"></i>',
+            github: '<i class="fab fa-github"></i>',
+            linkedin: '<i class="fab fa-linkedin"></i>',
+            twitter: '<i class="fab fa-twitter"></i>'
+        };
+        const labels = {
+            email: 'Email',
+            phone: 'Phone',
+            location: 'Location',
+            website: 'Web',
+            github: 'GitHub',
+            linkedin: 'LinkedIn',
+            twitter: 'Twitter'
+        };
+
+        const iconHtml = useIcons ? `<span class="cv-contact-icon">${icons[key] || ''}</span>` : `<span class="cv-contact-label">${labels[key] || key}:</span>`;
+        
+        let content = value;
+        if (key === 'email') {
+            content = `<a href="mailto:${value}">${value}</a>`;
+        } else if (key === 'website') {
+            content = `<a href="${value.startsWith('http') ? value : 'https://' + value}" target="_blank">${value.replace(/^https?:\/\//, '')}</a>`;
+        } else if (key === 'github') {
+            content = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
+        } else if (key === 'linkedin') {
+            content = `<a href="https://linkedin.com/in/${value}" target="_blank">${value}</a>`;
+        } else if (key === 'twitter') {
+            content = `<a href="https://twitter.com/${value}" target="_blank">@${value}</a>`;
+        }
+
+        return `<span class="cv-contact-item">${iconHtml} <span class="cv-contact-value">${content}</span></span>`;
     }
 }
 

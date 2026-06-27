@@ -3971,7 +3971,8 @@ A: Verify files exist and contain matching text.
         const cvThemes = [
             'classic-latex', 'academic', 'modern-sidebar', 'minimalist',
             'decent', 'awesome-cv', 'friggeri', 'moderncv-classic',
-            'moderncv-casual', 'executive'
+            'moderncv-casual', 'executive', 'forty-seconds', 'twenty-seconds',
+            'hipster', 'sixty-seconds', 'entry-level'
         ];
         cvThemes.forEach(theme => {
             this.bindButton(`menu-cv-theme-${theme}`, () => this.setCVTheme(theme));
@@ -3993,8 +3994,13 @@ A: Verify files exist and contain matching text.
         // Help guides
         this.bindButton('menu-help-cv', () => this.openHelpCV());
         this.bindButton('menu-help-main-cv', () => this.openHelpCV());
-        this.bindButton('menu-help-cv-examples', () => this.openHelpCVShowcase());
-        this.bindButton('menu-help-cv-showcase', () => this.openHelpCVShowcase());
+        
+        // CV Examples & Templates
+        const cvExamples = ['classic', 'forty', 'twenty', 'hipster', 'entry'];
+        cvExamples.forEach(type => {
+            this.bindButton(`menu-help-cv-${type}`, () => this.showCVExample(type));
+            this.bindButton(`menu-help-cv-${type}-side`, () => this.showCVExample(type));
+        });
 
         // Photo actions
         this.bindButton('menu-cv-set-photo', () => this.selectCVPhoto());
@@ -6296,15 +6302,18 @@ colors:
         document.getElementById('about-close-btn').onclick = () => modal.remove();
     }
 
-    openHelpCVShowcase() {
-        const showcaseContent = `---
+    showCVExample(type) {
+        let showcaseContent = '';
+        let fileName = 'CV Example';
+
+        if (type === 'classic') {
+            fileName = 'Classic Resume';
+            showcaseContent = `---
 cv: true
-theme: awesome-cv
+theme: classic-latex
 paperSize: a4
 name: Jane Doe
 subtitle: Senior Software Architect
-photo: "https://picsum.photos/200"
-photoShape: round
 email: jane.doe@email.com
 phone: +1 (555) 019-2834
 location: Boston, MA
@@ -6312,9 +6321,9 @@ website: https://janedoe.dev
 github: janedoe
 linkedin: janedoe-profile
 colors:
-  primary: "#1b365d"
-  secondary: "#475569"
-  text: "#1f2937"
+  primary: "#000000"
+  secondary: "#555555"
+  text: "#111111"
   background: "#ffffff"
 ---
 
@@ -6347,13 +6356,238 @@ A highly skilled software architect with over 10 years of experience designing a
 
 ## Technical Skills
 
-- JavaScript, TypeScript, Python, Go, Java, Rust
-- Node.js, React, Next.js, Express, Fastify, Django
-- Docker, Kubernetes, AWS, Terraform, GitHub Actions, CI/CD
-- PostgreSQL, MongoDB, Redis, Elasticsearch
+- **Programming Languages**: JavaScript, TypeScript, Python, Go, Java, Rust
+- **Frameworks & Libraries**: Node.js, React, Next.js, Express, Fastify, Django
+- **DevOps & Cloud**: Docker, Kubernetes, AWS, Terraform, GitHub Actions, CI/CD
+- **Databases**: PostgreSQL, MongoDB, Redis, Elasticsearch
 `;
+        } else if (type === 'forty' || type === 'forty-seconds') {
+            fileName = 'Forty Seconds Resume';
+            showcaseContent = `---
+cv: true
+theme: forty-seconds
+paperSize: a4
+name: Jane Doe
+subtitle: Senior Software Architect
+photo: "https://picsum.photos/200"
+photoShape: round
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#2b3e50"
+  secondary: "#7f8c8d"
+  text: "#2c3e50"
+  background: "#ffffff"
+  sidebarBg: "#f0f2f5"
+  sidebarText: "#2c3e50"
+---
 
-        this.openHelpDocument('CV Example', showcaseContent);
+## Professional Summary
+
+A highly skilled software architect with over 10 years of experience designing and implementing distributed systems, cloud infrastructure, and modern web applications. Passionate about clean code, performance optimization, and developer productivity.
+
+## Work Experience
+
+### Senior Software Architect | Acme Corporation | Boston, MA | 2021 – Present
+- Led the design and migration of legacy monolith applications to microservices.
+- Designed containerized deployments using Kubernetes and Docker on AWS.
+- Mentored a team of 12 engineers in best practices and TDD.
+
+### Technical Lead | Tech Solutions Inc. | Cambridge, MA | 2017 – 2021
+- Spearheaded development of a real-time analytics dashboard used by 50+ clients.
+- Optimized query performance of PostgreSQL databases, reducing latency by 45%.
+- Implemented CI/CD pipelines.
+
+## Education
+
+### Master of Science in Computer Science | MIT | Cambridge, MA | 2015 – 2017
+- Specialization in Distributed Systems and Software Engineering.
+
+### Bachelor of Science in Computer Engineering | BU | Boston, MA | 2011 – 2015
+
+## Technical Skills
+
+- JavaScript | 90%
+- TypeScript | 85%
+- Python | 80%
+- Go | 75%
+- Docker | 80%
+- Kubernetes | 70%
+- AWS | 75%
+- PostgreSQL | 80%
+`;
+        } else if (type === 'twenty' || type === 'twenty-seconds') {
+            fileName = 'Twenty Seconds Resume';
+            showcaseContent = `---
+cv: true
+theme: twenty-seconds
+paperSize: a4
+name: Jane Doe
+subtitle: Senior Software Architect
+photo: "https://picsum.photos/200"
+photoShape: round
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#24c0d8"
+  secondary: "#95a5a6"
+  text: "#3d3d3d"
+  background: "#ffffff"
+  sidebarBg: "#3d3d3d"
+  sidebarText: "#ffffff"
+---
+
+## Professional Summary
+
+A highly skilled software architect with over 10 years of experience designing and implementing distributed systems, cloud infrastructure, and modern web applications.
+
+## Work Experience
+
+### Senior Software Architect | Acme Corporation | Boston, MA | 2021 – Present
+- Led the design and migration of legacy monolith applications to microservices.
+- Designed containerized deployments using Kubernetes and Docker on AWS.
+- Mentored a team of 12 engineers in best practices and TDD.
+
+### Technical Lead | Tech Solutions Inc. | Cambridge, MA | 2017 – 2021
+- Spearheaded development of a real-time analytics dashboard used by 50+ clients.
+- Optimized query performance of PostgreSQL databases, reducing latency by 45%.
+- Implemented CI/CD pipelines.
+
+## Education
+
+### Master of Science in Computer Science | MIT | Cambridge, MA | 2015 – 2017
+- Specialization in Distributed Systems and Software Engineering.
+
+### Bachelor of Science in Computer Engineering | BU | Boston, MA | 2011 – 2015
+
+## Technical Skills
+
+- JavaScript | 90%
+- TypeScript | 85%
+- Python | 80%
+- Go | 75%
+- Docker | 80%
+- Kubernetes | 70%
+- AWS | 75%
+- PostgreSQL | 80%
+`;
+        } else if (type === 'hipster') {
+            fileName = 'Simple Hipster Resume';
+            showcaseContent = `---
+cv: true
+theme: hipster
+paperSize: a4
+name: Jane Doe
+subtitle: Senior Software Architect
+photo: "https://picsum.photos/200"
+photoShape: round
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#e05a47"
+  secondary: "#7f8c8d"
+  text: "#333333"
+  background: "#ffffff"
+  sidebarBg: "#f9f9f9"
+  sidebarText: "#333333"
+---
+
+## Professional Summary
+
+A highly skilled software architect with over 10 years of experience designing and implementing distributed systems, cloud infrastructure, and modern web applications.
+
+## Work Experience
+
+### Senior Software Architect | Acme Corporation | Boston, MA | 2021 – Present
+- Led migration of legacy monolith applications to high-performance microservices.
+- Designed containerized deployments using Kubernetes and Docker on AWS.
+- Mentored a team of 12 engineers in best practices and test-driven development.
+
+### Technical Lead | Tech Solutions Inc. | Cambridge, MA | 2017 – 2021
+- Spearheaded development of a real-time analytics dashboard.
+- Optimized query performance of PostgreSQL databases.
+
+## Education
+
+### Master of Science in Computer Science | MIT | Cambridge, MA | 2015 – 2017
+
+### Bachelor of Science in Computer Engineering | BU | Boston, MA | 2011 – 2015
+
+## Technical Skills
+
+- JavaScript | 5/5
+- TypeScript | 4/5
+- Python | 4/5
+- Go | 3.5/5
+- Docker | 4/5
+- Kubernetes | 3.5/5
+- AWS | 4/5
+- PostgreSQL | 4/5
+`;
+        } else if (type === 'entry') {
+            fileName = 'Entry Level Resume';
+            showcaseContent = `---
+cv: true
+theme: entry-level
+paperSize: a4
+name: Jane Doe
+subtitle: Junior Software Engineer
+email: jane.doe@email.com
+phone: +1 (555) 019-2834
+location: Boston, MA
+website: https://janedoe.dev
+github: janedoe
+linkedin: janedoe-profile
+colors:
+  primary: "#0f172a"
+  secondary: "#475569"
+  text: "#334155"
+  background: "#ffffff"
+---
+
+## Professional Summary
+
+A passionate junior software engineer with solid foundations in computer science, full-stack web development, and database systems. Highly motivated to learn new technologies and contribute to high-impact development projects.
+
+## Education
+
+### Bachelor of Science in Computer Science | Boston University | Boston, MA | 2022 – 2026
+- Graduated with Honors (Magna Cum Laude). GPA: 3.8/4.0.
+- Relevant Coursework: Data Structures, Algorithms, Software Engineering, Database Systems.
+
+## Projects
+
+### Real-Time Chat Application | Personal Project | GitHub | 2025
+- Built a secure real-time messaging platform using Node.js, Socket.io, and React.
+- Integrated MongoDB for persistent message archiving and user authentication with JWT.
+
+### Task Management Dashboard | Academic Project | GitHub | 2024
+- Co-developed a team collaboration app utilizing TypeScript, Express, and PostgreSQL.
+- Implemented Kanban boards and real-time email notifications for project milestones.
+
+## Technical Skills
+
+- **Programming Languages**: JavaScript, TypeScript, Python, Java, SQL, HTML/CSS
+- **Frameworks & Libraries**: Node.js, React, Express, PostgreSQL, MongoDB
+- **Tools & Platforms**: Git, GitHub, Docker, VS Code, Linux
+`;
+        }
+
+        if (showcaseContent) {
+            this.openHelpDocument(fileName, showcaseContent);
+        }
     }
 
     /**

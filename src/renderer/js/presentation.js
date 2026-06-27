@@ -692,6 +692,104 @@ ${navItems}
             font-size: 0.9em;
         }
         
+        /* Highlighted/Mark text styling */
+        .slide mark {
+            background: #fff3cd;
+            color: #856404;
+            padding: 0.1em 0.25em;
+            border-radius: 3px;
+        }
+        [data-theme="dark"] .slide mark,
+        [data-theme="metropolis"] .slide mark,
+        [data-theme="nord"] .slide mark {
+            background: #533f03;
+            color: #ffc107;
+        }
+        
+        /* Keyboard keys styling */
+        .slide kbd {
+            background: #f7f7f7;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2), 0 0 0 2px #fff inset;
+            color: #333;
+            display: inline-block;
+            font-family: inherit;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin: 0 0.1em;
+            padding: 0.1em 0.6em;
+            text-shadow: 0 1px 0 #fff;
+        }
+        
+        /* Presentation Skills list tags and progress bars */
+        .slide ul.pres-skills-list {
+            list-style: none !important;
+            padding: 0 !important;
+            margin: 1em 0 !important;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%;
+        }
+        
+        /* Disable theme bullet pseudo-elements to prevent red line overlay */
+        .slide ul.pres-skills-list li::before,
+        .slide ul.pres-skills-list li::after {
+            display: none !important;
+            content: none !important;
+        }
+        
+        .slide .pres-skill-progress-item {
+            list-style: none !important;
+            margin-bottom: 16px !important;
+            padding: 0 !important;
+            width: 100%;
+            display: block !important;
+            position: relative !important;
+        }
+        
+        .slide .pres-skill-progress-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        
+        .slide .pres-skill-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: inherit;
+            line-height: 1.2 !important;
+            display: block !important;
+        }
+        
+        .slide .pres-skill-progress-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(127, 127, 127, 0.25);
+            border-radius: 5px;
+            overflow: hidden;
+            display: block !important;
+        }
+        
+        .slide .pres-skill-progress-bar-fill {
+            height: 100%;
+            background: var(--slide-primary, #007acc);
+            border-radius: 5px;
+            transition: width 0.8s ease-in-out;
+        }
+        
+        .slide .pres-skill-item {
+            background: rgba(127, 127, 127, 0.15);
+            border-left: 5px solid var(--slide-primary, #007acc);
+            padding: 0.3em 0.8em;
+            border-radius: 3px;
+            font-size: 0.9em;
+            font-weight: 500;
+            list-style: none !important;
+        }
+
         /* Progress bar */
         #progress-bar {
             position: fixed;
@@ -1794,6 +1892,24 @@ ${navItems}
             return placeholder;
         });
         
+        // Process custom inline syntax extensions (highlight, spoilers, sub/sup, kbd)
+        content = content.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+        content = content.replace(/\|\|([^|]+)\|\|/g, '<span class="spoiler">$1</span>');
+        content = content.replace(/~([^~$]+)~/g, (match, subContent) => {
+            if (subContent.includes('MATH_') || subContent.includes('LATEX_') || subContent.includes('PLACEHOLDER')) {
+                return match;
+            }
+            return `<sub>${subContent}</sub>`;
+        });
+        content = content.replace(/\^([^^$]+)\^/g, (match, superContent) => {
+            if (superContent.includes('\\') || superContent.includes('{') || superContent.includes('}') || 
+                superContent.includes('MATH_') || superContent.includes('LATEX_') || superContent.includes('PLACEHOLDER')) {
+                return match;
+            }
+            return `<sup>${superContent}</sup>`;
+        });
+        content = content.replace(/\[\[([^\]]+)\]\]/g, '<kbd>$1</kbd>');
+
         // Parse markdown content to HTML using marked if available
         // Task lists (- [ ] and - [x]) are handled in post-processing via processTaskListsForExport
         let htmlContent = content;
@@ -2130,6 +2246,9 @@ ${navItems}
         // Process task lists - add proper classes for GitHub-style rendering
         this.processTaskListsForExport(temp);
         
+        // Process skills list to render tag pills and progress bars
+        this.processSkillsListsForPresentation(temp);
+        
         return temp.innerHTML;
     }
     
@@ -2201,6 +2320,73 @@ ${navItems}
             if (parentList) {
                 parentList.classList.add('task-list');
                 parentList.classList.add('contains-task-list');
+            }
+        });
+    }
+
+    /**
+     * Process skills lists in slides to render tag pills and progress bars
+     */
+    processSkillsListsForPresentation(container) {
+        const headings = Array.from(container.querySelectorAll('h1, h2, h3, h4'));
+        headings.forEach(heading => {
+            const title = heading.textContent.toLowerCase();
+            if (title.includes('skill')) {
+                let next = heading.nextElementSibling;
+                while (next && next.tagName !== 'UL' && !['H1', 'H2', 'H3', 'H4'].includes(next.tagName)) {
+                    next = next.nextElementSibling;
+                }
+                
+                if (next && next.tagName === 'UL') {
+                    next.classList.add('pres-skills-list');
+                    const items = next.querySelectorAll('li');
+                    items.forEach(item => {
+                        const text = item.textContent;
+                        if (text.includes('|')) {
+                            const parts = text.split('|').map(p => p.trim());
+                            if (parts.length >= 2) {
+                                const name = parts[0];
+                                const ratingStr = parts[1];
+                                let percent = 0;
+                                
+                                if (ratingStr.endsWith('%')) {
+                                    percent = parseInt(ratingStr, 10);
+                                } else if (ratingStr.includes('/')) {
+                                    const frac = ratingStr.split('/');
+                                    const val = parseFloat(frac[0]);
+                                    const max = parseFloat(frac[1]);
+                                    if (!isNaN(val) && !isNaN(max) && max > 0) {
+                                        percent = Math.round((val / max) * 100);
+                                    }
+                                } else {
+                                    const val = parseFloat(ratingStr);
+                                    if (!isNaN(val)) {
+                                        if (val <= 5) percent = val * 20;
+                                        else if (val <= 10) percent = val * 10;
+                                    }
+                                }
+                                
+                                if (percent > 0 && percent <= 100) {
+                                    item.classList.add('pres-skill-progress-item');
+                                    item.innerHTML = `
+                                        <div class="pres-skill-progress-wrapper">
+                                            <span class="pres-skill-name">${name}</span>
+                                            <div class="pres-skill-progress-bar-bg">
+                                                <div class="pres-skill-progress-bar-fill" style="width: ${percent}%;"></div>
+                                            </div>
+                                        </div>`;
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        item.classList.add('pres-skill-item');
+                        const strong = item.querySelector('strong');
+                        if (strong) {
+                            strong.classList.add('pres-skill-label');
+                        }
+                    });
+                }
             }
         });
     }
@@ -2693,6 +2879,8 @@ ${navItems}
         .slide {
             background: ${colors.background};
             color: ${colors.text};
+            --slide-primary: ${colors.primary};
+            --slide-secondary: ${colors.secondary};
         }
         
         .slide h1, .slide h2, .slide h3 {
