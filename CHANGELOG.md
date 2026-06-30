@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.2] - 2026-06-30
+
+### Added
+
+1. **PowerPoint (.pptx) Import Capability** ✅
+   - Added a native, 100% offline client-side PPTX importer powered by `jszip` and standard browser `DOMParser`.
+   - Supports three import options:
+     - **Import Content & Styles**: Extracts slide texts, headers, lists, structure, and maps theme color schemes (background, text, accent) into Markdown YAML front-matter.
+     - **Import Content Only**: Extracts text outline using default presentation styles.
+     - **Import Styles Only**: Extracts color schemes and loads a blank presentation template with the style front-matter.
+   - Automatically detects theme background brightness to configure slide templates as `simple-light` or `simple-dark`.
+2. **PowerPoint (.pptx) Export Capability** ✅
+   - Integrated `PptxGenJS` to compile Markdown presentations into native PowerPoint files (`.pptx`) completely offline.
+   - Automatically maps theme settings and front-matter colors (background, text, primary, secondary) to native slide formats.
+   - Formats headers, standard paragraphs, and nested multi-level bullet points.
+   - Automatically positions local and remote images using a professional split-column layout (content on the left, images on the right).
+3. **PowerPoint Integration UI** ✅
+   - Added **Import PowerPoint (.pptx)...** and **Export Presentation as PowerPoint (.pptx)** items to the Presentation dropdown menu.
+   - Created a modern, clean Options Modal for import selection.
+
+### Fixed
+
+1. **Robust PowerPoint File Operations** ✅
+   - Registered native IPC dialog handlers (`show-open-pptx-dialog` and `show-save-pptx-dialog`) in Electron main process.
+   - Embedded safe Base64 binary reader logic for local slide image assets during PowerPoint exports.
+
 ## [1.5.1] - 2026-06-26
 
 ### Added

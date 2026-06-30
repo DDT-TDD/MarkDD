@@ -3813,6 +3813,11 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-presentation-preview', () => this.previewPresentation());
         this.bindButton('menu-presentation-export-html', () => this.exportPresentationHTML());
         this.bindButton('menu-presentation-export-pdf', () => this.exportPresentationPDF());
+        this.bindButton('menu-presentation-import-pptx', () => this.promptImportPPTX());
+        this.bindButton('menu-presentation-export-pptx', () => this.exportPresentationPPTX());
+        this.bindButton('pptx-import-close', () => this.closePPTXImportModal());
+        this.bindButton('pptx-import-cancel-btn', () => this.closePPTXImportModal());
+        this.bindButton('pptx-import-confirm-btn', () => this.confirmImportPPTX());
         
         // Classic Beamer theme selection handlers
         this.bindButton('menu-theme-berkeley', () => this.setPresentationTheme('berkeley'));
@@ -4898,6 +4903,161 @@ Questions?
         this.showMessage('New presentation created. Edit and use Presentation menu to preview or export.');
     }
     
+    /**
+     * Open native open-file dialog to choose PPTX to import
+     */
+    async promptImportPPTX() {
+        // Close any active menus immediately to prevent them from remaining frozen when focus shifts
+        document.body.click();
+        document.querySelectorAll('.menu-item.active').forEach(item => {
+            item.classList.remove('active');
+            const dropdown = item.querySelector('.menu-dropdown');
+            if (dropdown) {
+                dropdown.style.left = '';
+                dropdown.style.right = '';
+                dropdown.style.maxHeight = '';
+            }
+        });
+
+        if (typeof require === 'undefined') {
+            this.showToast('Native file operations are not supported in this environment.', 'error');
+            return;
+        }
+        
+        const { ipcRenderer } = require('electron');
+        try {
+            const result = await ipcRenderer.invoke('show-open-pptx-dialog');
+            if (result && !result.canceled && result.filePath) {
+                this._pptxImportFilePath = result.filePath;
+                document.getElementById('pptx-import-modal').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Failed to open PPTX dialog:', error);
+            this.showToast('Failed to open file dialog: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Close the PPTX import options modal
+     */
+    closePPTXImportModal() {
+        document.getElementById('pptx-import-modal').style.display = 'none';
+        this._pptxImportFilePath = null;
+    }
+
+    /**
+     * Process PPTX import based on user choice
+     */
+    async confirmImportPPTX() {
+        const filePath = this._pptxImportFilePath;
+        if (!filePath) {
+            this.closePPTXImportModal();
+            return;
+        }
+        
+        const radioButtons = document.getElementsByName('pptx-import-option');
+        let selectedOption = 'both';
+        for (const radio of radioButtons) {
+            if (radio.checked) {
+                selectedOption = radio.value;
+                break;
+            }
+        }
+        
+        document.getElementById('pptx-import-modal').style.display = 'none';
+        
+        try {
+            this.showToast('Importing PowerPoint presentation...', 'success');
+            
+            const PPTXImporter = require('./js/pptx-importer.js');
+            const markdown = await PPTXImporter.importFile(filePath, selectedOption);
+            
+            const path = require('path');
+            const fileName = path.basename(filePath).replace('.pptx', '.md');
+            
+            const tabId = this.tabManager.createTab(fileName, markdown);
+            this.tabManager.switchTab(tabId);
+            this.editor.setContent(markdown);
+            
+            if (this.preview) {
+                this.preview.updatePreview(markdown);
+            }
+            
+            this.showToast('PowerPoint presentation successfully imported!', 'success');
+        } catch (error) {
+            console.error('Failed to import PPTX:', error);
+            this.showToast('Failed to import PowerPoint presentation: ' + error.message, 'error');
+        } finally {
+            this._pptxImportFilePath = null;
+        }
+    }
+
+    /**
+     * Export the current presentation document to PowerPoint (.pptx)
+     */
+    async exportPresentationPPTX() {
+        // Close any active menus immediately to prevent them from remaining frozen when focus shifts
+        document.body.click();
+        document.querySelectorAll('.menu-item.active').forEach(item => {
+            item.classList.remove('active');
+            const dropdown = item.querySelector('.menu-dropdown');
+            if (dropdown) {
+                dropdown.style.left = '';
+                dropdown.style.right = '';
+                dropdown.style.maxHeight = '';
+            }
+        });
+
+        if (typeof require === 'undefined') {
+            this.showToast('Native file operations are not supported in this environment.', 'error');
+            return;
+        }
+        
+        const markdown = this.editor.getContent();
+        if (!markdown || !markdown.trim()) {
+            this.showToast('Please open or write a presentation first.', 'error');
+            return;
+        }
+        
+        if (!markdown.includes('presentation: true')) {
+            const confirmExport = confirm('This document does not contain "presentation: true" in the front-matter. Export to PowerPoint anyway?');
+            if (!confirmExport) return;
+        }
+        
+        const { ipcRenderer } = require('electron');
+        const path = require('path');
+        
+        let defaultName = 'Presentation.pptx';
+        let currentFileDir = '';
+        if (this.editor.currentFile) {
+            const baseName = path.basename(this.editor.currentFile, path.extname(this.editor.currentFile));
+            defaultName = baseName + '.pptx';
+            currentFileDir = path.dirname(this.editor.currentFile);
+        }
+        
+        try {
+            const result = await ipcRenderer.invoke('show-save-pptx-dialog', defaultName);
+            if (result && !result.canceled && result.filePath) {
+                this.showToast('Exporting to PowerPoint...', 'success');
+                
+                const exportResult = await ipcRenderer.invoke('export-presentation-pptx', {
+                    markdown,
+                    filePath: result.filePath,
+                    currentFileDir
+                });
+                
+                if (exportResult && exportResult.success) {
+                    this.showToast(`Presentation exported to: ${result.filePath}`, 'success');
+                } else {
+                    throw new Error((exportResult && exportResult.error) || 'Unknown export error');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to export PPTX:', error);
+            this.showToast('Failed to export presentation: ' + error.message, 'error');
+        }
+    }
+
     /**
      * Preview current presentation in separate window
      */

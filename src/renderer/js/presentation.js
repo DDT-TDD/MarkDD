@@ -632,7 +632,10 @@ ${navItems}
 
         .slide img {
             max-width: 90%;
+            max-height: 55vh;
+            width: auto;
             height: auto;
+            object-fit: contain;
         }
 
         .slide figure {
@@ -1132,9 +1135,19 @@ ${navItems}
             }
             ` : ''}
             body.print-layout .slide {
+                width: 297mm !important;
+                height: 210mm !important;
+                box-sizing: border-box !important;
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                overflow: hidden !important;
+                position: relative !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: stretch !important;
+                padding: 20mm 25mm !important;
                 margin: 0 !important;
-                padding: 60px !important;
-                min-height: 100vh !important;
             }
             
             /* Ensure each slide fits on one page */
@@ -1827,8 +1840,17 @@ ${navItems}
      * Generate HTML for a single slide
      */
     generateSlideHTML(slide, index, theme) {
-        // Protect math expressions before processing with marked
         let content = slide.content;
+        
+        // Parse slide-specific background directive if available
+        let slideBackgroundStyle = '';
+        const bgMatch = content.match(/<!--\s*background:\s*(.*?)\s*-->/i);
+        if (bgMatch && bgMatch[1]) {
+            slideBackgroundStyle = `background: ${bgMatch[1].trim()};`;
+            content = content.replace(/<!--\s*background:\s*(.*?)\s*-->/gi, '');
+        }
+
+        // Protect math expressions before processing with marked
         const mathPlaceholders = new Map();
         let placeholderIndex = 0;
         
@@ -2201,8 +2223,9 @@ ${navItems}
         htmlContent = this.cleanHTMLForExport(htmlContent);
         
         const activeClass = index === 0 ? 'active' : '';
+        const styleAttr = slideBackgroundStyle ? ` style="${slideBackgroundStyle}"` : '';
         
-        return `    <div class="slide ${activeClass} slide-${slide.type}" data-slide-index="${index}" data-theme="${theme}">
+        return `    <div class="slide ${activeClass} slide-${slide.type}" data-slide-index="${index}" data-theme="${theme}"${styleAttr}>
         ${htmlContent}
     </div>`;
     }
@@ -4441,24 +4464,22 @@ ${navItems}
                 return;
             }
 
-            if (body && body.classList && body.classList.contains('pdf-export')) {
-                slides.forEach((slide) => {
-                    slide.classList.remove('print-scaled');
-                    slide.style.removeProperty('transform');
-                    slide.style.removeProperty('transform-origin');
-                    slide.style.removeProperty('--print-scale');
-                    slide.style.removeProperty('max-height');
-                });
-                return;
+            let availableHeight;
+            const isPdfExport = body && body.classList && body.classList.contains('pdf-export');
+
+            if (isPdfExport) {
+                // For PDF export, A4 landscape height limit minus vertical paddings
+                availableHeight = 620;
+            } else {
+                const computedStyles = getComputedStyle(body);
+                const headerHeight = parseFloat(computedStyles.getPropertyValue('--presentation-header-height')) || 0;
+                const footerHeight = parseFloat(computedStyles.getPropertyValue('--presentation-footer-height')) || 0;
+                const topOffset = parseFloat(computedStyles.getPropertyValue('--presentation-top-offset')) || 0;
+                const safeTopMargin = parseFloat(computedStyles.getPropertyValue('--print-safe-top')) || Math.max(headerHeight + topOffset + 80, 120);
+                const safeBottomMargin = parseFloat(computedStyles.getPropertyValue('--print-safe-bottom')) || Math.max(footerHeight + 80, 120);
+                const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight || 0 : 0);
+                availableHeight = Math.max(viewportHeight - safeTopMargin - safeBottomMargin, 320);
             }
-            const computedStyles = getComputedStyle(body);
-            const headerHeight = parseFloat(computedStyles.getPropertyValue('--presentation-header-height')) || 0;
-            const footerHeight = parseFloat(computedStyles.getPropertyValue('--presentation-footer-height')) || 0;
-            const topOffset = parseFloat(computedStyles.getPropertyValue('--presentation-top-offset')) || 0;
-            const safeTopMargin = parseFloat(computedStyles.getPropertyValue('--print-safe-top')) || Math.max(headerHeight + topOffset + 80, 120);
-            const safeBottomMargin = parseFloat(computedStyles.getPropertyValue('--print-safe-bottom')) || Math.max(footerHeight + 80, 120);
-            const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement ? document.documentElement.clientHeight || 0 : 0);
-            const availableHeight = Math.max(viewportHeight - safeTopMargin - safeBottomMargin, 320);
 
             slides.forEach((slide) => {
                 slide.classList.remove('print-scaled');
@@ -4480,7 +4501,11 @@ ${navItems}
                         slide.style.setProperty('--print-scale', scale);
                         slide.style.transform = 'scale(' + scale + ')';
                         slide.style.transformOrigin = 'top center';
-                        slide.style.maxHeight = Math.ceil(availableHeight) + 'px';
+                        if (isPdfExport) {
+                            slide.style.maxHeight = '210mm';
+                        } else {
+                            slide.style.maxHeight = Math.ceil(availableHeight) + 'px';
+                        }
                     }
                 });
             });
@@ -4502,7 +4527,7 @@ ${navItems}
                     if (!pdfPageStyle) {
                         pdfPageStyle = document.createElement('style');
                         pdfPageStyle.id = 'pdf-page-size-style';
-                        pdfPageStyle.textContent = '@page { size: 1920px 1080px; margin: 0; }';
+                        pdfPageStyle.textContent = '@page { size: A4 landscape; margin: 0; }';
                         document.head.appendChild(pdfPageStyle);
                     }
                 }

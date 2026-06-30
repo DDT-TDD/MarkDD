@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, TikZ/CircuiTikZ rendering, Beamer-style presentations, and complete book publishing system",
   "main": "src/main/main.js",
   "homepage": "./",
@@ -155,6 +155,7 @@
     "mermaid": "^11.4.1",
     "node-tikzjax": "github:prinsss/node-tikzjax",
     "plantuml-encoder": "^1.4.0",
+    "pptxgenjs": "^4.0.1",
     "puppeteer": "^24.19.0",
     "vega": "^5.33.0",
     "vega-embed": "^6.29.0",

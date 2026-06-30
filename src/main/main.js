@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut, Menu } = require('electron');
 const path = require('path');
+const url = require('url');
 const fs = require('fs');
 const { getVersion } = require('../version');
 const { BookEngine } = require('../common/book-engine');
@@ -1285,6 +1286,46 @@ ipcMain.handle('open-file-dialog', async () => {
   }
 });
 
+// IPC handler for show-open-pptx-dialog (renderer invokes this to select a PowerPoint file)
+ipcMain.handle('show-open-pptx-dialog', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import PowerPoint Presentation',
+      properties: ['openFile'],
+      filters: [
+        { name: 'PowerPoint Presentations', extensions: ['pptx'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { filePath: result.filePaths[0] };
+    }
+    return { canceled: true };
+  } catch (error) {
+    return { canceled: true, error: error.message };
+  }
+});
+
+// IPC handler for show-save-pptx-dialog (renderer invokes this to select output PowerPoint location)
+ipcMain.handle('show-save-pptx-dialog', async (event, defaultName = 'Presentation.pptx') => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export PowerPoint Presentation',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'PowerPoint Presentations', extensions: ['pptx'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (!result.canceled && result.filePath) {
+      return { filePath: result.filePath };
+    }
+    return { canceled: true };
+  } catch (error) {
+    return { canceled: true, error: error.message };
+  }
+});
+
 // File browser IPC handlers
 ipcMain.handle('open-folder-dialog', async () => {
   try {
@@ -1784,6 +1825,7 @@ ipcMain.on('window-fullscreen', () => {
 // ========== PRESENTATION ADDON IPC HANDLERS ==========
 
 let presentationWindow = null;
+let tempPreviewPath = null;
 
 // Preview presentation in separate window
 ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => {
@@ -1814,6 +1856,14 @@ ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => 
 
       presentationWindow.on('closed', () => {
         presentationWindow = null;
+        if (tempPreviewPath && fs.existsSync(tempPreviewPath)) {
+          try {
+            fs.unlinkSync(tempPreviewPath);
+            tempPreviewPath = null;
+          } catch (e) {
+            logError('Presentation', 'Failed to delete temp preview file: ' + e.message);
+          }
+        }
       });
 
       presentationWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -1828,8 +1878,18 @@ ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => 
     // Stop any in-flight navigation before loading fresh content
     presentationWindow.webContents.stop();
 
-    const base64Html = Buffer.from(html, 'utf-8').toString('base64');
-    await presentationWindow.loadURL(`data:text/html;base64,${base64Html}`);
+    // Clean up previous temp file if it exists
+    if (tempPreviewPath && fs.existsSync(tempPreviewPath)) {
+      try {
+        fs.unlinkSync(tempPreviewPath);
+      } catch (e) {}
+    }
+
+    tempPreviewPath = path.join(app.getPath('temp'), `markdd-presentation-preview-${Date.now()}.html`);
+    await fs.promises.writeFile(tempPreviewPath, html, 'utf-8');
+
+    const fileUrl = url.pathToFileURL(tempPreviewPath).href;
+    await presentationWindow.loadURL(fileUrl);
 
     if (!presentationWindow.isVisible()) {
       presentationWindow.show();
@@ -1916,8 +1976,9 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
     tempPresentationHtmlPath = path.join(path.dirname(result.filePath), `.temp-presentation-${Date.now()}.html`);
     await fs.promises.writeFile(tempPresentationHtmlPath, pdfHtml, 'utf-8');
     
-    // Load the presentation HTML from the temporary file
-    await pdfWindow.loadURL('file:///' + tempPresentationHtmlPath.replace(/\\/g, '/'));
+    // Load the presentation HTML from the temporary file safely using file URL
+    const fileUrl = url.pathToFileURL(tempPresentationHtmlPath).href;
+    await pdfWindow.loadURL(fileUrl);
     
     // Wait for rendering to finish inside the presentation (event-driven)
     try {
@@ -1991,6 +2052,19 @@ ipcMain.handle('export-presentation-pdf', async (event, { html, title, slideCoun
     if (tempPresentationHtmlPath && fs.existsSync(tempPresentationHtmlPath)) {
       try { await fs.promises.unlink(tempPresentationHtmlPath); } catch (err) {}
     }
+  }
+});
+
+// Offload PowerPoint export compilation to Node main process to avoid renderer locks
+ipcMain.handle('export-presentation-pptx', async (event, { markdown, filePath, currentFileDir }) => {
+  try {
+    logInfo('Presentation', `Exporting presentation to PPTX: ${filePath}`);
+    const PPTXExporter = require('../renderer/js/pptx-exporter.js');
+    await PPTXExporter.exportCurrent(markdown, filePath, currentFileDir);
+    return { success: true };
+  } catch (error) {
+    logError('ExportPresentationPPTX', error);
+    return { success: false, error: error.message };
   }
 });
 

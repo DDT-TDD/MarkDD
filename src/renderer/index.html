@@ -106,11 +106,13 @@
                 <span class="menu-label">Presentation</span>
                 <div class="menu-dropdown">
                     <button id="menu-presentation-new" class="menu-option">New Presentation <span class="shortcut">Ctrl+Shift+N</span></button>
+                    <button id="menu-presentation-import-pptx" class="menu-option">Import PowerPoint (.pptx)...</button>
                     <hr>
                     <button id="menu-presentation-preview" class="menu-option">Preview Slides <span class="shortcut">Ctrl+Shift+V</span></button>
                     <hr>
                     <button id="menu-presentation-export-html" class="menu-option">Export Presentation as HTML</button>
                     <button id="menu-presentation-export-pdf" class="menu-option">Export Presentation as PDF</button>
+                    <button id="menu-presentation-export-pptx" class="menu-option">Export Presentation as PowerPoint (.pptx)</button>
                     <hr>
                     <div class="menu-submenu">
                         <span class="menu-option">Choose Theme ▶</span>
@@ -522,6 +524,47 @@
         </div>
         </div>
 
+        <!-- PPTX Import Modal -->
+        <div id="pptx-import-modal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width: 460px; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+                <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px; width: 100%; position: relative;">
+                    <h3 style="margin: 0; font-size: 1.25em; color: var(--text-color);">Import PowerPoint Presentation</h3>
+                    <button id="pptx-import-close" class="modal-close" style="position: absolute; right: 0; top: 0; background: none; border: none; font-size: 1.5em; cursor: pointer; color: var(--text-color); opacity: 0.6; padding: 0;">&times;</button>
+                </div>
+                
+                <p style="margin: 0 0 16px 0; color: var(--text-color); opacity: 0.85; font-size: 0.95em; line-height: 1.4;">Choose what you would like to import from the selected PowerPoint file:</p>
+                
+                <div style="margin: 10px 0; padding: 12px; background: var(--button-bg); border-radius: 6px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box;">
+                    <label style="font-size: 0.98em; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; color: var(--text-color);">
+                        <input type="radio" name="pptx-import-option" value="both" checked>
+                        <span>Import Content & Styles</span>
+                    </label>
+                    <p style="margin: 6px 0 0 24px; font-size: 0.86em; color: var(--text-color); opacity: 0.75; line-height: 1.35;">Extract slides, headings, lists, text, and apply custom background and accent colors.</p>
+                </div>
+                
+                <div style="margin: 10px 0; padding: 12px; background: var(--button-bg); border-radius: 6px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box;">
+                    <label style="font-size: 0.98em; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; color: var(--text-color);">
+                        <input type="radio" name="pptx-import-option" value="content">
+                        <span>Import Content Only</span>
+                    </label>
+                    <p style="margin: 6px 0 0 24px; font-size: 0.86em; color: var(--text-color); opacity: 0.75; line-height: 1.35;">Extract text content and slide structure into a clean Markdown layout with default theme styles.</p>
+                </div>
+                
+                <div style="margin: 10px 0; padding: 12px; background: var(--button-bg); border-radius: 6px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box;">
+                    <label style="font-size: 0.98em; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; color: var(--text-color);">
+                        <input type="radio" name="pptx-import-option" value="style">
+                        <span>Import Styles Only</span>
+                    </label>
+                    <p style="margin: 6px 0 0 24px; font-size: 0.86em; color: var(--text-color); opacity: 0.75; line-height: 1.35;">Only extract PowerPoint theme colors and set up a blank presentation template with the imported style.</p>
+                </div>
+                
+                <div class="input-dialog-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; width: 100%;">
+                    <button id="pptx-import-cancel-btn" class="cancel-btn" style="padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.92em; cursor: pointer; background: var(--button-bg); color: var(--text-color);">Cancel</button>
+                    <button id="pptx-import-confirm-btn" class="confirm-btn" style="padding: 6px 14px; border-radius: 6px; border: 1px solid var(--primary-color-dark); font-size: 0.92em; cursor: pointer; background: var(--primary-color); color: #ffffff; font-weight: bold;">Import</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Content Area -->
         <div id="main-content" class="main-content">
             <!-- File Browser Sidebar - MarkText Style -->
@@ -917,6 +960,8 @@
     <script src="js/book.js"></script>
     <script src="js/book-examples.js"></script>
     <script src="js/cv.js"></script>
+    <script src="js/pptx-importer.js"></script>
+    <script src="js/pptx-exporter.js"></script>
     
     <!-- Initialize everything after DOM is ready -->
     <script>
