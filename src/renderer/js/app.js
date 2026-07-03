@@ -838,8 +838,8 @@ class MarkDDApp {
 
         const menuCloseTimers = new WeakMap();
         const submenuCloseTimers = new WeakMap();
-        const MENU_CLOSE_DELAY = 220;
-        const SUBMENU_CLOSE_DELAY = 160;
+        const MENU_CLOSE_DELAY = 300;
+        const SUBMENU_CLOSE_DELAY = 280;
 
         const cancelPendingClose = (store, target) => {
             if (!target) return;
@@ -875,6 +875,7 @@ class MarkDDApp {
             dropdown.style.left = '';
             dropdown.style.right = '';
             dropdown.style.maxHeight = '';
+            dropdown.classList.remove('align-left');
         };
 
         const adjustDropdownPosition = (dropdown) => {
@@ -882,6 +883,7 @@ class MarkDDApp {
             dropdown.style.left = '';
             dropdown.style.right = '';
             dropdown.style.maxHeight = '';
+            dropdown.classList.remove('align-left');
 
             const rect = dropdown.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
@@ -893,7 +895,9 @@ class MarkDDApp {
                 dropdown.style.right = '0';
             }
 
-            dropdown.style.maxHeight = `${Math.min(520, availableHeight)}px`;
+            if (!dropdown.classList.contains('has-submenus')) {
+                dropdown.style.maxHeight = `${Math.min(520, availableHeight)}px`;
+            }
         };
 
         const resetNestedPosition = (submenu) => {
@@ -912,6 +916,11 @@ class MarkDDApp {
             nested.style.top = '';
             nested.style.maxHeight = '';
 
+            const dropdown = submenu.closest('.menu-dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('align-left');
+            }
+
             const viewportPadding = 8;
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
@@ -919,6 +928,9 @@ class MarkDDApp {
             let rect = nested.getBoundingClientRect();
             if (rect.right > viewportWidth - viewportPadding) {
                 nested.classList.add('align-left');
+                if (dropdown) {
+                    dropdown.classList.add('align-left');
+                }
                 rect = nested.getBoundingClientRect();
             }
 
@@ -980,6 +992,7 @@ class MarkDDApp {
                 }
             });
         };
+        this.closeAllMenus = closeAllMenus;
 
         const focusMenuLabel = (item) => {
             const label = getMenuLabel(item);
@@ -3991,7 +4004,7 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-cv-customize-colors', () => this.customizeCVColors());
 
         // Color presets
-        const cvColorPresets = ['navy', 'slate', 'green', 'burgundy', 'charcoal', 'teal', 'dark'];
+        const cvColorPresets = ['navy', 'slate', 'green', 'burgundy', 'charcoal', 'teal', 'dark', 'coffee', 'sunset', 'lavender'];
         cvColorPresets.forEach(preset => {
             this.bindButton(`menu-cv-preset-${preset}`, () => this.applyCVColorPreset(preset));
         });
@@ -6343,6 +6356,7 @@ A highly skilled software architect with over 10 years of experience designing a
      * Set CV theme and update front-matter
      */
     setCVTheme(theme) {
+        if (this.closeAllMenus) this.closeAllMenus();
         if (!this.cvManager) {
             this.cvManager = new CVManager();
         }
@@ -6360,13 +6374,21 @@ A highly skilled software architect with over 10 years of experience designing a
                 const frontMatter = match[1];
                 let updatedFrontMatter = frontMatter;
                 
+                // If colors block exists, ask user if they want to reset to theme default
+                if (/colors:\s*\n(\s{2,}.*\n?)+/m.test(frontMatter)) {
+                    const resetColors = confirm(`Do you want to reset the CV colors to the default style of the new theme: "${themeName}"?\n\nClick OK to reset to defaults, or Cancel to keep your current custom color overrides.`);
+                    if (resetColors) {
+                        updatedFrontMatter = updatedFrontMatter.replace(/colors:\s*\n(\s{2,}.*\n?)+/m, '');
+                    }
+                }
+                
                 if (/^theme:/m.test(frontMatter)) {
-                    updatedFrontMatter = frontMatter.replace(/^theme:.*$/m, `theme: ${theme}`);
+                    updatedFrontMatter = updatedFrontMatter.replace(/^theme:.*$/m, `theme: ${theme}`);
                 } else {
                     updatedFrontMatter = `theme: ${theme}\n${frontMatter}`;
                 }
                 
-                const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter}\n---`);
+                const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFrontMatter.trim()}\n---`);
                 this.editor.setContent(updatedContent);
                 this.editor.setModified(true);
                 this.editor.updateStatus();
@@ -6381,6 +6403,7 @@ A highly skilled software architect with over 10 years of experience designing a
      * Set CV paper size
      */
     setCVPageSize(size) {
+        if (this.closeAllMenus) this.closeAllMenus();
         this.showMessage(`CV paper size set to: ${size.toUpperCase()}`);
         const content = this.editor.getContent();
         const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
@@ -6754,54 +6777,127 @@ A passionate junior software engineer with solid foundations in computer science
      * Customize CV theme colors using input forms
      */
     async customizeCVColors() {
+        if (this.closeAllMenus) this.closeAllMenus();
         const content = this.editor.getContent();
         const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
         const match = content.match(frontMatterRegex);
         
+        let theme = 'classic-latex';
         let primary = '#1b365d';
         let secondary = '#475569';
         let text = '#1f2937';
+        let background = '#ffffff';
+        let sidebarBg = '#f3f4f6';
+        let sidebarText = '#1f2937';
+        let headerBg = '#f8fafc';
+        let headerText = '#27272a';
         
         if (match) {
             const fm = match[1];
-            const pMatch = fm.match(/^\s*primary:\s*["']?([#\w]+)["']?$/m);
-            const sMatch = fm.match(/^\s*secondary:\s*["']?([#\w]+)["']?$/m);
-            const tMatch = fm.match(/^\s*text:\s*["']?([#\w]+)["']?$/m);
+            const themeMatch = fm.match(/^\s*theme:\s*["']?([-\w]+)["']?$/m);
+            if (themeMatch) {
+                theme = themeMatch[1];
+            }
             
-            // Nested colors block regex
             const colorBlockMatch = fm.match(/colors:\s*\n(\s{2,}.*\n?)+/);
             if (colorBlockMatch) {
                 const cb = colorBlockMatch[0];
                 const cbP = cb.match(/^\s{2,}primary:\s*["']?([#\w]+)["']?$/m);
                 const cbS = cb.match(/^\s{2,}secondary:\s*["']?([#\w]+)["']?$/m);
                 const cbT = cb.match(/^\s{2,}text:\s*["']?([#\w]+)["']?$/m);
+                const cbB = cb.match(/^\s{2,}background:\s*["']?([#\w]+)["']?$/m);
+                const cbSb = cb.match(/^\s{2,}sidebarBg:\s*["']?([#\w]+)["']?$/m);
+                const cbSt = cb.match(/^\s{2,}sidebarText:\s*["']?([#\w]+)["']?$/m);
+                const cbHb = cb.match(/^\s{2,}headerBg:\s*["']?([#\w]+)["']?$/m);
+                const cbHt = cb.match(/^\s{2,}headerText:\s*["']?([#\w]+)["']?$/m);
+                
                 if (cbP) primary = cbP[1];
                 if (cbS) secondary = cbS[1];
                 if (cbT) text = cbT[1];
+                if (cbB) background = cbB[1];
+                if (cbSb) sidebarBg = cbSb[1];
+                if (cbSt) sidebarText = cbSt[1];
+                if (cbHb) headerBg = cbHb[1];
+                if (cbHt) headerText = cbHt[1];
             } else {
+                const pMatch = fm.match(/^\s*primary:\s*["']?([#\w]+)["']?$/m);
+                const sMatch = fm.match(/^\s*secondary:\s*["']?([#\w]+)["']?$/m);
+                const tMatch = fm.match(/^\s*text:\s*["']?([#\w]+)["']?$/m);
                 if (pMatch) primary = pMatch[1];
                 if (sMatch) secondary = sMatch[1];
                 if (tMatch) text = tMatch[1];
             }
         }
 
+        const fields = [
+            { id: 'primaryColor', label: 'Primary Accent (headings, links)', type: 'color', value: primary },
+            { id: 'secondaryColor', label: 'Secondary Accent (subtitles, dates)', type: 'color', value: secondary },
+            { id: 'textColor', label: 'Body Text Color', type: 'color', value: text },
+            { id: 'bgColor', label: 'Page Background Color', type: 'color', value: background }
+        ];
+        
+        const isSidebarTheme = ['modern-sidebar', 'forty-seconds', 'twenty-seconds', 'hipster', 'sixty-seconds'].includes(theme);
+        const isCasualTheme = theme === 'moderncv-casual';
+        
+        if (isSidebarTheme) {
+            fields.push(
+                { id: 'sidebarBgColor', label: 'Sidebar Background Color', type: 'color', value: sidebarBg },
+                { id: 'sidebarTextColor', label: 'Sidebar Text Color', type: 'color', value: sidebarText }
+            );
+        } else if (isCasualTheme) {
+            fields.push(
+                { id: 'headerBgColor', label: 'Header Background Color', type: 'color', value: headerBg },
+                { id: 'headerTextColor', label: 'Header Text Color', type: 'color', value: headerText }
+            );
+        }
+
         const dialogResult = await this.showFormDialog({
             title: 'Customize CV Colors',
-            message: 'Set custom color accents for your CV template.',
-            fields: [
-                { id: 'primaryColor', label: 'Primary Accent (headings, links)', type: 'color', value: primary },
-                { id: 'secondaryColor', label: 'Secondary (subtitles, dates)', type: 'color', value: secondary },
-                { id: 'textColor', label: 'Body Text', type: 'color', value: text }
-            ]
+            message: `Set custom color accents for your active CV theme: "${theme}".`,
+            fields: fields,
+            extraLabel: 'Reset to Defaults'
         });
 
-        if (dialogResult && !dialogResult.canceled) {
-            const { primaryColor, secondaryColor, textColor } = dialogResult.values;
+        if (dialogResult && dialogResult.isReset) {
+            const content = this.editor.getContent();
+            const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+            const match = content.match(frontMatterRegex);
+            if (match) {
+                const fm = match[1];
+                let updatedFm = fm;
+                if (/colors:\s*\n(\s{2,}.*\n?)+/m.test(fm)) {
+                    updatedFm = fm.replace(/colors:\s*\n(\s{2,}.*\n?)+/m, '');
+                }
+                const updatedContent = content.replace(frontMatterRegex, `---\n${updatedFm.trim()}\n---`);
+                this.editor.setContent(updatedContent);
+                this.editor.setModified(true);
+                this.editor.updateStatus();
+                this.showMessage('CV Colors reset to theme defaults.');
+                this.refreshCVPreview(false);
+            }
+            return;
+        }
+
+        if (dialogResult) {
+            const vals = dialogResult;
+            const newColors = {
+                primary: vals.primaryColor,
+                secondary: vals.secondaryColor,
+                text: vals.textColor,
+                background: vals.bgColor
+            };
+            
+            if (isSidebarTheme) {
+                newColors.sidebarBg = vals.sidebarBgColor;
+                newColors.sidebarText = vals.sidebarTextColor;
+            } else if (isCasualTheme) {
+                newColors.headerBg = vals.headerBgColor;
+                newColors.headerText = vals.headerTextColor;
+            }
+            
             const updatedContent = this.updateFrontMatterColorsInEditor(
                 this.editor.getContent(),
-                primaryColor,
-                secondaryColor,
-                textColor
+                newColors
             );
             this.editor.setContent(updatedContent);
             if (this.preview) {
@@ -6815,7 +6911,7 @@ A passionate junior software engineer with solid foundations in computer science
     /**
      * Helper to write colors block in editor front-matter
      */
-    updateFrontMatterColorsInEditor(content, primary, secondary, text) {
+    updateFrontMatterColorsInEditor(content, colors) {
         const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
         const match = content.match(frontMatterRegex);
         if (!match) return content;
@@ -6823,11 +6919,17 @@ A passionate junior software engineer with solid foundations in computer science
         const fm = match[1];
         let updatedFm = fm;
         
-        const colorsBlock = `colors:\n  primary: "${primary}"\n  secondary: "${secondary}"\n  text: "${text}"`;
+        let colorsBlock = 'colors:\n';
+        for (const [key, val] of Object.entries(colors)) {
+            if (val !== undefined && val !== null) {
+                colorsBlock += `  ${key}: "${val}"\n`;
+            }
+        }
+        colorsBlock = colorsBlock.trim();
         
         // Replace existing colors block or add a new one
         if (/colors:\s*\n(\s{2,}.*\n?)+/m.test(fm)) {
-            updatedFm = fm.replace(/colors:\s*\n(\s{2,}.*\n?)+/m, colorsBlock);
+            updatedFm = fm.replace(/colors:\s*\n(\s{2,}.*\n?)+/m, colorsBlock + '\n');
         } else {
             updatedFm = `${fm.trim()}\n${colorsBlock}`;
         }
@@ -6839,14 +6941,18 @@ A passionate junior software engineer with solid foundations in computer science
      * Apply a predefined color preset to the CV front-matter
      */
     applyCVColorPreset(preset) {
+        if (this.closeAllMenus) this.closeAllMenus();
         const presets = {
-            navy: { primary: '#1b365d', secondary: '#5c768d', text: '#222222' },
-            slate: { primary: '#334155', secondary: '#64748b', text: '#1e293b' },
-            green: { primary: '#166534', secondary: '#15803d', text: '#111827' },
-            burgundy: { primary: '#800020', secondary: '#6b7280', text: '#111827' },
-            charcoal: { primary: '#27272a', secondary: '#71717a', text: '#09090b' },
-            teal: { primary: '#0f766e', secondary: '#565f69', text: '#111827' },
-            dark: { primary: '#60a5fa', secondary: '#94a3b8', text: '#f1f5f9', background: '#0f172a' }
+            navy: { primary: '#1b365d', secondary: '#5c768d', text: '#222222', background: '#ffffff', sidebarBg: '#e6f0fa', sidebarText: '#1b365d', headerBg: '#e6f0fa', headerText: '#1b365d' },
+            slate: { primary: '#334155', secondary: '#64748b', text: '#1e293b', background: '#ffffff', sidebarBg: '#f1f5f9', sidebarText: '#334155', headerBg: '#f1f5f9', headerText: '#334155' },
+            green: { primary: '#166534', secondary: '#15803d', text: '#111827', background: '#ffffff', sidebarBg: '#f0fdf4', sidebarText: '#166534', headerBg: '#f0fdf4', headerText: '#166534' },
+            burgundy: { primary: '#800020', secondary: '#6b7280', text: '#111827', background: '#ffffff', sidebarBg: '#fdf2f8', sidebarText: '#800020', headerBg: '#fdf2f8', headerText: '#800020' },
+            charcoal: { primary: '#27272a', secondary: '#71717a', text: '#09090b', background: '#ffffff', sidebarBg: '#fafafa', sidebarText: '#27272a', headerBg: '#fafafa', headerText: '#27272a' },
+            teal: { primary: '#0f766e', secondary: '#565f69', text: '#111827', background: '#ffffff', sidebarBg: '#f0fdfa', sidebarText: '#0f766e', headerBg: '#f0fdfa', headerText: '#0f766e' },
+            dark: { primary: '#60a5fa', secondary: '#94a3b8', text: '#f1f5f9', background: '#0f172a', sidebarBg: '#1e293b', sidebarText: '#f1f5f9', headerBg: '#1e293b', headerText: '#60a5fa' },
+            coffee: { primary: '#8c6239', secondary: '#a67c52', text: '#2d241e', background: '#ffffff', sidebarBg: '#f5ebe6', sidebarText: '#5c3a21', headerBg: '#f5ebe6', headerText: '#5c3a21' },
+            sunset: { primary: '#f97316', secondary: '#f43f5e', text: '#1e293b', background: '#ffffff', sidebarBg: '#fff7ed', sidebarText: '#c2410c', headerBg: '#fff7ed', headerText: '#c2410c' },
+            lavender: { primary: '#7c3aed', secondary: '#a78bfa', text: '#1f2937', background: '#ffffff', sidebarBg: '#faf5ff', sidebarText: '#5b21b6', headerBg: '#faf5ff', headerText: '#5b21b6' }
         };
         
         const colors = presets[preset];
@@ -6857,21 +6963,10 @@ A passionate junior software engineer with solid foundations in computer science
 
         const updatedContent = this.updateFrontMatterColorsInEditor(
             this.editor.getContent(),
-            colors.primary,
-            colors.secondary,
-            colors.text
+            colors
         );
 
-        // Adjust background for dark mode preset specifically
-        let finalContent = updatedContent;
-        if (preset === 'dark') {
-            finalContent = updatedContent.replace(/colors:\s*\n/i, 'colors:\n  background: "#0f172a"\n  ');
-        } else {
-            // Remove background color for light mode themes if previously set
-            finalContent = updatedContent.replace(/^\s*background:\s*["']?#[0-9A-Fa-f]{6}["']?\s*\n/m, '');
-        }
-
-        this.editor.setContent(finalContent);
+        this.editor.setContent(updatedContent);
         this.editor.setModified(true);
         this.editor.updateStatus();
         this.showMessage(`CV color preset "${preset}" applied.`);
@@ -6882,6 +6977,7 @@ A passionate junior software engineer with solid foundations in computer science
      * Open Electron open dialog to choose profile photo, resolve path relative to current CV file, and insert into front-matter
      */
     async selectCVPhoto() {
+        if (this.closeAllMenus) this.closeAllMenus();
         const markdown = this.editor.getContent();
         if (!/cv:\s*true/i.test(markdown)) {
             this.showError('This document is not configured as a CV. Add "cv: true" to front-matter first.');
@@ -6957,6 +7053,7 @@ A passionate junior software engineer with solid foundations in computer science
      * Remove the photo property from the CV front-matter
      */
     removeCVPhoto() {
+        if (this.closeAllMenus) this.closeAllMenus();
         const markdown = this.editor.getContent();
         const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/;
         const match = markdown.match(frontMatterRegex);
@@ -7418,7 +7515,8 @@ A passionate junior software engineer with solid foundations in computer science
         message = '',
         fields = [],
         confirmLabel = 'OK',
-        cancelLabel = 'Cancel'
+        cancelLabel = 'Cancel',
+        extraLabel = ''
     } = {}) {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
@@ -7496,18 +7594,21 @@ A passionate junior software engineer with solid foundations in computer science
                 if (field.placeholder && field.type !== 'select') {
                     input.placeholder = field.placeholder;
                 }
-                if (field.defaultValue !== undefined) {
-                    if (field.type === 'select') {
-                        input.value = field.defaultValue;
-                    } else {
-                        input.value = field.defaultValue;
-                    }
+                const valToSet = field.value !== undefined ? field.value : field.defaultValue;
+                if (valToSet !== undefined) {
+                    input.value = valToSet;
                 }
                 if (field.required) {
                     input.required = true;
                 }
 
-                input.style.padding = '10px';
+                if (field.type === 'color') {
+                    input.style.padding = '2px';
+                    input.style.height = '36px';
+                    input.style.cursor = 'pointer';
+                } else {
+                    input.style.padding = '10px';
+                }
                 input.style.border = '1px solid #d0d0d0';
                 input.style.borderRadius = '4px';
                 input.style.fontSize = '13px';
@@ -7551,6 +7652,23 @@ A passionate junior software engineer with solid foundations in computer science
                 'color: #ffffff',
                 'cursor: pointer'
             ].join(';');
+
+            if (extraLabel) {
+                const extraButton = document.createElement('button');
+                extraButton.type = 'button';
+                extraButton.textContent = extraLabel;
+                extraButton.style.cssText = [
+                    'padding: 8px 18px',
+                    'border-radius: 4px',
+                    'border: 1px solid #d0d0d0',
+                    'background: #f3f4f6',
+                    'color: #374151',
+                    'cursor: pointer',
+                    'margin-right: auto'
+                ].join(';');
+                buttonRow.appendChild(extraButton);
+                extraButton.addEventListener('click', () => cleanup({ isReset: true }));
+            }
 
             buttonRow.appendChild(cancelButton);
             buttonRow.appendChild(submitButton);

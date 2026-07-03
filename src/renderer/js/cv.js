@@ -320,6 +320,8 @@ class CVManager {
             --cv-bg: ${colors.background};
             --cv-sidebar-bg: ${colors.sidebarBg || '#f3f4f6'};
             --cv-sidebar-text: ${colors.sidebarText || '#1f2937'};
+            --cv-header-bg: ${colors.headerBg || '#f8fafc'};
+            --cv-header-text: ${colors.headerText || colors.text};
         }
         
         /* Contact info styling */
@@ -618,26 +620,27 @@ class CVManager {
                 font-weight: 500;
                 letter-spacing: 1px;
                 margin-bottom: 5px;
-                color: #000000;
+                color: var(--cv-primary);
             }
             .cv-contact-info {
                 font-size: 9.5pt;
-                color: #555555;
+                color: var(--cv-secondary);
             }
             .cv-contact-info span:not(:last-child)::after {
                 content: "  •  ";
                 font-weight: bold;
-                color: #888888;
+                color: var(--cv-secondary);
+                opacity: 0.6;
             }
             h2 {
                 font-size: 13pt;
                 font-weight: bold;
                 text-transform: uppercase;
-                border-bottom: 0.5px solid #000000;
+                border-bottom: 0.5px solid var(--cv-primary);
                 padding-bottom: 3px;
                 margin-top: 20px;
                 margin-bottom: 10px;
-                color: #000000;
+                color: var(--cv-primary);
                 letter-spacing: 0.5px;
             }
             .cv-entry-title {
@@ -718,15 +721,16 @@ class CVManager {
             }
             .cv-sidebar h1 {
                 font-size: 18pt;
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
                 margin-bottom: 5px;
                 font-weight: 700;
             }
             .cv-sidebar-subtitle {
                 font-size: 10.5pt;
-                color: #cbd5e1;
+                color: var(--cv-sidebar-text);
+                opacity: 0.8;
                 margin-bottom: 20px;
-                border-bottom: 1px solid #475569;
+                border-bottom: 1px solid color-mix(in srgb, var(--cv-sidebar-text) 20%, transparent);
                 padding-bottom: 10px;
             }
             .cv-sidebar-section {
@@ -734,10 +738,10 @@ class CVManager {
             }
             .cv-sidebar-section h2 {
                 font-size: 11pt;
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
                 text-transform: uppercase;
                 margin-bottom: 10px;
-                border-bottom: 1px solid #4b5563;
+                border-bottom: 1px solid color-mix(in srgb, var(--cv-sidebar-text) 20%, transparent);
                 padding-bottom: 3px;
             }
             .cv-sidebar-info-item {
@@ -759,13 +763,13 @@ class CVManager {
                 gap: 6px;
             }
             .cv-skill-item {
-                background: rgba(255,255,255,0.08);
-                color: #f3f4f6;
+                background: color-mix(in srgb, var(--cv-sidebar-text) 8%, transparent);
+                color: var(--cv-sidebar-text);
                 border-left: 3px solid var(--cv-primary);
                 padding: 3px 8px;
             }
             .cv-skill-label {
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
             }
             @media print {
                 .cv-page {
@@ -881,7 +885,7 @@ class CVManager {
             }
             h2 {
                 background: var(--cv-primary);
-                color: #ffffff;
+                color: var(--cv-bg);
                 padding: 6px 12px;
                 font-size: 11pt;
                 text-transform: uppercase;
@@ -895,7 +899,7 @@ class CVManager {
             @media print {
                 h2 {
                     background: var(--cv-primary) !important;
-                    color: #ffffff !important;
+                    color: var(--cv-bg) !important;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
@@ -919,7 +923,7 @@ class CVManager {
             .cv-header h1 {
                 font-size: 26pt;
                 margin: 0 0 5px 0;
-                color: #27272a;
+                color: var(--cv-text);
             }
             .cv-subtitle {
                 font-size: 11pt;
@@ -931,7 +935,7 @@ class CVManager {
             .cv-contact-info {
                 text-align: right;
                 font-size: 8.5pt;
-                color: #4b5563;
+                color: var(--cv-secondary);
                 display: flex;
                 flex-direction: column;
                 gap: 3px;
@@ -940,7 +944,7 @@ class CVManager {
                 font-size: 12pt;
                 font-weight: bold;
                 text-transform: uppercase;
-                color: #27272a;
+                color: var(--cv-text);
                 margin-top: 20px;
                 margin-bottom: 12px;
                 border-bottom: 1px solid #d1d5db;
@@ -979,7 +983,7 @@ class CVManager {
             .cv-header h1 {
                 font-size: 32pt;
                 font-weight: 300;
-                color: #333333;
+                color: var(--cv-text);
                 margin-bottom: 5px;
             }
             .cv-header h1 strong {
@@ -994,7 +998,7 @@ class CVManager {
             }
             .cv-contact-info {
                 font-size: 9pt;
-                color: #666;
+                color: var(--cv-secondary);
                 display: flex;
                 gap: 15px;
             }
@@ -1027,7 +1031,7 @@ class CVManager {
             .cv-entry-date {
                 grid-column: 1;
                 font-size: 9pt;
-                color: #888;
+                color: var(--cv-secondary);
                 font-weight: 300;
             }
             .cv-entry-details {
@@ -1040,7 +1044,7 @@ class CVManager {
             .cv-entry-sub {
                 display: block;
                 font-size: 9pt;
-                color: #666;
+                color: var(--cv-secondary);
             }
             `;
         }
@@ -1061,7 +1065,7 @@ class CVManager {
             .cv-header h1 {
                 font-size: 24pt;
                 font-weight: 300;
-                color: #333;
+                color: var(--cv-text);
                 margin: 0;
             }
             .cv-header h1 span {
@@ -1119,7 +1123,7 @@ class CVManager {
             }
             .cv-header {
                 text-align: center;
-                background: #f8fafc;
+                background: var(--cv-header-bg);
                 margin: -20mm -20mm 20mm -20mm;
                 padding: 25px;
                 border-bottom: 4px solid var(--cv-primary);
@@ -1130,7 +1134,7 @@ class CVManager {
             .cv-header h1 {
                 font-size: 26pt;
                 font-weight: 300;
-                color: #27272a;
+                color: var(--cv-header-text);
                 margin-bottom: 5px;
             }
             .cv-header h1 span {
@@ -1358,7 +1362,7 @@ class CVManager {
             }
             .cv-sidebar h1 {
                 font-size: 18pt;
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
                 margin: 15px 0 5px 0;
                 font-weight: 700;
                 text-align: center;
@@ -1366,7 +1370,8 @@ class CVManager {
             }
             .cv-sidebar-subtitle {
                 font-size: 10pt;
-                color: rgba(255,255,255,0.7);
+                color: var(--cv-sidebar-text);
+                opacity: 0.7;
                 margin-bottom: 25px;
                 text-align: center;
             }
@@ -1375,10 +1380,10 @@ class CVManager {
             }
             .cv-sidebar-section h2 {
                 font-size: 11pt;
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
                 text-transform: uppercase;
                 margin-bottom: 12px;
-                border-bottom: 1px solid rgba(255,255,255,0.2);
+                border-bottom: 1px solid color-mix(in srgb, var(--cv-sidebar-text) 20%, transparent);
                 padding-bottom: 4px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
@@ -1389,10 +1394,11 @@ class CVManager {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                color: rgba(255,255,255,0.9);
+                color: var(--cv-sidebar-text);
+                opacity: 0.9;
             }
             .cv-sidebar-info-item a {
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
             }
             .cv-sidebar-info-item .cv-contact-icon {
                 color: var(--cv-primary);
@@ -1412,22 +1418,22 @@ class CVManager {
                 gap: 8px;
             }
             .cv-sidebar .cv-skill-item {
-                background: rgba(255,255,255,0.08);
-                color: #ffffff;
+                background: color-mix(in srgb, var(--cv-sidebar-text) 8%, transparent);
+                color: var(--cv-sidebar-text);
                 border-left: 3px solid var(--cv-primary);
                 padding: 3px 8px;
             }
             .cv-sidebar .cv-skill-label {
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
             }
             .cv-sidebar .cv-skill-progress-bar-bg {
-                background: rgba(255,255,255,0.2);
+                background: color-mix(in srgb, var(--cv-sidebar-text) 20%, transparent);
             }
             .cv-sidebar .cv-skill-progress-bar-fill {
-                background: #ffffff;
+                background: var(--cv-sidebar-text);
             }
             .cv-sidebar .cv-skill-name {
-                color: #ffffff;
+                color: var(--cv-sidebar-text);
             }
             @media print {
                 .cv-page {
@@ -1534,7 +1540,7 @@ class CVManager {
                 gap: 8px;
             }
             .cv-sidebar .cv-skill-item {
-                background: #ffffff;
+                background: color-mix(in srgb, var(--cv-sidebar-bg) 90%, var(--cv-sidebar-text));
                 color: var(--cv-sidebar-text);
                 border: 1px solid #d1d5db;
                 border-left: 3px solid var(--cv-primary);
@@ -1631,9 +1637,9 @@ class CVManager {
                 gap: 8px;
             }
             .cv-sidebar .cv-skill-item {
-                background: rgba(0,0,0,0.03);
+                background: color-mix(in srgb, var(--cv-sidebar-text) 8%, transparent);
                 color: var(--cv-sidebar-text);
-                border: 1px solid rgba(0,0,0,0.08);
+                border: 1px solid color-mix(in srgb, var(--cv-sidebar-text) 12%, transparent);
                 padding: 3px 8px;
             }
             @media print {
@@ -1951,7 +1957,7 @@ class CVManager {
     <!-- Code syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     
-    <style>
+    <style id="theme-css">
         ${themeCSS}
     </style>
 </head>

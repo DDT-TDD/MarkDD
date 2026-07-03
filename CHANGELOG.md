@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-07-03
+
+### Added
+
+1. **Harmonized CV Color Customization** ✅
+   - Expanded YAML `colors` front-matter schema to fully support customized color areas: `sidebarBg`, `sidebarText`, `headerBg`, and `headerText`.
+   - Updated all 15 CV layouts to map these variables via CSS custom properties, allowing user-specified color styles across all elements.
+2. **Three New Elegant Color Presets** ✅
+   - Added `coffee` (earth tones), `sunset` (orange/rose gradients), and `lavender` (purple/creative tones).
+   - Upgraded all existing presets with matched, readable sidebar and header combinations.
+3. **Adaptive Customizer Dialog** ✅
+   - Overhauled the "Customize CV Colors" color picker dialog to display customization inputs contextually based on the active theme (e.g. showing sidebar fields only for sidebar templates).
+
+### Fixed
+
+1. **Instant CV Preview Rendering** ⚡
+   - Redesigned the CV Preview rendering loop. When the preview window is already open, updates are dynamically injected into the active DOM using `webContents.executeJavaScript` instead of triggering a full window reload.
+   - Bypasses slow/offline CDN network cache validation for Google Fonts, Font Awesome, and KaTeX stylesheets, resulting in instantaneous (millisecond-level) live preview updates.
+2. **Robust File Path Resolving** 🛡️
+   - Replaced hardcoded string replacements with `url.pathToFileURL` inside PDF and CV HTML generation paths, ensuring support for usernames containing spaces or special characters.
+
 ## [1.5.2] - 2026-06-30
 
 ### Added

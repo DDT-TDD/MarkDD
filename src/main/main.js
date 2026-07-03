@@ -1043,7 +1043,7 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
       });
 
       await fs.promises.writeFile(tempHtmlPath, augmentedHtml, 'utf-8');
-      await pdfWindow.loadURL('file:///' + tempHtmlPath.replace(/\\/g, '/'));
+      await pdfWindow.loadURL(url.pathToFileURL(tempHtmlPath).href);
       await pdfWindow.webContents.executeJavaScript(waitForMathFlagScript);
       await new Promise(resolve => setTimeout(resolve, 250));
 
@@ -2134,12 +2134,56 @@ ipcMain.handle('preview-cv', async (event, { html, focus = true }) => {
       throw new Error('Failed to initialise preview window');
     }
 
-    cvPreviewWindow.webContents.stop();
-
+    const wasAlreadyLoaded = !cvPreviewWindow.webContents.isLoading() && cvPreviewWindow.webContents.getURL() !== '';
+    
     // Use temporary file to allow local resource resolution
     const tempPath = path.join(app.getPath('userData'), `temp-cv-preview.html`);
     await fs.promises.writeFile(tempPath, html, 'utf-8');
-    await cvPreviewWindow.loadURL('file:///' + tempPath.replace(/\\/g, '/'));
+    
+    const fileUrl = url.pathToFileURL(tempPath).href;
+
+    if (wasAlreadyLoaded) {
+      try {
+        const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/);
+        const cssMatch = html.match(/<style id="theme-css">([\s\S]*?)<\/style>/);
+        const cvPageMatch = html.match(/(<div class="cv-page\s+[^"]+">[\s\S]*?<\/div>)\s*<\/body>/);
+        
+        if (!cvPageMatch) {
+          throw new Error('Failed to parse cv-page elements from HTML string');
+        }
+        
+        const title = titleMatch ? titleMatch[1].trim() : 'CV Preview';
+        const css = cssMatch ? cssMatch[1] : '';
+        const pageOuterHtml = cvPageMatch[1];
+        
+        const updateScript = `
+          document.title = ${JSON.stringify(title)};
+          const scrollX = window.scrollX;
+          const scrollY = window.scrollY;
+          document.body.innerHTML = ${JSON.stringify(pageOuterHtml)};
+          let styleEl = document.getElementById('theme-css');
+          if (styleEl) {
+            styleEl.textContent = ${JSON.stringify(css)};
+          } else {
+            styleEl = document.createElement('style');
+            styleEl.id = 'theme-css';
+            styleEl.textContent = ${JSON.stringify(css)};
+            document.head.appendChild(styleEl);
+          }
+          window.scrollTo(scrollX, scrollY);
+        `;
+        
+        await cvPreviewWindow.webContents.executeJavaScript(updateScript);
+        logInfo('CV', 'Updated CV preview window dynamically');
+      } catch (err) {
+        logInfo('CV', 'Failed dynamic update, falling back to loadURL: ' + err.message);
+        cvPreviewWindow.webContents.stop();
+        await cvPreviewWindow.loadURL(fileUrl);
+      }
+    } else {
+      cvPreviewWindow.webContents.stop();
+      await cvPreviewWindow.loadURL(fileUrl);
+    }
 
     if (!cvPreviewWindow.isVisible()) {
       cvPreviewWindow.show();
@@ -2217,7 +2261,7 @@ ipcMain.handle('export-cv-pdf', async (event, { html, title }) => {
     tempCvHtmlPath = path.join(path.dirname(result.filePath), `.temp-cv-${Date.now()}.html`);
     await fs.promises.writeFile(tempCvHtmlPath, html, 'utf-8');
     
-    await pdfWindow.loadURL('file:///' + tempCvHtmlPath.replace(/\\/g, '/'));
+    await pdfWindow.loadURL(url.pathToFileURL(tempCvHtmlPath).href);
     
     // Wait slightly for rendering
     await new Promise(resolve => setTimeout(resolve, 1000));
