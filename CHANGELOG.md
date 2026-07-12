@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-07-11
+
+### Added
+
+1. **Academic Thesis Mode** ✅
+   - Added standard academic outline creation with pre-populated abstract, declaration, dedication, acknowledgements, chapters, appendix, and bibliography.
+   - Built-in cover page templates matching LaTeX layouts for MIT, Harvard, Stanford, Oxford, Cambridge, Oslo (UiO), Bologna (UniBo), PoliMi, ETH Zurich, and Imperial College London.
+   - Beautiful, academic style presets matching the typography and layout rules of respective universities.
+   - Support for dynamic custom university templates loaded from the workspace `.markdd/templates/thesis` or global app data directory.
+2. **"University Thesis" Wizard UI** ✅
+   - Added a menu option and a dedicated wizard dialog to input Thesis Degree, Department, Supervisor, and Co-Supervisor, and choose the university style.
+
+### Fixed
+
+1. **GitHub Actions License Generation Workflow** 🛠️
+   - Replaced NPM clean-install runner actions to prevent cross-platform peer dependency errors.
+   - Upgraded transitive license parser to support Lockfile Version 3 dependency tracking (from the `packages` list).
+2. **Preview Compilation Stability** ⚡
+   - Implemented missing `composeDocument` method in renderer to compile TOC and styling presets correctly on export.
+   - Added explicit IPC server port shutdown listener on app exit to prevent port collision issues.
+   - Updated the main preview style injector to asynchronously resolve and load `custom.css` overrides, ensuring the live editor preview matches exported PDFs exactly.
+3. **CV Preview Stability** ⚡
+   - Overhauled regex parsing in the CV preview handler to extract and update the entire body inner HTML, resolving previous multi-page CV rendering errors and preventing continuous reload/abort loops when typing.
+4. **Dynamic Thesis Count Resolution** 🎓
+   - Refactored `generateThesisTemplate` to automatically generate additional chapter and appendix files on-the-fly and output a synchronized `SUMMARY.md` matching the user's requested chapter and appendix counts (e.g. 7 chapters and 3 appendices) for all built-in university presets.
+   - Preserved custom layouts of third-party custom templates safely.
+5. **ASAR Packaging and SVG Rendering** 🛠️
+   - Configured unpacked ASAR bundling for thesis templates to resolve `ENOENT` directory initialization errors in production.
+   - Fixed invalid non-standard SVG `height="auto"` assignments causing Chrome renderer exceptions.
+
 ## [1.6.0] - 2026-07-03
 
 ### Added

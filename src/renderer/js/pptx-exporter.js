@@ -1,8 +1,4 @@
-/**
- * MarkDD PowerPoint Exporter
- * Converts Markdown presentations into native PowerPoint files (.pptx) using PptxGenJS.
- */
-
+(() => {
 const fs = require('fs');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
@@ -265,3 +261,4 @@ if (typeof module !== 'undefined') {
 if (typeof window !== 'undefined') {
     window.PPTXExporter = PPTXExporter;
 }
+})();

@@ -1142,6 +1142,318 @@ body.book-shell.style-technical .book-chapter-content pre {
     }
 }
         `
+    },
+    mit: {
+        key: 'mit',
+        label: 'MIT Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-mit, body.book-export.style-mit {
+    --book-font: 'Georgia', serif;
+    --heading-font: 'Inter', 'Segoe UI', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f8f9fa;
+    --sidebar-border: rgba(0,0,0,0.08);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #A31F34;
+    --link-color: #A31F34;
+    --muted-color: #555555;
+    --search-background: #e9ecef;
+    --border-radius: 8px;
+}
+body.book-shell.style-mit .book-chapter-content, body.book-export.style-mit .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    harvard: {
+        key: 'harvard',
+        label: 'Harvard Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-harvard, body.book-export.style-harvard {
+    --book-font: 'Garamond', 'Georgia', serif;
+    --heading-font: 'Georgia', serif;
+    --book-background: #faf8f5;
+    --main-background: #faf8f5;
+    --book-foreground: #1e120c;
+    --sidebar-background: #f2ede4;
+    --sidebar-border: rgba(165,28,48,0.15);
+    --sidebar-text: #4a2f22;
+    --card-background: #ffffff;
+    --card-text: #1e120c;
+    --accent: #A51C30;
+    --link-color: #A51C30;
+    --muted-color: #5c554e;
+    --search-background: #ffffff;
+    --border-radius: 6px;
+}
+body.book-shell.style-harvard .book-chapter-content, body.book-export.style-harvard .book-chapter-content {
+    line-height: 1.8;
+    text-align: justify;
+}
+        `
+    },
+    stanford: {
+        key: 'stanford',
+        label: 'Stanford Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-stanford, body.book-export.style-stanford {
+    --book-font: 'Arial', 'Helvetica Neue', sans-serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #222222;
+    --sidebar-background: #f4f4f4;
+    --sidebar-border: rgba(140,21,21,0.15);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #222222;
+    --accent: #8C1515;
+    --link-color: #8C1515;
+    --muted-color: #666666;
+    --search-background: #e6e6e6;
+    --border-radius: 4px;
+}
+body.book-shell.style-stanford .book-chapter-content, body.book-export.style-stanford .book-chapter-content {
+    line-height: 1.8;
+}
+        `
+    },
+    oxford: {
+        key: 'oxford',
+        label: 'Oxford Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-oxford, body.book-export.style-oxford {
+    --book-font: 'Times New Roman', 'Georgia', serif;
+    --heading-font: 'Times New Roman', serif;
+    --book-background: #fbfbfb;
+    --main-background: #fbfbfb;
+    --book-foreground: #0b1326;
+    --sidebar-background: #f0f2f5;
+    --sidebar-border: rgba(0,33,71,0.15);
+    --sidebar-text: #1d2b45;
+    --card-background: #ffffff;
+    --card-text: #0b1326;
+    --accent: #002147;
+    --link-color: #002147;
+    --muted-color: #555c6b;
+    --search-background: #ffffff;
+    --border-radius: 4px;
+}
+body.book-shell.style-oxford .book-chapter-content, body.book-export.style-oxford .book-chapter-content {
+    line-height: 2.0;
+    text-align: justify;
+}
+        `
+    },
+    cambridge: {
+        key: 'cambridge',
+        label: 'Cambridge Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-cambridge, body.book-export.style-cambridge {
+    --book-font: 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
+    --heading-font: 'Palatino', serif;
+    --book-background: #fafcfa;
+    --main-background: #fafcfa;
+    --book-foreground: #101c18;
+    --sidebar-background: #ebf2ee;
+    --sidebar-border: rgba(163,193,173,0.3);
+    --sidebar-text: #2c3d36;
+    --card-background: #ffffff;
+    --card-text: #101c18;
+    --accent: #00b2a9;
+    --link-color: #008f87;
+    --muted-color: #53635d;
+    --search-background: #ffffff;
+    --border-radius: 6px;
+}
+body.book-shell.style-cambridge .book-chapter-content, body.book-export.style-cambridge .book-chapter-content {
+    line-height: 1.75;
+    text-align: justify;
+}
+        `
+    },
+    uio: {
+        key: 'uio',
+        label: 'Oslo (UiO) Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-uio, body.book-export.style-uio {
+    --book-font: 'Georgia', 'Times New Roman', serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #1a1a1a;
+    --sidebar-background: #f3f3f3;
+    --sidebar-border: rgba(0,0,0,0.08);
+    --sidebar-text: #2d2d2d;
+    --card-background: #ffffff;
+    --card-text: #1a1a1a;
+    --accent: #D81E05;
+    --link-color: #D81E05;
+    --muted-color: #626262;
+    --search-background: #e6e6e6;
+    --border-radius: 6px;
+}
+body.book-shell.style-uio .book-chapter-content, body.book-export.style-uio .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    unibo: {
+        key: 'unibo',
+        label: 'Bologna (UniBo) Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-unibo, body.book-export.style-unibo {
+    --book-font: 'Garamond', 'Georgia', serif;
+    --heading-font: 'Garamond', serif;
+    --book-background: #fdfcf7;
+    --main-background: #fdfcf7;
+    --book-foreground: #221111;
+    --sidebar-background: #f7efe2;
+    --sidebar-border: rgba(158,27,38,0.15);
+    --sidebar-text: #5c3b3b;
+    --card-background: #ffffff;
+    --card-text: #221111;
+    --accent: #9E1B26;
+    --link-color: #9E1B26;
+    --muted-color: #665c5c;
+    --search-background: #ffffff;
+    --border-radius: 4px;
+}
+body.book-shell.style-unibo .book-chapter-content, body.book-export.style-unibo .book-chapter-content {
+    line-height: 1.8;
+    text-align: justify;
+}
+        `
+    },
+    polimi: {
+        key: 'polimi',
+        label: 'Milano (PoliMi) Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-polimi, body.book-export.style-polimi {
+    --book-font: 'Inter', 'Segoe UI', sans-serif;
+    --heading-font: 'Inter', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #202020;
+    --sidebar-background: #f0f4f8;
+    --sidebar-border: rgba(0,75,135,0.12);
+    --sidebar-text: #203a50;
+    --card-background: #ffffff;
+    --card-text: #202020;
+    --accent: #004B87;
+    --link-color: #004B87;
+    --muted-color: #5c6c7b;
+    --search-background: #e2ecf5;
+    --border-radius: 6px;
+}
+body.book-shell.style-polimi .book-chapter-content, body.book-export.style-polimi .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    eth: {
+        key: 'eth',
+        label: 'ETH Zurich Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-eth, body.book-export.style-eth {
+    --book-font: 'Helvetica Neue', 'Arial', sans-serif;
+    --heading-font: 'Helvetica Neue', Arial, sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f9f9f9;
+    --sidebar-border: rgba(0,0,0,0.1);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #333333;
+    --link-color: #0070babd;
+    --muted-color: #666666;
+    --search-background: #f0f0f0;
+    --border-radius: 0px;
+}
+body.book-shell.style-eth .book-chapter-content, body.book-export.style-eth .book-chapter-content {
+    line-height: 1.5;
+}
+        `
+    },
+    imperial: {
+        key: 'imperial',
+        label: 'Imperial Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-imperial, body.book-export.style-imperial {
+    --book-font: 'Georgia', serif;
+    --heading-font: 'Trebuchet MS', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f4f6f9;
+    --sidebar-border: rgba(0,61,124,0.12);
+    --sidebar-text: #1d334a;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #003D7C;
+    --link-color: #003D7C;
+    --muted-color: #555555;
+    --search-background: #e6ebf2;
+    --border-radius: 4px;
+}
+body.book-shell.style-imperial .book-chapter-content, body.book-export.style-imperial .book-chapter-content {
+    line-height: 1.75;
+}
+        `
+    },
+    standard: {
+        key: 'standard',
+        label: 'Standard Academic Thesis',
+        highlightTheme: 'github',
+        mermaidTheme: 'default',
+        css: `
+body.book-shell.style-standard, body.book-export.style-standard {
+    --book-font: 'Times New Roman', serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #000000;
+    --sidebar-background: #f5f5f5;
+    --sidebar-border: #dddddd;
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #000000;
+    --accent: #333333;
+    --link-color: #0000ff;
+    --muted-color: #444444;
+    --search-background: #eeeeee;
+    --border-radius: 4px;
+}
+body.book-shell.style-standard .book-chapter-content, body.book-export.style-standard .book-chapter-content {
+    line-height: 2.0;
+}
+        `
     }
 };
 
@@ -1166,10 +1478,10 @@ class BookEngine {
         this.server = null;
         this.watcher = null;
         this.lastBuildResult = null;
-        this.markdown = this.createMarkdownInstance();
+        this.markdown = this.createMarkdownInstance('mathjax');
     }
 
-    createMarkdownInstance() {
+    createMarkdownInstance(mathEngine = 'mathjax') {
         const md = new MarkdownIt({
             html: true,
             linkify: true,
@@ -1185,6 +1497,35 @@ class BookEngine {
                 return `<pre class="hljs"><code>${md.utils.escapeHtml(code)}</code></pre>`;
             }
         });
+
+        try {
+            const texmath = require('markdown-it-texmath');
+            if (mathEngine === 'katex') {
+                const katex = require('katex');
+                md.use(texmath, {
+                    engine: katex,
+                    delimiters: 'dollars',
+                    outerSpace: false
+                });
+                this.logger.info('[BookEngine] Successfully loaded markdown-it-texmath with KaTeX');
+            } else {
+                md.use(texmath, {
+                    engine: {
+                        renderToString(tex, options = {}) {
+                            const isDisplay = options.displayMode || false;
+                            return isDisplay 
+                                ? `\n<div class="math-display">\\[${tex}\\]</div>\n` 
+                                : `<span class="math-inline">\\(${tex}\\)</span>`;
+                        }
+                    },
+                    delimiters: 'dollars',
+                    outerSpace: false
+                });
+                this.logger.info('[BookEngine] Configured markdown-it-texmath for MathJax (delimiters preserved)');
+            }
+        } catch (e) {
+            this.logger.warn('[BookEngine] Failed to load markdown-it-texmath:', e.message);
+        }
 
         md.use(markdownItAnchor, {
             slugify: (str) => this.slugify(str),
@@ -1319,6 +1660,18 @@ class BookEngine {
             }
         };
 
+        if (bookType === 'thesis') {
+            config.university = options.university || 'standard';
+            config.degree = options.degree || 'Doctor of Philosophy';
+            config.department = options.department || 'Department of Computer Science';
+            config.supervisor = options.supervisor || '';
+            config.coSupervisor = options.coSupervisor || '';
+            if (options.customTemplatePath) {
+                config.customTemplatePath = options.customTemplatePath;
+            }
+            config.bookStyle = options.bookStyle || config.university;
+        }
+
         await fse.writeJson(configPath, config, { spaces: 2 });
 
         await this.generateBookTemplate(bookType, resolvedDir, chaptersDir, summaryPath, config);
@@ -1407,10 +1760,293 @@ class BookEngine {
             case 'technical':
                 await this.generateTechnicalTemplate(rootDir, chaptersDir, summaryPath, config);
                 break;
+            case 'thesis':
+                await this.generateThesisTemplate(rootDir, chaptersDir, summaryPath, config);
+                break;
             case 'classical':
             default:
                 await this.generateClassicalTemplate(rootDir, chaptersDir, summaryPath, config);
                 break;
+        }
+    }
+
+    async generateThesisTemplate(rootDir, chaptersDir, summaryPath, config) {
+        let isSafeTemplate = false;
+        let templatePath = config.customTemplatePath;
+        if (templatePath) {
+            if (templatePath.includes('app.asar') && !templatePath.includes('app.asar.unpacked')) {
+                templatePath = templatePath.replace('app.asar', 'app.asar.unpacked');
+            }
+            try {
+                const normalized = path.normalize(path.resolve(templatePath));
+                if (normalized.includes(path.join('templates', 'thesis')) || normalized.includes(path.join('.markdd', 'templates', 'thesis'))) {
+                    isSafeTemplate = true;
+                }
+            } catch (e) {
+                this.logger.error('[BookEngine] Template path validation failed:', e);
+            }
+        }
+
+        if (isSafeTemplate && fs.existsSync(templatePath)) {
+            // 1. Copy the chapters directory
+            const templateChaptersDir = path.join(templatePath, 'chapters');
+            if (fs.existsSync(templateChaptersDir)) {
+                await fse.copy(templateChaptersDir, chaptersDir, { overwrite: true });
+            }
+
+            // 2. Copy the appendices directory if it exists
+            const templateAppendicesDir = path.join(templatePath, 'appendices');
+            const targetAppendicesDir = path.join(rootDir, 'appendices');
+            if (fs.existsSync(templateAppendicesDir)) {
+                await fse.copy(templateAppendicesDir, targetAppendicesDir, { overwrite: true });
+            } else {
+                await fse.ensureDir(targetAppendicesDir);
+            }
+
+            // 3. Copy custom.css
+            const templateCss = path.join(templatePath, 'custom.css');
+            if (fs.existsSync(templateCss)) {
+                await fse.copy(templateCss, path.join(rootDir, 'custom.css'), { overwrite: true });
+            }
+
+            // 4. Copy any markdown files from the template path root to project root
+            const files = await fs.promises.readdir(templatePath);
+            for (const file of files) {
+                if (file.toLowerCase().endsWith('.md') && !file.toLowerCase().startsWith('summary')) {
+                    await fse.copy(path.join(templatePath, file), path.join(rootDir, file), { overwrite: true });
+                }
+            }
+
+            // 5. Generate SUMMARY.md dynamically or copy template's SUMMARY.md
+            const normalizedPath = templatePath.toLowerCase().replace(/\\/g, '/');
+            const isBuiltInPreset = ['mit', 'harvard', 'stanford', 'oxford', 'cambridge', 'uio', 'unibo', 'polimi', 'eth', 'imperial', 'standard'].some(preset => 
+                normalizedPath.includes(`templates/thesis/${preset}`)
+            );
+
+            if (isBuiltInPreset) {
+                const requestedChapters = this.normalizeChapterCount(config.chapterOptions?.count ?? config.chapterCount);
+                const requestedAppendices = Math.max(0, parseInt(config.appendixOptions?.count ?? config.appendixCount ?? 0, 10) || 0);
+
+                let summaryTemplate = `# Summary\n\n`;
+                summaryTemplate += `- [Title Page](title.md)\n`;
+                summaryTemplate += `- [Abstract](abstract.md)\n`;
+                summaryTemplate += `- [Declaration](declaration.md)\n`;
+                summaryTemplate += `- [Table of Contents](front/table-of-contents.md)\n`;
+                summaryTemplate += `- [List of Figures](front/lof.md)\n`;
+                summaryTemplate += `- [List of Tables](front/lot.md)\n\n`;
+
+                // Grouping chapters matching original university SUMMARY.md headers
+                summaryTemplate += `## Introduction\n`;
+                if (requestedChapters >= 1) {
+                    summaryTemplate += `- [Chapter 1: Introduction](chapters/chapter-01.md)\n`;
+                }
+                
+                if (requestedChapters > 1) {
+                    summaryTemplate += `\n## Core Content\n`;
+                    const DEFAULT_THESIS_CHAPTER_TITLES = [
+                        'Introduction',
+                        'Literature Review',
+                        'Methodology',
+                        'Results & Analysis',
+                        'Discussion',
+                        'Conclusion'
+                    ];
+                    for (let i = 2; i <= requestedChapters; i++) {
+                        // Check if we transition to Discussion for chapters 5 and 6
+                        if (i === 5) {
+                            summaryTemplate += `\n## Discussion\n`;
+                        }
+                        const slug = this.formatChapterSlug(i);
+                        const defaultTitle = DEFAULT_THESIS_CHAPTER_TITLES[i - 1] || `Chapter ${i}`;
+                        summaryTemplate += `- [Chapter ${i}: ${defaultTitle}](chapters/chapter-${slug}.md)\n`;
+                    }
+                }
+
+                summaryTemplate += `\n## References\n`;
+                summaryTemplate += `- [Bibliography](bibliography.md)\n`;
+
+                if (requestedAppendices > 0) {
+                    summaryTemplate += `\n## Appendices\n`;
+                    for (let i = 1; i <= requestedAppendices; i++) {
+                        const letter = String.fromCharCode(64 + i);
+                        const slug = this.formatChapterSlug(i);
+                        const title = i === 1 ? 'Additional Derivations' : `Supplementary Material ${letter}`;
+                        summaryTemplate += `- [Appendix ${letter}: ${title}](appendices/appendix-${slug}.md)\n`;
+                    }
+                }
+
+                await fse.writeFile(summaryPath, summaryTemplate, 'utf-8');
+
+                // 6. Generate/Ensure additional chapter files are created
+                const DEFAULT_THESIS_CHAPTER_CONTENTS = [
+                    `# Chapter 1: Introduction\n\n## 1.1 Motivation and Context\nWrite the motivation and background context for your research here.\n\n## 1.2 Research Objectives\n- Objective 1\n- Objective 2\n- Objective 3\n\n## 1.3 Thesis Outline\nDescribe the structure of this thesis.\n`,
+                    `# Chapter 2: Literature Review\n\n## 2.1 Background\nSurvey the relevant literature here. Use inline math like $E = mc^2$ and display math:\n\n$$\\mathcal{L}(\\theta) = \\mathcal{L}_{data}(\\theta) + \\lambda\\mathcal{L}_{physics}(\\theta)$$\n\n## 2.2 Related Work\nDiscuss related work and how your research fits in.\n`,
+                    `# Chapter 3: Methodology\n\n## 3.1 Framework Overview\nDescribe your methodology here.\n\n## 3.2 Mathematical Formulation\nPresent the key equations:\n\n$$\\nabla^2 \\phi = \\frac{\\partial^2 \\phi}{\\partial t^2}$$\n`,
+                    `# Chapter 4: Results & Analysis\n\n## 4.1 Experimental Setup\nDescribe the experimental setup.\n\n## 4.2 Results\nPresent your results. Example table:\n\n| Method | Accuracy | Time (s) |\n|:-------|:--------:|:--------:|\n| Baseline | 85.2% | 120 |\n| Proposed | 94.7% | 15 |\n`,
+                    `# Chapter 5: Discussion\n\n## 5.1 Interpretation of Results\nDiscuss the implications of your results.\n\n## 5.2 Limitations\nAcknowledge limitations of your study.\n\n## 5.3 Future Work\nSuggest future research directions.\n`,
+                    `# Chapter 6: Conclusion\n\nSummarise the contributions of this thesis and the key findings.\n`
+                ];
+
+                for (let i = 1; i <= requestedChapters; i++) {
+                    const slug = this.formatChapterSlug(i);
+                    const chapPath = path.join(chaptersDir, `chapter-${slug}.md`);
+                    if (!fs.existsSync(chapPath)) {
+                        const content = DEFAULT_THESIS_CHAPTER_CONTENTS[i - 1] || `# Chapter ${i}\n\nBegin writing this chapter here.\n`;
+                        await fse.writeFile(chapPath, content, 'utf-8');
+                    }
+                }
+
+                // 7. Generate/Ensure additional appendix files are created
+                for (let i = 1; i <= requestedAppendices; i++) {
+                    const letter = String.fromCharCode(64 + i);
+                    const slug = this.formatChapterSlug(i);
+                    const appPath = path.join(targetAppendicesDir, `appendix-${slug}.md`);
+                    if (!fs.existsSync(appPath)) {
+                        const content = i === 1
+                            ? `# Appendix A: Additional Derivations\n\n## A.1 Additional Derivations\nProvide supplementary derivations, data, or code here.\n\n$$\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}$$\n`
+                            : `# Appendix ${letter}: Supplementary Material ${letter}\n\nProvide supplementary material for Appendix ${letter} here.\n`;
+                        await fse.writeFile(appPath, content, 'utf-8');
+                    }
+                }
+            } else {
+                // Generic Custom Template: copy template's SUMMARY.md directly
+                const templateSummary = path.join(templatePath, 'SUMMARY.md');
+                if (fs.existsSync(templateSummary)) {
+                    await fse.copy(templateSummary, summaryPath, { overwrite: true });
+                } else {
+                    const templateSummaryLC = path.join(templatePath, 'summary.md');
+                    if (fs.existsSync(templateSummaryLC)) {
+                        await fse.copy(templateSummaryLC, summaryPath, { overwrite: true });
+                    }
+                }
+            }
+
+            return;
+        }
+        // Named default thesis chapters (used for the first N up to chapterCount)
+        const DEFAULT_THESIS_CHAPTERS = [
+            {
+                name: 'introduction',
+                title: 'Chapter 1: Introduction',
+                file: 'chapter-01.md',
+                content: `# Chapter 1: Introduction\n\n## 1.1 Motivation and Context\nWrite the motivation and background context for your research here.\n\n## 1.2 Research Objectives\n- Objective 1\n- Objective 2\n- Objective 3\n\n## 1.3 Thesis Outline\nDescribe the structure of this thesis.\n`
+            },
+            {
+                name: 'literature-review',
+                title: 'Chapter 2: Literature Review',
+                file: 'chapter-02.md',
+                content: `# Chapter 2: Literature Review\n\n## 2.1 Background\nSurvey the relevant literature here. Use inline math like $E = mc^2$ and display math:\n\n$$\\mathcal{L}(\\theta) = \\mathcal{L}_{data}(\\theta) + \\lambda\\mathcal{L}_{physics}(\\theta)$$\n\n## 2.2 Related Work\nDiscuss related work and how your research fits in.\n`
+            },
+            {
+                name: 'methodology',
+                title: 'Chapter 3: Methodology',
+                file: 'chapter-03.md',
+                content: `# Chapter 3: Methodology\n\n## 3.1 Framework Overview\nDescribe your methodology here.\n\n## 3.2 Mathematical Formulation\nPresent the key equations:\n\n$$\\nabla^2 \\phi = \\frac{\\partial^2 \\phi}{\\partial t^2}$$\n`
+            },
+            {
+                name: 'results',
+                title: 'Chapter 4: Results & Analysis',
+                file: 'chapter-04.md',
+                content: `# Chapter 4: Results & Analysis\n\n## 4.1 Experimental Setup\nDescribe the experimental setup.\n\n## 4.2 Results\nPresent your results. Example table:\n\n| Method | Accuracy | Time (s) |\n|:-------|:--------:|:--------:|\n| Baseline | 85.2% | 120 |\n| Proposed | 94.7% | 15 |\n`
+            },
+            {
+                name: 'discussion',
+                title: 'Chapter 5: Discussion',
+                file: 'chapter-05.md',
+                content: `# Chapter 5: Discussion\n\n## 5.1 Interpretation of Results\nDiscuss the implications of your results.\n\n## 5.2 Limitations\nAcknowledge limitations of your study.\n\n## 5.3 Future Work\nSuggest future research directions.\n`
+            },
+            {
+                name: 'conclusion',
+                title: 'Chapter 6: Conclusion',
+                file: 'chapter-06.md',
+                content: `# Chapter 6: Conclusion\n\nSummarise the contributions of this thesis and the key findings.\n`
+            }
+        ];
+
+        const requestedChapters = this.normalizeChapterCount(config.chapterOptions?.count ?? config.chapterCount);
+        const requestedAppendices = Math.max(0, parseInt(config.appendixOptions?.count ?? config.appendixCount ?? 0, 10) || 0);
+
+        if (!fs.existsSync(summaryPath)) {
+            let summaryTemplate = `# ${config.title || 'Academic Thesis'}\n\n`;
+            summaryTemplate += `## Front Matter\n`;
+            summaryTemplate += `- [Abstract](chapters/abstract.md)\n`;
+            summaryTemplate += `- [Declaration of Authorship](chapters/declaration.md)\n`;
+            summaryTemplate += `- [Dedication](chapters/dedication.md)\n`;
+            summaryTemplate += `- [Acknowledgements](chapters/acknowledgements.md)\n\n`;
+            summaryTemplate += `## Main Body\n`;
+            for (let i = 1; i <= requestedChapters; i++) {
+                const slug = this.formatChapterSlug(i);
+                const defaultChap = DEFAULT_THESIS_CHAPTERS[i - 1];
+                const title = defaultChap ? defaultChap.title : `Chapter ${i}`;
+                summaryTemplate += `- [${title}](chapters/chapter-${slug}.md)\n`;
+            }
+            summaryTemplate += `\n## Back Matter\n`;
+            if (requestedAppendices > 0) {
+                for (let i = 1; i <= requestedAppendices; i++) {
+                    const letter = String.fromCharCode(64 + i);
+                    const slug = this.formatChapterSlug(i);
+                    summaryTemplate += `- [Appendix ${letter}](chapters/appendix-${slug}.md)\n`;
+                }
+            }
+            summaryTemplate += `- [Bibliography](chapters/bibliography.md)\n`;
+            await fse.writeFile(summaryPath, summaryTemplate, 'utf-8');
+        }
+
+        // Write front-matter boilerplate files
+        const frontMatter = [
+            {
+                file: 'abstract.md',
+                content: `# Abstract\n\nProvide a concise summary of your thesis (typically 300–500 words). Describe the problem, methodology, key results, and conclusions.\n`
+            },
+            {
+                file: 'declaration.md',
+                content: `# Declaration of Authorship\n\nI, **${config.author || 'Author'}**, declare that this thesis titled *"${config.title || 'Thesis Title'}"* and the work presented in it are my own. I confirm that:\n\n1. This work was done wholly or mainly while in candidature for a research degree at this University.\n2. Where any part of this thesis has previously been submitted for a degree or any other qualification at this University or any other institution, this has been clearly stated.\n3. Where I have consulted the published work of others, this is always clearly attributed.\n4. Where I have quoted from the work of others, the source is always given.\n\n\\\n\\\n\n**Signed:** __________________________________  \n**Date:** __________________________________\n`
+            },
+            {
+                file: 'dedication.md',
+                content: `# Dedication\n\n<div style="text-align: center; font-style: italic;">\nTo those who made this possible.\n</div>\n`
+            },
+            {
+                file: 'acknowledgements.md',
+                content: `# Acknowledgements\n\nFirst and foremost, I would like to express my deepest gratitude to my supervisor, **${config.supervisor || 'Supervisor Name'}**, for their invaluable guidance and patience throughout this research project.\n\nI would also like to thank the faculty members of the **${config.department || 'Department'}** for providing a stimulating research environment.\n\nFinally, I am eternally grateful to my family and friends for their unwavering support.\n`
+            },
+            {
+                file: 'bibliography.md',
+                content: `# Bibliography\n\nList your references here. Example:\n\n- Author, A. B. (Year). *Title of the work*. Publisher.\n- Author, C. D., & Author, E. F. (Year). Article title. *Journal Name*, *volume*(issue), pages. https://doi.org/...\n`
+            }
+        ];
+
+        for (const fm of frontMatter) {
+            const p = path.join(chaptersDir, fm.file);
+            if (!fs.existsSync(p)) {
+                await fse.writeFile(p, fm.content, 'utf-8');
+            }
+        }
+
+        // Write chapter files – use named defaults for first 6, generate blanks for the rest
+        for (let i = 1; i <= requestedChapters; i++) {
+            const slug = this.formatChapterSlug(i);
+            const chapPath = path.join(chaptersDir, `chapter-${slug}.md`);
+            if (!fs.existsSync(chapPath)) {
+                const defaultChap = DEFAULT_THESIS_CHAPTERS[i - 1];
+                const content = defaultChap
+                    ? defaultChap.content
+                    : `# Chapter ${i}\n\nBegin writing this chapter here.\n`;
+                await fse.writeFile(chapPath, content, 'utf-8');
+            }
+        }
+
+        // Write appendix files
+        for (let i = 1; i <= requestedAppendices; i++) {
+            const letter = String.fromCharCode(64 + i);
+            const slug = this.formatChapterSlug(i);
+            const appPath = path.join(chaptersDir, `appendix-${slug}.md`);
+            if (!fs.existsSync(appPath)) {
+                const content = i === 1
+                    ? `# Appendix A: Supplementary Material\n\n## A.1 Additional Derivations\nProvide supplementary derivations, data, or code here.\n\n$$\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}$$\n`
+                    : `# Appendix ${letter}\n\nProvide supplementary material for Appendix ${letter} here.\n`;
+                await fse.writeFile(appPath, content, 'utf-8');
+            }
         }
     }
 
@@ -1434,7 +2070,10 @@ class BookEngine {
         const hasAuthorBio = sections.includes('author-bio');
 
         if (!fs.existsSync(summaryPath)) {
-            // Build summary dynamically based on selected sections
+            // Build summary dynamically based on selected sections and counts
+            const chapterCount = this.normalizeChapterCount(config.chapterOptions?.count ?? config.chapterCount);
+            const appendixCount = Math.max(0, parseInt(config.appendixOptions?.count ?? config.appendixCount ?? 0, 10) || 0);
+
             let summaryTemplate = `# ${config.title}\n\n`;
             
             // Front matter
@@ -1444,16 +2083,31 @@ class BookEngine {
             if (hasAcknowledgments) summaryTemplate += `- [Acknowledgments](chapters/acknowledgments.md)\n`;
             if (hasIntroduction) summaryTemplate += `- [Introduction](chapters/introduction.md)\n\n`;
             
-            // Main content - simple structure for user books
-            summaryTemplate += `## Part I\n`;
-            summaryTemplate += `- [Chapter 1](chapters/chapter-01.md)\n`;
-            summaryTemplate += `- [Chapter 2](chapters/chapter-02.md)\n`;
-            summaryTemplate += `- [Chapter 3](chapters/chapter-03.md)\n\n`;
+            // Main content — dynamic chapter count
+            if (chapterCount > 0) {
+                summaryTemplate += `## Main Content\n`;
+                for (let i = 1; i <= chapterCount; i++) {
+                    const slug = this.formatChapterSlug(i);
+                    summaryTemplate += `- [Chapter ${i}](chapters/chapter-${slug}.md)\n`;
+                }
+                summaryTemplate += '\n';
+            }
             
             // Back matter
             if (hasEpilogue) summaryTemplate += `- [Epilogue](chapters/epilogue.md)\n\n`;
             if (hasAfterword) summaryTemplate += `- [Afterword](chapters/afterword.md)\n`;
-            if (hasAppendix) summaryTemplate += `\n## Appendices\n- [Appendix](chapters/appendix.md)\n`;
+            if (hasAppendix || appendixCount > 0) {
+                summaryTemplate += `\n## Appendices\n`;
+                if (appendixCount > 0) {
+                    for (let i = 1; i <= appendixCount; i++) {
+                        const letter = String.fromCharCode(64 + i);
+                        const slug = this.formatChapterSlug(i);
+                        summaryTemplate += `- [Appendix ${letter}](chapters/appendix-${slug}.md)\n`;
+                    }
+                } else {
+                    summaryTemplate += `- [Appendix](chapters/appendix.md)\n`;
+                }
+            }
             if (hasGlossary) summaryTemplate += `- [Glossary](chapters/glossary.md)\n`;
             if (hasBibliography) summaryTemplate += `- [Bibliography](chapters/bibliography.md)\n`;
             if (hasIndex) summaryTemplate += `- [Index](chapters/index.md)\n`;
@@ -1461,6 +2115,7 @@ class BookEngine {
             
             await fse.writeFile(summaryPath, summaryTemplate, 'utf-8');
         }
+
 
         // Create chapter files - sample rich content for compatibility
         const chapters = [];
@@ -1604,14 +2259,41 @@ class BookEngine {
             });
         }
 
-        // Write all chapter files
+
+        // Write all fixed/boilerplate chapter files
         for (const chapter of chapters) {
             const filePath = path.join(chaptersDir, chapter.file);
             if (!fs.existsSync(filePath)) {
                 await fse.writeFile(filePath, chapter.content, 'utf-8');
             }
         }
+
+        // Write dynamic chapter files based on user-requested count
+        const chapterCount = this.normalizeChapterCount(config.chapterOptions?.count ?? config.chapterCount);
+        const showChapterNumbers = config.chapterOptions?.showNumbers !== false;
+        for (let i = 1; i <= chapterCount; i++) {
+            const slug = this.formatChapterSlug(i);
+            const filePath = path.join(chaptersDir, `chapter-${slug}.md`);
+            if (!fs.existsSync(filePath)) {
+                const heading = showChapterNumbers ? `Chapter ${i}` : `Chapter ${i}`;
+                await fse.writeFile(filePath,
+                    `# ${heading}\n\nBegin writing your chapter content here.\n`, 'utf-8');
+            }
+        }
+
+        // Write dynamic appendix files based on user-requested count
+        const appendixCount = Math.max(0, parseInt(config.appendixOptions?.count ?? config.appendixCount ?? 0, 10) || 0);
+        for (let i = 1; i <= appendixCount; i++) {
+            const letter = String.fromCharCode(64 + i);
+            const slug = this.formatChapterSlug(i);
+            const filePath = path.join(chaptersDir, `appendix-${slug}.md`);
+            if (!fs.existsSync(filePath)) {
+                await fse.writeFile(filePath,
+                    `# Appendix ${letter}\n\nProvide supplementary material here.\n`, 'utf-8');
+            }
+        }
     }
+
 
     async generateStructuredMinimalTemplate(chaptersDir, summaryPath, config) {
         const plan = this.buildMinimalSectionPlan(config);
@@ -2104,14 +2786,25 @@ class BookEngine {
     async build(rootDir, options = {}) {
         const resolvedRoot = path.resolve(rootDir);
         const config = await this.loadConfig(resolvedRoot);
+        // Configure markdown parser math engine: prefer options (passed from app setting) over config
+        const mathEngine = options.mathEngine || config.mathEngine || 'mathjax';
+        this.markdown = this.createMarkdownInstance(mathEngine);
+        config.mathEngine = mathEngine;
+
         const { tree } = await this.loadSummary(resolvedRoot, config);
         const styleKey = config.bookStyle
             || (config.type === 'classical' ? 'classic'
                 : config.type === 'wiki' ? 'wiki'
                 : config.type === 'help' ? 'helpdesk'
+                : config.type === 'thesis' ? 'standard'
                 : 'dark');
         const stylePreset = this.resolveBookStyle(styleKey);
         
+        if (config.type === 'thesis') {
+            this.logger.info('[BookEngine] Auto-generating List of Figures & Tables...');
+            await this.autoGenerateLofAndLot(resolvedRoot, config, tree.nodes);
+        }
+
         // Compile all chapters FIRST
         this.logger.info('[BookEngine] Compiling chapters...');
         const chapters = await this.compileChapters(tree.nodes, config, resolvedRoot);
@@ -2138,7 +2831,7 @@ class BookEngine {
         await fse.writeJson(path.join(outputDir, 'book-manifest.json'), manifest, { spaces: 2 });
         await fse.writeJson(path.join(outputDir, 'search-index.json'), this.buildSearchIndex(chapters));
         await fse.ensureDir(path.join(outputDir, 'assets'));
-        await this.writeStyleSheet(outputDir, stylePreset);
+        await this.writeStyleSheet(resolvedRoot, outputDir, stylePreset);
         await this.writeClientScript(outputDir, stylePreset);
 
         const landingHtml = this.renderLandingPage(manifest.metadata, sidebar, chapters);
@@ -2852,15 +3545,20 @@ class BookEngine {
         .no-break {
             page-break-inside: avoid;
         }
+
+        ${this._getPrintUniversityCSS(metadata)}
     </style>
+    ${this._getPrintUniversityFontLink(metadata)}
 </head>
 <body>
     <!-- Title Page -->
+    ${metadata.type === 'thesis' ? this.renderThesisTitlePage(metadata) : `
     <div class="book-title-page">
         <h1>${this.escapeHtml(metadata.title)}</h1>
         <p class="author">by ${this.escapeHtml(metadata.author)}</p>
         ${metadata.description ? `<p class="description">${this.escapeHtml(metadata.description)}</p>` : ''}
     </div>
+    `}
     
     <!-- Table of Contents -->
     ${tocSection}
@@ -2874,6 +3572,555 @@ class BookEngine {
 </html>`;
     }
 
+    /**
+     * Returns a Google Fonts <link> element for the university's typeface (if any).
+     * Only relevant for thesis exports; returns empty string for generic books.
+     */
+    _getPrintUniversityFontLink(metadata) {
+        if (metadata.type !== 'thesis') return '';
+        const uni = (metadata.university || 'standard').toLowerCase();
+        const fontMap = {
+            mit:       'https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;600&display=swap',
+            harvard:   'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap',
+            stanford:  'https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap',
+            oxford:    'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap',
+            cambridge: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap',
+            eth:       'https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap',
+            polimi:    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap',
+        };
+        const href = fontMap[uni];
+        return href ? `<link rel="stylesheet" href="${href}">` : '';
+    }
+
+    /**
+     * Returns university-specific CSS overrides for the print layout.
+     */
+    _getPrintUniversityCSS(metadata) {
+        if (metadata.type !== 'thesis') return '/* standard book styles */';
+        const uni = (metadata.university || 'standard').toLowerCase();
+
+        const base = `
+        /* ---- ${uni.toUpperCase()} university print styles ---- */
+        @page { margin: 30mm 25mm 30mm 35mm; /* larger left binding margin */ }
+        @page :first {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        `;
+
+        const uniStyles = {
+            mit: `
+        body { font-family: 'Crimson Text', 'Georgia', serif; font-size: 12pt; line-height: 1.7; }
+        .chapter-title { color: #750014; font-family: 'Inter', 'Helvetica Neue', sans-serif; font-size: 22pt; border-bottom: 2pt solid #750014; padding-bottom: 6pt; }
+        h2, h3 { color: #750014; }`,
+            harvard: `
+        body { font-family: 'EB Garamond', 'Garamond', 'Times New Roman', serif; font-size: 12pt; line-height: 1.8; }
+        .chapter-title { color: #A51C30; font-size: 22pt; font-style: italic; }
+        h2, h3 { color: #A51C30; }`,
+            stanford: `
+        body { font-family: 'Libre Baskerville', 'Georgia', serif; font-size: 11.5pt; line-height: 1.7; }
+        .chapter-title { color: #8C1515; font-size: 22pt; border-left: 5pt solid #8C1515; padding-left: 12pt; }
+        h2, h3 { color: #8C1515; }`,
+            oxford: `
+        body { font-family: 'Playfair Display', 'Georgia', serif; font-size: 12pt; line-height: 1.7; }
+        .chapter-title { color: #002147; font-size: 22pt; }
+        h2, h3 { color: #002147; }
+        .chapter-content { text-align: justify; hyphens: auto; }`,
+            cambridge: `
+        body { font-family: 'Cormorant Garamond', 'Georgia', serif; font-size: 12pt; line-height: 1.75; }
+        .chapter-title { color: #003B5C; font-size: 22pt; letter-spacing: 0.5pt; }
+        h2, h3 { color: #003B5C; }`,
+            uio: `
+        body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 12pt; line-height: 1.7; }
+        .chapter-title { color: #003087; font-size: 22pt; }
+        h2, h3 { color: #003087; }`,
+            unibo: `
+        body { font-family: 'Georgia', serif; font-size: 12pt; line-height: 1.7; }
+        .chapter-title { color: #CC0000; font-size: 22pt; }
+        h2, h3 { color: #CC0000; }`,
+            polimi: `
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; font-size: 11pt; line-height: 1.6; }
+        .chapter-title { color: #004B87; font-size: 22pt; font-weight: 700; border-bottom: 3pt solid #004B87; padding-bottom: 4pt; }
+        h2, h3 { color: #004B87; font-weight: 600; }
+        .chapter-content { text-align: left; }`,
+            eth: `
+        body { font-family: 'Source Serif 4', 'Georgia', serif; font-size: 11.5pt; line-height: 1.65; }
+        .chapter-title { color: #1F407A; font-size: 22pt; }
+        h2, h3 { color: #1F407A; }`,
+            imperial: `
+        body { font-family: 'Georgia', serif; font-size: 11.5pt; line-height: 1.65; }
+        .chapter-title { color: #003E74; font-size: 22pt; border-bottom: 2pt solid #003E74; }
+        h2, h3 { color: #003E74; }`,
+            standard: `
+        body { font-family: 'Times New Roman', 'Georgia', serif; font-size: 12pt; line-height: 1.7; }
+        .chapter-title { font-size: 22pt; }`,
+        };
+
+        return base + (uniStyles[uni] || uniStyles.standard);
+    }
+
+    renderThesisTitlePage(metadata) {
+        const title = this.escapeHtml(metadata.title || 'Untitled Thesis');
+        const author = this.escapeHtml(metadata.author || 'Author Name');
+        const degree = this.escapeHtml(metadata.degree || 'Doctor of Philosophy');
+        const department = this.escapeHtml(metadata.department || 'Department Name');
+        const year = this.escapeHtml(metadata.year || new Date().getFullYear());
+        const month = this.escapeHtml(metadata.month || 'June');
+        const university = (metadata.university || 'standard').toLowerCase();
+
+        const rawSupervisor = metadata.supervisor || 'Supervisor Name';
+        let supervisorDisplay = this.escapeHtml(rawSupervisor);
+        if (rawSupervisor && !/^(prof\.|dr\.|professor|doctor)/i.test(rawSupervisor.trim())) {
+            supervisorDisplay = `Prof. ${supervisorDisplay}`;
+        }
+
+        const rawCoSupervisor = metadata.coSupervisor || '';
+        let coSupervisorDisplay = this.escapeHtml(rawCoSupervisor);
+        if (rawCoSupervisor && !/^(prof\.|dr\.|professor|doctor|dott\.|ing\.)/i.test(rawCoSupervisor.trim())) {
+            if (['unibo', 'polimi'].includes(university)) {
+                coSupervisorDisplay = `Dott. ${coSupervisorDisplay}`;
+            } else {
+                coSupervisorDisplay = `Dr. ${coSupervisorDisplay}`;
+            }
+        }
+
+        switch (university) {
+            case 'mit':
+                return `
+                <div class="thesis-cover mit" style="page-break-after: always; padding: 2.5cm 1.5cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center;">
+                    <div style="margin-top: 1cm;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; line-height: 1.3;">${title}</h1>
+                    </div>
+                    <div>
+                        <p style="font-size: 14pt; margin: 1cm 0;">by</p>
+                        <p class="thesis-author" style="font-size: 18pt; font-weight: bold; text-transform: uppercase;">${author}</p>
+                        <p style="font-size: 12pt; margin: 1.5cm 0; line-height: 1.6;">
+                            Submitted to the ${department}<br>
+                            in partial fulfillment of the requirements for the degree of
+                        </p>
+                        <p style="font-size: 16pt; font-weight: bold;">${degree}</p>
+                        <p style="font-size: 12pt; margin: 1cm 0;">at the</p>
+                        <p class="thesis-institution" style="font-size: 16pt; font-weight: bold; letter-spacing: 1px;">MASSACHUSETTS INSTITUTE OF TECHNOLOGY</p>
+                        <p style="font-size: 12pt; margin-top: 1cm;">${month} ${year}</p>
+                        <p style="font-size: 10pt; margin-top: 0.5cm; color: #555;">© ${year} ${author}. All rights reserved.</p>
+                    </div>
+                    <div style="font-size: 10pt; text-align: justify; margin-top: 1.5cm; line-height: 1.4; color: #444;">
+                        The author hereby grants to MIT permission to reproduce and to distribute publicly paper and electronic copies of this thesis document in whole or in part in any medium now known or hereafter created.
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11pt; margin-top: 1.5cm; text-align: left;">
+                        <div>
+                            <p>Certified by: __________________________</p>
+                            <p style="margin-left: 80px; font-size: 10pt; color: #555;">${supervisorDisplay}<br>Thesis Supervisor</p>
+                        </div>
+                        <div>
+                            <p>Accepted by: __________________________</p>
+                            <p style="margin-left: 80px; font-size: 10pt; color: #555;">Chair, Department Graduate Committee</p>
+                        </div>
+                    </div>
+                </div>`;
+            case 'harvard':
+                return `
+                <div class="thesis-cover harvard" style="page-break-after: always; padding: 3cm 2cm; display: flex; flex-direction: column; justify-content: space-around; height: 90vh; text-align: center; font-family: 'Garamond', 'Georgia', serif;">
+                    <div>
+                        <h1 class="thesis-title" style="font-size: 28pt; font-family: 'Georgia', serif; font-weight: normal; font-style: italic;">${title}</h1>
+                    </div>
+                    <div style="font-size: 13pt; line-height: 1.8;">
+                        <p>A dissertation presented</p>
+                        <p>by</p>
+                        <p style="font-size: 16pt; font-weight: bold; font-family: 'Georgia', serif;">${author}</p>
+                        <p>to</p>
+                        <p>The ${department}</p>
+                        <p style="margin-top: 1cm;">in partial fulfillment of the requirements</p>
+                        <p>for the degree of</p>
+                        <p style="font-size: 15pt; font-weight: bold;">${degree}</p>
+                        <p>in the subject of</p>
+                        <p style="font-style: italic;">Physics and Machine Learning</p>
+                    </div>
+                    <div style="font-size: 13pt;">
+                        <p>Harvard University</p>
+                        <p>Cambridge, Massachusetts</p>
+                        <p style="margin-top: 1cm;">${month} ${year}</p>
+                    </div>
+                </div>`;
+            case 'stanford':
+                return `
+                <div class="thesis-cover stanford" style="page-break-after: always; padding: 2.5cm 1.5cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center;">
+                    <div>
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">${title}</h1>
+                        <p style="margin-top: 2cm; font-size: 13pt; line-height: 1.8; text-transform: uppercase;">
+                            A THESIS<br>
+                            SUBMITTED TO THE ${department}<br>
+                            AND THE COMMITTEE ON GRADUATE STUDIES<br>
+                            OF STANFORD UNIVERSITY<br>
+                            IN PARTIAL FULFILLMENT OF THE REQUIREMENTS<br>
+                            FOR THE DEGREE OF<br>
+                            <span style="font-weight: bold;">${degree}</span>
+                        </p>
+                    </div>
+                    <div>
+                        <p style="font-size: 13pt; margin: 1cm 0;">By</p>
+                        <p class="thesis-author" style="font-size: 16pt; font-weight: bold;">${author}</p>
+                        <p style="font-size: 13pt; margin-top: 1cm;">${month} ${year}</p>
+                    </div>
+                    <div class="thesis-signatures" style="margin-top: 2cm; display: flex; flex-direction: column; align-items: center; gap: 15pt; font-size: 11pt;">
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; width: 350px;">
+                            <div class="signature-line" style="width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+                            <p style="margin: 0; font-size: 10pt; color: #555;">Approved for the Department (Advisor: ${supervisorDisplay})</p>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; width: 350px;">
+                            <div class="signature-line" style="width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+                            <p style="margin: 0; font-size: 10pt; color: #555;">Approved for the University Committee on Graduate Studies</p>
+                        </div>
+                    </div>
+                </div>`;
+            case 'oxford':
+                return `
+                <div class="thesis-cover oxford" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Times New Roman', serif;">
+                    <div class="thesis-crest" style="width: 100px; height: 100px; border: 2px solid #002147; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: bold; margin: 0 auto; color: #002147; text-transform: uppercase; flex-direction: column;">
+                        <span>Dominus</span>
+                        <span>Illuminatio</span>
+                        <span>Mea</span>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; color: #002147; line-height: 1.3;">${title}</h1>
+                    </div>
+                    <div>
+                        <p class="thesis-author" style="font-size: 18pt; font-weight: bold; color: #002147;">${author}</p>
+                        <p style="font-size: 12pt; margin: 1cm 0; line-height: 1.6;">
+                            ${department}<br>
+                            University of Oxford
+                        </p>
+                        <p style="font-size: 13pt; margin: 1.5cm 0; font-style: italic;">
+                            A thesis submitted for the degree of<br>
+                            <span style="font-weight: bold; font-style: normal; text-transform: uppercase;">${degree}</span>
+                        </p>
+                        <p style="font-size: 12pt; margin-top: 1.5cm;">${month} ${year}</p>
+                    </div>
+                </div>`;
+            case 'cambridge':
+                return `
+                <div class="thesis-cover cambridge" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Palatino', serif;">
+                    <div class="thesis-crest" style="width: 100px; height: 100px; border: 2px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: bold; margin: 0 auto; text-transform: uppercase; letter-spacing: 1px;">
+                        <span>Cambridge</span>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; line-height: 1.3;">${title}</h1>
+                    </div>
+                    <div>
+                        <p class="thesis-author" style="font-size: 18pt; font-weight: bold;">${author}</p>
+                        <p style="font-size: 12pt; margin: 1cm 0; line-height: 1.6;">
+                            King's College<br>
+                            University of Cambridge
+                        </p>
+                        <p style="font-size: 13pt; margin: 1.5cm 0;">
+                            This thesis is submitted for the degree of<br>
+                            <span style="font-weight: bold;">${degree}</span>
+                        </p>
+                        <p style="font-size: 12pt; margin-top: 1.5cm;">${month} ${year}</p>
+                    </div>
+                </div>`;
+            case 'uio':
+                return `
+                <div class="thesis-cover uio" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Georgia', serif;">
+                    <div style="margin-top: 1cm;">
+                        <div class="thesis-crest" style="width: 90px; height: 90px; border: 2px solid #D81E05; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: bold; margin: 0 auto; color: #D81E05;">UiO</div>
+                        <p style="font-size: 12pt; font-weight: bold; color: #D81E05; margin-top: 10px; letter-spacing: 1px;">UNIVERSITY OF OSLO</p>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 24pt; font-weight: bold; line-height: 1.3;">${title}</h1>
+                        <p class="thesis-author" style="font-size: 16pt; margin-top: 1cm; font-weight: bold;">${author}</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 12pt; margin: 1.5cm 0; line-height: 1.6;">
+                            Thesis submitted for the degree of<br>
+                            <span style="font-weight: bold;">${degree}</span><br>
+                            (60 ECTS Credits)
+                        </p>
+                        <p style="font-size: 12pt;">
+                            ${department}<br>
+                            Faculty of Mathematics and Natural Sciences
+                        </p>
+                        <p style="font-size: 12pt; margin-top: 1.5cm; font-weight: bold;">${month} / ${year}</p>
+                    </div>
+                </div>`;
+            case 'unibo':
+                return `
+                <div class="thesis-cover unibo" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Garamond', serif; border: 3px double #9E1B26; margin: 10px;">
+                    <div>
+                        <p style="font-size: 14pt; font-weight: bold; color: #9E1B26; letter-spacing: 1px; margin: 0;">ALMA MATER STUDIORUM - UNIVERSITÀ DI BOLOGNA</p>
+                        <hr style="border: 0; border-top: 1px solid #9E1B26; margin: 5px 0;">
+                        <p style="font-size: 11pt; text-transform: uppercase;">Corso di Laurea in ${department}</p>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <p style="font-size: 12pt; font-weight: bold; text-transform: uppercase;">TESI DI LAUREA</p>
+                        <p style="font-size: 11pt;">in Physics and Artificial Intelligence</p>
+                        <h1 class="thesis-title" style="font-size: 24pt; font-weight: bold; color: #9E1B26; margin-top: 1cm; line-height: 1.2;">${title}</h1>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; text-align: left; font-size: 12pt; width: 100%; margin-top: 1.5cm; padding: 0 1cm;">
+                        <div>
+                            <p style="font-weight: bold; margin: 0; color: #9E1B26;">Relatore:</p>
+                            <p style="margin: 5px 0;">${supervisorDisplay}</p>
+                            ${coSupervisorDisplay ? `<p style="font-weight: bold; margin: 10px 0 0 0; color: #9E1B26;">Correlatore:</p><p style="margin: 5px 0;">${coSupervisorDisplay}</p>` : ''}
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="font-weight: bold; margin: 0; color: #9E1B26;">Candidato:</p>
+                            <p style="margin: 5px 0;">${author}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <hr style="border: 0; border-top: 1px solid #9E1B26; margin: 10px 0;">
+                        <p style="font-size: 11pt; font-weight: bold; margin-bottom: 0;">Anno Accademico ${year - 1}/${year}</p>
+                    </div>
+                </div>`;
+            case 'polimi':
+                return `
+                <div class="thesis-cover polimi" style="page-break-after: always; padding: 3cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: left; font-family: 'Inter', sans-serif; border-left: 8px solid #004B87;">
+                    <div>
+                        <p style="font-size: 16pt; font-weight: bold; color: #004B87; margin: 0;">POLITECNICO DI MILANO</p>
+                        <p style="font-size: 11pt; color: #555; margin: 5px 0 0 0;">School of Industrial and Information Engineering</p>
+                        <p style="font-size: 11pt; color: #555; margin: 0;">Master of Science in ${degree}</p>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; color: #004B87; line-height: 1.2;">${title}</h1>
+                    </div>
+                    <div style="font-size: 11pt; display: flex; flex-direction: column; gap: 10px;">
+                        <p><strong>Advisor:</strong> ${supervisorDisplay}</p>
+                        ${coSupervisorDisplay ? `<p><strong>Co-advisor:</strong> ${coSupervisorDisplay}</p>` : ''}
+                        <p style="margin-top: 20px;"><strong>Author:</strong></p>
+                        <p style="font-size: 14pt; font-weight: bold; color: #004B87; margin: 0;">${author}</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 11pt; font-weight: bold; color: #004B87; margin: 0;">Academic Year ${year - 1}/${year}</p>
+                    </div>
+                </div>`;
+            case 'eth':
+                return `
+                <div class="thesis-cover eth" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: left; font-family: 'Helvetica Neue', Arial, sans-serif;">
+                    <div>
+                        <p style="font-size: 11pt; font-weight: bold; text-transform: uppercase; color: #666; margin: 0; letter-spacing: 1px;">ETH Zürich</p>
+                        <p style="font-size: 14pt; margin: 20px 0 0 0; color: #000;">Master's Thesis</p>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 28pt; font-weight: bold; color: #000; line-height: 1.2;">${title}</h1>
+                    </div>
+                    <div style="font-size: 11pt; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #ccc; padding-top: 20px;">
+                        <p><strong>Author:</strong> ${author}</p>
+                        <p><strong>Supervisor:</strong> ${supervisorDisplay}</p>
+                        ${coSupervisorDisplay ? `<p><strong>Co-supervisor:</strong> ${coSupervisorDisplay}</p>` : ''}
+                        <p style="margin-top: 20px; color: #666;">${department}</p>
+                        <p style="color: #666;">ETH Zurich</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 11pt; color: #666; margin: 0;">${month} ${year}</p>
+                    </div>
+                </div>`;
+            case 'imperial':
+                return `
+                <div class="thesis-cover imperial" style="page-break-after: always; padding: 2.5cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Georgia', serif;">
+                    <div class="thesis-crest" style="width: 100px; height: 100px; border: 2px solid #003D7C; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9pt; font-weight: bold; margin: 0 auto; color: #003D7C; text-transform: uppercase; letter-spacing: 1px;">
+                        <span>Imperial</span>
+                    </div>
+                    <div style="margin: 2cm 0;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; color: #003D7C; line-height: 1.3;">${title}</h1>
+                    </div>
+                    <div>
+                        <p style="font-size: 13pt; margin: 1cm 0;">By</p>
+                        <p class="thesis-author" style="font-size: 18pt; font-weight: bold; color: #003D7C;">${author}</p>
+                        <p style="font-size: 12pt; margin: 1cm 0; line-height: 1.6;">
+                            ${department}<br>
+                            Imperial College London
+                        </p>
+                        <p style="font-size: 13pt; margin: 1.5cm 0; font-style: italic;">
+                            A thesis submitted for the degree of<br>
+                            <span style="font-weight: bold; font-style: normal; text-transform: uppercase;">${degree}</span>
+                        </p>
+                        <p style="font-size: 12pt; margin-top: 1.5cm;">${month} ${year}</p>
+                    </div>
+                </div>`;
+            case 'standard':
+            default:
+                return `
+                <div class="thesis-cover standard" style="page-break-after: always; padding: 3cm 2cm; display: flex; flex-direction: column; justify-content: space-between; height: 90vh; text-align: center; font-family: 'Times New Roman', serif;">
+                    <div style="margin-top: 1.5cm;">
+                        <h1 class="thesis-title" style="font-size: 26pt; font-weight: bold; line-height: 1.3;">${title}</h1>
+                    </div>
+                    <div>
+                        <p style="font-size: 14pt; margin: 1cm 0;">By</p>
+                        <p class="thesis-author" style="font-size: 18pt; font-weight: bold;">${author}</p>
+                        <p style="font-size: 12pt; margin: 2cm 0; line-height: 1.6;">
+                            A thesis submitted in partial fulfillment of the requirements for the degree of<br>
+                            <span style="font-weight: bold; font-style: normal; font-size: 13pt;">${degree}</span><br>
+                            in the<br>
+                            ${department}
+                        </p>
+                        <p style="font-size: 12pt; margin-top: 1cm;">Supervisor: ${supervisorDisplay}</p>
+                        ${coSupervisorDisplay ? `<p style="font-size: 12pt;">Co-Supervisor: ${coSupervisorDisplay}</p>` : ''}
+                    </div>
+                    <div>
+                        <p style="font-size: 12pt; margin: 0;">${month} ${year}</p>
+                    </div>
+                </div>`;
+        }
+    }
+
+    preprocessMarkdownForAcademicFeatures(markdownContent, relativePath, config, isSinglePage = true) {
+        const baseName = path.basename(relativePath).toLowerCase();
+        let content = markdownContent;
+
+        // 1. Process Bibliography anchors if this is the bibliography file
+        if (baseName === 'bibliography.md') {
+            content = content.split('\n').map(line => {
+                const match = line.match(/^-\s+\[@?([a-zA-Z0-9_-]+)\]\s*(.*)/);
+                if (match) {
+                    const key = match[1];
+                    const rest = match[2];
+                    return `- <a id="ref-${key}"></a>**[${key}]** ${rest}`;
+                }
+                const boldMatch = line.match(/^-\s+\*\*([a-zA-Z0-9_-]+)\*\*:\s*(.*)/);
+                if (boldMatch) {
+                    const key = boldMatch[1];
+                    const rest = boldMatch[2];
+                    return `- <a id="ref-${key}"></a>**${key}**: ${rest}`;
+                }
+                return line;
+            }).join('\n');
+        }
+
+        // 2. Process inline citations: [@key]
+        content = content.replace(/\[@([a-zA-Z0-9_-]+)\]/g, (match, key) => {
+            const target = isSinglePage ? `#ref-${key}` : `bibliography.html#ref-${key}`;
+            return `<sup><a href="${target}" class="citation-link">${key}</a></sup>`;
+        });
+
+        // 3. Inject anchors for Figures and Tables
+        content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, caption, imgPath) => {
+            const slug = this.slugify('fig-' + caption.trim());
+            return `<div id="${slug}" class="figure-anchor"></div>\n\n${match}`;
+        });
+
+        content = content.replace(/(\*|_)(Figure\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi, (match, p1, captionText, p2) => {
+            const slug = this.slugify('fig-' + captionText.trim());
+            return `<div id="${slug}" class="figure-anchor"></div>\n\n${match}`;
+        });
+
+        content = content.replace(/(\*|_)(Table\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi, (match, p1, captionText, p2) => {
+            const slug = this.slugify('tab-' + captionText.trim());
+            return `<div id="${slug}" class="table-anchor"></div>\n\n${match}`;
+        });
+
+        return content;
+    }
+
+    async autoGenerateLofAndLot(rootDir, config, nodes) {
+        const figures = [];
+        const tables = [];
+        
+        const collectFiles = (nodesList) => {
+            const files = [];
+            for (const n of nodesList) {
+                if (n.path && !n.path.includes('://')) {
+                    files.push(n.path);
+                }
+                if (n.children && n.children.length) {
+                    files.push(...collectFiles(n.children));
+                }
+            }
+            return [...new Set(files)];
+        };
+
+        const allFiles = collectFiles(nodes);
+        const contentDir = 'chapters';
+
+        for (const relativePath of allFiles) {
+            const baseName = path.basename(relativePath).toLowerCase();
+            if (baseName === 'lof.md' || baseName === 'lot.md' || baseName === 'title.md' || baseName === 'bibliography.md') {
+                continue;
+            }
+
+            const fullPath = path.join(rootDir, relativePath);
+            if (!fs.existsSync(fullPath)) continue;
+
+            const fileContent = await fse.readFile(fullPath, 'utf-8');
+
+            // Find figures
+            const imgRegex = /!\[([^\]]+)\]\(([^)]+)\)/g;
+            let match;
+            const fileFigs = [];
+            while ((match = imgRegex.exec(fileContent)) !== null) {
+                const caption = match[1].trim();
+                const slug = this.slugify('fig-' + caption);
+                fileFigs.push({ caption, anchor: slug });
+            }
+            
+            const figCaptionRegex = /(\*|_)(Figure\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi;
+            let figCapMatch;
+            while ((figCapMatch = figCaptionRegex.exec(fileContent)) !== null) {
+                const caption = figCapMatch[2].trim();
+                const slug = this.slugify('fig-' + caption);
+                if (!fileFigs.some(f => f.caption === caption)) {
+                    fileFigs.push({ caption, anchor: slug });
+                }
+            }
+
+            // Find tables
+            const tabCaptionRegex = /(\*|_)(Table\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi;
+            let tabCapMatch;
+            const fileTabs = [];
+            while ((tabCapMatch = tabCaptionRegex.exec(fileContent)) !== null) {
+                const caption = tabCapMatch[2].trim();
+                const slug = this.slugify('tab-' + caption);
+                fileTabs.push({ caption, anchor: slug });
+            }
+
+            for (const f of fileFigs) {
+                figures.push({
+                    caption: f.caption,
+                    file: relativePath,
+                    anchor: f.anchor
+                });
+            }
+            for (const t of fileTabs) {
+                tables.push({
+                    caption: t.caption,
+                    file: relativePath,
+                    anchor: t.anchor
+                });
+            }
+        }
+
+        const lofPath = path.join(rootDir, contentDir, 'lof.md');
+        if (fs.existsSync(lofPath)) {
+            let lofMd = `# List of Figures\n\n`;
+            if (figures.length === 0) {
+                lofMd += `*No figures found in the manuscript.*\n`;
+            } else {
+                for (const fig of figures) {
+                    const relativeTarget = path.relative(path.join(rootDir, contentDir), path.join(rootDir, fig.file)).replace(/\\/g, '/');
+                    lofMd += `- [Figure: ${fig.caption}](${relativeTarget}#${fig.anchor})\n`;
+                }
+            }
+            await fse.writeFile(lofPath, lofMd, 'utf-8');
+            this.logger.info(`[BookEngine] Auto-generated List of Figures with ${figures.length} items`);
+        }
+
+        const lotPath = path.join(rootDir, contentDir, 'lot.md');
+        if (fs.existsSync(lotPath)) {
+            let lotMd = `# List of Tables\n\n`;
+            if (tables.length === 0) {
+                lotMd += `*No tables found in the manuscript.*\n`;
+            } else {
+                for (const tab of tables) {
+                    const relativeTarget = path.relative(path.join(rootDir, contentDir), path.join(rootDir, tab.file)).replace(/\\/g, '/');
+                    lotMd += `- [Table: ${tab.caption}](${relativeTarget}#${tab.anchor})\n`;
+                }
+            }
+            await fse.writeFile(lotPath, lotMd, 'utf-8');
+            this.logger.info(`[BookEngine] Auto-generated List of Tables with ${tables.length} items`);
+        }
+    }
+
     async compileChapters(nodes, config, rootDir) {
         const chapters = [];
         for (let index = 0; index < nodes.length; index += 1) {
@@ -2883,14 +4130,23 @@ class BookEngine {
                 this.logger.warn(`[BookEngine] Missing chapter file: ${node.filePath}`);
                 continue;
             }
-            const markdown = await readFileAsync(node.filePath, 'utf-8');
+            let markdown = await readFileAsync(node.filePath, 'utf-8');
+            if (config.type === 'thesis') {
+                markdown = this.preprocessMarkdownForAcademicFeatures(markdown, node.filePath, config, false);
+            }
             let html = this.markdown.render(markdown);
             
             // Remove first H1 to avoid duplication with chapter header
             html = html.replace(/<h1[^>]*>.*?<\/h1>/, '');
             
             const headings = this.extractHeadings(html);
-            const plainText = this.extractPlainText(html);
+            // Clean markdown for plain text extraction to avoid formula garbage in preview cards
+            const cleanMarkdown = markdown
+                .replace(/\$\$[\s\S]*?\$\$/g, '')
+                .replace(/\$[^$\n]+\$/g, '');
+            const cleanHtml = this.markdown.render(cleanMarkdown);
+            const plainText = this.extractPlainText(cleanHtml);
+            
             const slug = node.id || this.slugify(node.title);
             const fileName = `${String(index + 1).padStart(2, '0')}-${slug}.html`;
             chapters.push({
@@ -2963,6 +4219,163 @@ class BookEngine {
         const safeStyle = metadata.bookStyle || 'dark';
         const highlightTheme = metadata.highlightTheme || 'github-dark';
         const highlightCss = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${highlightTheme}.min.css`;
+
+        const isMathJax = (metadata.mathEngine || 'mathjax') === 'mathjax';
+        const mathHead = isMathJax ? `
+    <script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+            displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+            processEscapes: true
+        },
+        options: {
+            ignoreHtmlClass: 'tex2jax_ignore',
+            processHtmlClass: 'math-display|math-inline|katex'
+        },
+        svg: {
+            fontCache: 'global'
+        }
+    };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>` : `
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">`;
+
+        const mathBody = isMathJax ? '' : `
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>`;
+
+        if (metadata.type === 'thesis') {
+            const fontLink = this._getPrintUniversityFontLink(metadata);
+            return `<!DOCTYPE html>
+<html lang="${metadata.language || 'en'}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${this.escapeHtml(metadata.title)}</title>
+    <link rel="stylesheet" href="./assets/book.css" />
+    <link rel="stylesheet" href="${highlightCss}" />
+    ${mathHead}
+    ${fontLink}
+    <style>
+        /* Dedicated Web Thesis Styles */
+        body.book-shell.type-thesis {
+            display: flex;
+            flex-direction: row;
+            background: #f0f2f5;
+            color: #111111;
+            font-family: var(--book-font, 'Times New Roman', serif);
+            margin: 0;
+            min-height: 100vh;
+        }
+        body.book-shell.type-thesis .book-sidebar {
+            width: 320px;
+            background: #ffffff;
+            border-right: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            padding: 30px 24px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.03);
+        }
+        body.book-shell.type-thesis .book-meta h1 {
+            font-size: 1.6rem;
+            color: var(--accent, #333333);
+            margin-bottom: 8px;
+        }
+        body.book-shell.type-thesis .book-nav a {
+            color: #444444;
+            font-weight: 500;
+        }
+        body.book-shell.type-thesis .book-nav a:hover {
+            color: var(--accent, #002147);
+            text-decoration: underline;
+        }
+        body.book-shell.type-thesis .book-main {
+            flex-grow: 1;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            background: #f0f2f5;
+            overflow-y: auto;
+        }
+        body.book-shell.type-thesis .book-chapter,
+        body.book-shell.type-thesis .book-cover,
+        body.book-shell.type-thesis .book-summary {
+            background: #ffffff;
+            color: #000000;
+            width: 100%;
+            max-width: 850px;
+            min-height: 297mm; /* A4 aspect ratio */
+            box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+            padding: 1.2in 1in 1.2in 1.5in; /* Standard binding margins */
+            box-sizing: border-box;
+            border-radius: 0;
+            border: 1px solid #e0e0e0;
+        }
+        body.book-shell.type-thesis .book-chapter-content {
+            line-height: var(--line-height, 1.7);
+            font-size: 12pt;
+            text-align: justify;
+        }
+        body.book-shell.type-thesis .book-chapter h1,
+        body.book-shell.type-thesis .book-chapter h2,
+        body.book-shell.type-thesis .book-chapter h3 {
+            color: var(--accent, #000000);
+            font-family: var(--heading-font, 'Arial', sans-serif);
+        }
+        body.book-shell.type-thesis .book-chapter h1 {
+            font-size: 22pt;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+            margin-top: 0;
+        }
+        body.book-shell.type-thesis .book-search input {
+            background: #f5f5f5;
+            color: #111111;
+            border: 1px solid #e0e0e0;
+        }
+        
+        /* Floating title cover inside HTML view */
+        body.book-shell.type-thesis .thesis-cover {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            height: auto !important;
+            min-height: auto !important;
+        }
+    </style>
+</head>
+<body class="book-shell type-thesis style-${safeStyle}">
+    <aside class="book-sidebar">
+        <div class="book-meta">
+            <p class="book-tag">${this.escapeHtml(metadata.author)}</p>
+            <h1>${this.escapeHtml(metadata.title)}</h1>
+            ${metadata.description ? `<p>${this.escapeHtml(metadata.description)}</p>` : ''}
+            <div class="book-search">
+                <input id="book-search-input" type="search" placeholder="Search..." />
+                <div id="book-search-results"></div>
+            </div>
+        </div>
+        <nav>
+            ${sidebar}
+        </nav>
+    </aside>
+    <main class="book-main">
+        ${content}
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>${mathBody}
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
+    <script defer src="./assets/book.js"></script>
+</body>
+</html>`;
+        }
+
         return `<!DOCTYPE html>
 <html lang="${metadata.language}">
 <head>
@@ -2971,7 +4384,7 @@ class BookEngine {
     <title>${this.escapeHtml(metadata.title)}</title>
     <link rel="stylesheet" href="./assets/book.css" />
     <link rel="stylesheet" href="${highlightCss}" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    ${mathHead}
 </head>
 <body class="book-shell style-${safeStyle}">
     <aside class="book-sidebar">
@@ -2991,9 +4404,7 @@ class BookEngine {
     <main class="book-main">
         ${content}
     </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>${mathBody}
     <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
@@ -3002,8 +4413,23 @@ class BookEngine {
 </html>`;
     }
 
-    async writeStyleSheet(outputDir, stylePreset = BOOK_STYLE_PRESETS.dark) {
-        const css = `${BASE_BOOK_CSS}\n${stylePreset?.css || ''}`;
+    async writeStyleSheet(rootDir, outputDir, stylePreset = BOOK_STYLE_PRESETS.dark) {
+        let css = `${BASE_BOOK_CSS}\n${stylePreset?.css || ''}`;
+        
+        // Append custom.css if it exists in the project root directory
+        if (rootDir) {
+            const customCssPath = path.join(rootDir, 'custom.css');
+            if (fs.existsSync(customCssPath)) {
+                try {
+                    const customCss = await readFileAsync(customCssPath, 'utf-8');
+                    css += `\n/* ---- User Custom Styles ---- */\n${customCss}`;
+                    this.logger.info('[BookEngine] Appended custom.css to compiled stylesheet');
+                } catch (e) {
+                    this.logger.error('[BookEngine] Failed to read custom.css:', e.message);
+                }
+            }
+        }
+
         const assetsDir = path.join(outputDir, 'assets');
         await fse.ensureDir(assetsDir);
         await fse.writeFile(path.join(assetsDir, 'book.css'), css, 'utf-8');
@@ -3104,7 +4530,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     buildMetadata(config, stylePreset = this.resolveBookStyle(config.bookStyle)) {
-        return {
+        const base = {
             title: config.title,
             author: config.author,
             description: config.description,
@@ -3114,8 +4540,22 @@ document.addEventListener('DOMContentLoaded', () => {
             bookStyle: stylePreset.key,
             bookStyleLabel: stylePreset.label,
             highlightTheme: stylePreset.highlightTheme,
-            mermaidTheme: stylePreset.mermaidTheme
+            mermaidTheme: stylePreset.mermaidTheme,
+            type: config.type || 'classical',
+            mathEngine: config.mathEngine || 'mathjax'
         };
+        // Propagate thesis-specific metadata so cover-page renderer and print template
+        // can access university, degree, department, supervisor, etc.
+        if (config.type === 'thesis') {
+            base.university = config.university || 'standard';
+            base.degree     = config.degree     || 'Doctor of Philosophy';
+            base.department = config.department || 'Department of Computer Science';
+            base.supervisor = config.supervisor || '';
+            base.coSupervisor = config.coSupervisor || '';
+            base.year  = config.year  || String(new Date().getFullYear());
+            base.month = config.month || 'June';
+        }
+        return base;
     }
 
     buildSearchIndex(chapters) {

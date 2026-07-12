@@ -1,8 +1,4 @@
-/**
- * MarkDD PowerPoint Importer
- * Unzips and parses PPTX slide XML layouts and theme elements into Markdown presentations.
- */
-
+(() => {
 const fs = require('fs');
 const path = require('path');
 const JSZip = require('jszip');
@@ -439,4 +435,5 @@ if (typeof module !== 'undefined') {
 if (typeof window !== 'undefined') {
     window.PPTXImporter = PPTXImporter;
 }
+})();
 

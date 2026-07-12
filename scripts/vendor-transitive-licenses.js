@@ -52,6 +52,20 @@ function parseRepoUrl(repo) {
 
 function collectDepsFromLock(lock) {
   const result = new Map();
+
+  // Support lockfile v2/v3 (packages)
+  if (lock.packages && typeof lock.packages === 'object') {
+    for (const [pathKey, info] of Object.entries(lock.packages)) {
+      if (!pathKey || !info || typeof info !== 'object') continue;
+      if (pathKey === '') continue; // Skip root package
+      const name = pathKey.replace(/^node_modules\//, '');
+      if (info.version) {
+        result.set(name + '@' + info.version, { name, version: info.version });
+      }
+    }
+  }
+
+  // Support lockfile v1 (dependencies fallback)
   function walk(deps) {
     if (!deps || typeof deps !== 'object') return;
     for (const [name, info] of Object.entries(deps)) {
@@ -63,6 +77,7 @@ function collectDepsFromLock(lock) {
     }
   }
   if (lock.dependencies) walk(lock.dependencies);
+
   return Array.from(result.values());
 }
 

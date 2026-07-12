@@ -1552,7 +1552,7 @@ class MarkdownRenderer {
                         svg.setAttribute('width', '100%');
                     }
                     if (height && /NaN/i.test(height)) {
-                        svg.setAttribute('height', 'auto');
+                        svg.removeAttribute('height');
                     }
 
                     // Normalize viewBox if it contains NaN

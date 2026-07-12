@@ -83,13 +83,16 @@ A fully-featured Markdown editor with advanced capabilities, combining the best 
 - **Speaker notes** - Add notes that don't appear in slides
 - **Theme categories** - Classic Beamer, Color Variants, and Modern themes
 
-### Book Module & Publishing System (NEW in v1.3.0)
+### Book Module & Publishing System
 - **Complete book publishing workflow** - From manuscript to HTML/PDF with one command
-- **4 book types** - Classical books, wiki documentation, help systems, technical documents
+- **5 project types** - Classical books, wiki documentation, help systems, technical documents, and academic theses
+- **Academic Thesis Mode (NEW in v1.7.0)** - Scaffold academic thesis outline (abstract, declaration, dedication, acknowledgements, main chapters, appendix, bibliography) with dedicated metadata wizard fields
+- **10+ LaTeX-Identical University Cover Templates** - Built-in title pages matching exact formatting requirements for MIT, Harvard, Stanford, Oxford, Cambridge, Oslo (UiO), Bologna (UniBo), PoliMi, ETH Zurich, and Imperial College London
+- **Extensible Custom University Templates** - Auto-scans and copies custom template structures from the workspace `.markdd/templates/thesis/` or global app data `templates/thesis/` directory
 - **SUMMARY.md manifest system** - GitBook-style table of contents with nested chapters
 - **book.config.json** - Centralized configuration for metadata, paths, and build options
 - **13 technical document templates** - Reports, plans, brochures, business cases, white papers, case studies, feasibility studies, proposals, user manuals, SOPs, RFPs, annual reports, project charters
-- **5 professional HTML themes** - Dark mode, Classic print, Wiki, Help Center, Professional Document
+- **16 HTML themes & styles** - Midnight (Dark), Classic print, Wiki, Help Center, Technical report, and 11 university academic style presets
 - **Static site builder** - Generate complete HTML sites with navigation and search
 - **Lunr.js full-text search** - Client-side search with zero server dependencies
 - **Live preview server** - Local development with auto-rebuild on changes
@@ -317,6 +320,42 @@ npm run book serve ./docs-book -- --watch --port 5050
 ```
 
 Commands default to the current working directory when no path is provided. Pass `--watch` during `serve` to trigger automatic rebuilds when Markdown sources change.
+
+## Custom University Thesis Templates
+
+MarkDD Editor allows departments and universities to distribute their own custom academic templates. 
+
+### 1. Template Directories
+MarkDD automatically scans the following locations for custom templates:
+*   **Workspace-Specific Templates**: `<your-project-root>/.markdd/templates/thesis/`
+*   **Global Templates (Windows)**: `%APPDATA%\markdd-editor\templates\thesis\`
+*   **Global Templates (macOS/Linux)**: `~/.config/markdd-editor/templates/thesis/`
+
+Each subdirectory under these folders is treated as a separate template.
+
+### 2. File Structure of a Template
+A custom thesis template folder (e.g. `my-uni-preset/`) must have the following files:
+*   `template.json`: Configuration file.
+*   `SUMMARY.md`: Manifest file declaring the initial chapters/appendices structure.
+*   `title.md`: The cover/title page layout.
+*   `abstract.md` / `declaration.md`: Front matter documents.
+*   `bibliography.md`: References document.
+*   `custom.css`: Stylesheet with custom margins, header formatting, and font overrides.
+*   `chapters/`: Directory containing default starting chapters (e.g., `chapter-01.md`).
+*   `appendices/`: Directory containing default starting appendices (e.g., `appendix-01.md`).
+
+### 3. Creating template.json
+Create a `template.json` file in the root of your template folder:
+```json
+{
+  "name": "My Custom University",
+  "university": "standard"
+}
+```
+*   `name`: The display label shown in the Book Wizard dropdown list.
+*   `university`: Optional preset name (e.g., `mit`, `oxford`, `cambridge`, `unibo`) to inherit one of the built-in PDF stylesheet presets.
+
+When a user opens the "University Thesis" creation dialog, your custom template will appear in the dropdown. Selecting it will copy your entire folder structure into the new project, dynamically generating additional chapters and appendices if the user requests them.
 
 ## Contributing
 

@@ -541,7 +541,12 @@ ipcMain.handle('book-export-pdf', async (event, payload = {}) => {
 
 ipcMain.handle('book-serve', async (event, payload = {}) => {
   try {
-    const result = await bookEngine.serve(payload.rootDir, { watch: payload.watch, port: payload.port });
+    const serveOptions = {
+      watch: payload.watch,
+      port: payload.port,
+      ...(payload.options || {})
+    };
+    const result = await bookEngine.serve(payload.rootDir, serveOptions);
     activeBookServe = { rootDir: payload.rootDir, port: result.port };
     logInfo('BookServe', `Serving book at http://localhost:${result.port}`);
     return { success: true, port: result.port };
@@ -680,6 +685,17 @@ app.on('window-all-closed', () => {
   
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('will-quit', async () => {
+  console.log('[Main] Will quit: stopping book preview server');
+  try {
+    if (bookEngine && typeof bookEngine.stopServer === 'function') {
+      await bookEngine.stopServer();
+    }
+  } catch (error) {
+    console.error('[Main] Failed to stop book server on quit:', error);
   }
 });
 
@@ -1563,6 +1579,16 @@ ipcMain.handle('get-cwd', async () => {
   return process.cwd();
 });
 
+// Get app path
+ipcMain.handle('get-app-path', async () => {
+  return app.getAppPath();
+});
+
+// Get user data path
+ipcMain.handle('get-user-data-path', async () => {
+  return app.getPath('userData');
+});
+
 // Read LICENSE file handler
 ipcMain.handle('read-license', async () => {
   try {
@@ -2146,21 +2172,21 @@ ipcMain.handle('preview-cv', async (event, { html, focus = true }) => {
       try {
         const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/);
         const cssMatch = html.match(/<style id="theme-css">([\s\S]*?)<\/style>/);
-        const cvPageMatch = html.match(/(<div class="cv-page\s+[^"]+">[\s\S]*?<\/div>)\s*<\/body>/);
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
         
-        if (!cvPageMatch) {
-          throw new Error('Failed to parse cv-page elements from HTML string');
+        if (!bodyMatch) {
+          throw new Error('Failed to parse body element from HTML string');
         }
         
         const title = titleMatch ? titleMatch[1].trim() : 'CV Preview';
         const css = cssMatch ? cssMatch[1] : '';
-        const pageOuterHtml = cvPageMatch[1];
+        const bodyHtml = bodyMatch[1];
         
         const updateScript = `
           document.title = ${JSON.stringify(title)};
           const scrollX = window.scrollX;
           const scrollY = window.scrollY;
-          document.body.innerHTML = ${JSON.stringify(pageOuterHtml)};
+          document.body.innerHTML = ${JSON.stringify(bodyHtml)};
           let styleEl = document.getElementById('theme-css');
           if (styleEl) {
             styleEl.textContent = ${JSON.stringify(css)};

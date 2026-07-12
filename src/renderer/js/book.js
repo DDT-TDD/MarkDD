@@ -438,6 +438,285 @@ body.book-export.style-helpdesk .book-chapter header p {
     color: rgba(16,42,67,0.65);
 }
         `
+    },
+    mit: {
+        key: 'mit',
+        css: `
+body.book-export.style-mit {
+    --book-font: 'Georgia', serif;
+    --heading-font: 'Inter', 'Segoe UI', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f8f9fa;
+    --sidebar-border: rgba(0,0,0,0.08);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #A31F34;
+    --link-color: #A31F34;
+    --muted-color: #555555;
+    --search-background: #e9ecef;
+    --border-radius: 8px;
+}
+body.book-export.style-mit .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    harvard: {
+        key: 'harvard',
+        css: `
+body.book-export.style-harvard {
+    --book-font: 'Garamond', 'Georgia', serif;
+    --heading-font: 'Georgia', serif;
+    --book-background: #faf8f5;
+    --main-background: #faf8f5;
+    --book-foreground: #1e120c;
+    --sidebar-background: #f2ede4;
+    --sidebar-border: rgba(165,28,48,0.15);
+    --sidebar-text: #4a2f22;
+    --card-background: #ffffff;
+    --card-text: #1e120c;
+    --accent: #A51C30;
+    --link-color: #A51C30;
+    --muted-color: #5c554e;
+    --search-background: #ffffff;
+    --border-radius: 6px;
+}
+body.book-export.style-harvard .book-chapter-content {
+    line-height: 1.8;
+    text-align: justify;
+}
+        `
+    },
+    stanford: {
+        key: 'stanford',
+        css: `
+body.book-export.style-stanford {
+    --book-font: 'Arial', 'Helvetica Neue', sans-serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #222222;
+    --sidebar-background: #f4f4f4;
+    --sidebar-border: rgba(140,21,21,0.15);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #222222;
+    --accent: #8C1515;
+    --link-color: #8C1515;
+    --muted-color: #666666;
+    --search-background: #e6e6e6;
+    --border-radius: 4px;
+}
+body.book-export.style-stanford .book-chapter-content {
+    line-height: 1.8;
+}
+        `
+    },
+    oxford: {
+        key: 'oxford',
+        css: `
+body.book-export.style-oxford {
+    --book-font: 'Times New Roman', 'Georgia', serif;
+    --heading-font: 'Times New Roman', serif;
+    --book-background: #fbfbfb;
+    --main-background: #fbfbfb;
+    --book-foreground: #0b1326;
+    --sidebar-background: #f0f2f5;
+    --sidebar-border: rgba(0,33,71,0.15);
+    --sidebar-text: #1d2b45;
+    --card-background: #ffffff;
+    --card-text: #0b1326;
+    --accent: #002147;
+    --link-color: #002147;
+    --muted-color: #555c6b;
+    --search-background: #ffffff;
+    --border-radius: 4px;
+}
+body.book-export.style-oxford .book-chapter-content {
+    line-height: 2.0;
+    text-align: justify;
+}
+        `
+    },
+    cambridge: {
+        key: 'cambridge',
+        css: `
+body.book-export.style-cambridge {
+    --book-font: 'Palatino Linotype', 'Book Antiqua', 'Palatino', serif;
+    --heading-font: 'Palatino', serif;
+    --book-background: #fafcfa;
+    --main-background: #fafcfa;
+    --book-foreground: #101c18;
+    --sidebar-background: #ebf2ee;
+    --sidebar-border: rgba(163,193,173,0.3);
+    --sidebar-text: #2c3d36;
+    --card-background: #ffffff;
+    --card-text: #101c18;
+    --accent: #00b2a9;
+    --link-color: #008f87;
+    --muted-color: #53635d;
+    --search-background: #ffffff;
+    --border-radius: 6px;
+}
+body.book-export.style-cambridge .book-chapter-content {
+    line-height: 1.75;
+    text-align: justify;
+}
+        `
+    },
+    uio: {
+        key: 'uio',
+        css: `
+body.book-export.style-uio {
+    --book-font: 'Georgia', 'Times New Roman', serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #1a1a1a;
+    --sidebar-background: #f3f3f3;
+    --sidebar-border: rgba(0,0,0,0.08);
+    --sidebar-text: #2d2d2d;
+    --card-background: #ffffff;
+    --card-text: #1a1a1a;
+    --accent: #D81E05;
+    --link-color: #D81E05;
+    --muted-color: #626262;
+    --search-background: #e6e6e6;
+    --border-radius: 6px;
+}
+body.book-export.style-uio .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    unibo: {
+        key: 'unibo',
+        css: `
+body.book-export.style-unibo {
+    --book-font: 'Garamond', 'Georgia', serif;
+    --heading-font: 'Garamond', serif;
+    --book-background: #fdfcf7;
+    --main-background: #fdfcf7;
+    --book-foreground: #221111;
+    --sidebar-background: #f7efe2;
+    --sidebar-border: rgba(158,27,38,0.15);
+    --sidebar-text: #5c3b3b;
+    --card-background: #ffffff;
+    --card-text: #221111;
+    --accent: #9E1B26;
+    --link-color: #9E1B26;
+    --muted-color: #665c5c;
+    --search-background: #ffffff;
+    --border-radius: 4px;
+}
+body.book-export.style-unibo .book-chapter-content {
+    line-height: 1.8;
+    text-align: justify;
+}
+        `
+    },
+    polimi: {
+        key: 'polimi',
+        css: `
+body.book-export.style-polimi {
+    --book-font: 'Inter', 'Segoe UI', sans-serif;
+    --heading-font: 'Inter', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #202020;
+    --sidebar-background: #f0f4f8;
+    --sidebar-border: rgba(0,75,135,0.12);
+    --sidebar-text: #203a50;
+    --card-background: #ffffff;
+    --card-text: #202020;
+    --accent: #004B87;
+    --link-color: #004B87;
+    --muted-color: #5c6c7b;
+    --search-background: #e2ecf5;
+    --border-radius: 6px;
+}
+body.book-export.style-polimi .book-chapter-content {
+    line-height: 1.6;
+}
+        `
+    },
+    eth: {
+        key: 'eth',
+        css: `
+body.book-export.style-eth {
+    --book-font: 'Helvetica Neue', 'Arial', sans-serif;
+    --heading-font: 'Helvetica Neue', Arial, sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f9f9f9;
+    --sidebar-border: rgba(0,0,0,0.1);
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #333333;
+    --link-color: #0070babd;
+    --muted-color: #666666;
+    --search-background: #f0f0f0;
+    --border-radius: 0px;
+}
+body.book-export.style-eth .book-chapter-content {
+    line-height: 1.5;
+}
+        `
+    },
+    imperial: {
+        key: 'imperial',
+        css: `
+body.book-export.style-imperial {
+    --book-font: 'Georgia', serif;
+    --heading-font: 'Trebuchet MS', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #111111;
+    --sidebar-background: #f4f6f9;
+    --sidebar-border: rgba(0,61,124,0.12);
+    --sidebar-text: #1d334a;
+    --card-background: #ffffff;
+    --card-text: #111111;
+    --accent: #003D7C;
+    --link-color: #003D7C;
+    --muted-color: #555555;
+    --search-background: #e6ebf2;
+    --border-radius: 4px;
+}
+body.book-export.style-imperial .book-chapter-content {
+    line-height: 1.75;
+}
+        `
+    },
+    standard: {
+        key: 'standard',
+        css: `
+body.book-export.style-standard {
+    --book-font: 'Times New Roman', serif;
+    --heading-font: 'Arial', sans-serif;
+    --book-background: #ffffff;
+    --main-background: #ffffff;
+    --book-foreground: #000000;
+    --sidebar-background: #f5f5f5;
+    --sidebar-border: #dddddd;
+    --sidebar-text: #333333;
+    --card-background: #ffffff;
+    --card-text: #000000;
+    --accent: #333333;
+    --link-color: #0000ff;
+    --muted-color: #444444;
+    --search-background: #eeeeee;
+    --border-radius: 4px;
+}
+body.book-export.style-standard .book-chapter-content {
+    line-height: 2.0;
+}
+        `
     }
 };
 
@@ -704,7 +983,9 @@ class BookManager {
         if (!ipc) {
             return;
         }
-        const result = await ipc.invoke('book-build', { rootDir: root, options });
+        const mathEngine = this.app?.currentMathEngine || 'mathjax';
+        const mergedOptions = { mathEngine, ...options };
+        const result = await ipc.invoke('book-build', { rootDir: root, options: mergedOptions });
         if (!result || !result.success) {
             this.notifyError(result?.error || 'Failed to build book');
             return;
@@ -727,7 +1008,12 @@ class BookManager {
             return;
         }
         const ipc = this.getIpc();
-        const result = await ipc.invoke('book-export-pdf', { rootDir: root, outputPath });
+        const mathEngine = this.app?.currentMathEngine || 'mathjax';
+        const result = await ipc.invoke('book-export-pdf', {
+            rootDir: root,
+            outputPath,
+            options: { mathEngine }
+        });
         if (!result || !result.success) {
             this.notifyError(result?.error || 'Failed to export book PDF');
             return;
@@ -745,9 +1031,11 @@ class BookManager {
         if (!ipc) {
             return;
         }
+        const mathEngine = this.app?.currentMathEngine || 'mathjax';
         const result = await ipc.invoke('book-serve', {
             rootDir: root,
-            watch: this.isWatchEnabled()
+            watch: this.isWatchEnabled(),
+            options: { mathEngine }
         });
         if (!result || !result.success) {
             this.notifyError(result?.error || 'Failed to start local book server');
@@ -790,6 +1078,75 @@ class BookManager {
         }
         this.activeServe = null;
         this.notify('Book server stopped');
+    }
+
+    composeDocument(book, options = {}) {
+        this.currentBookData = book;
+        const chaptersHtml = book.chapters.map(ch => this.renderChapterBlock(ch)).join('\n');
+        const tocHtml = this.renderTocList(book.toc);
+        const authorVal = book.metadata.author || (book.metadata.authors && book.metadata.authors.join(', ')) || '';
+
+        const content = `
+<div class="book-shell">
+    <aside class="book-sidebar">
+        <div class="book-meta-card">
+            <p class="book-tag">${this.escapeHtml(book.config.type || 'Book')}</p>
+            <h1 class="book-title">${this.escapeHtml(book.metadata.title || 'Untitled')}</h1>
+            <p class="book-author">By ${this.escapeHtml(authorVal)}</p>
+            ${book.metadata.description ? `<p class="book-description">${this.escapeHtml(book.metadata.description)}</p>` : ''}
+        </div>
+        <nav class="book-toc">
+            <h2>Table of Contents</h2>
+            ${tocHtml}
+        </nav>
+    </aside>
+    <main class="book-main">
+        ${chaptersHtml}
+    </main>
+</div>
+        `;
+
+        const baseDoc = this.getBaseDocument(content, book.metadata.title);
+        const styledDoc = this.injectBookStyles(baseDoc);
+
+        if (options.pdf) {
+            const pdfPrintStyle = `
+<style>
+    @media print {
+        body.book-export {
+            background: #ffffff !important;
+            color: #000000 !important;
+        }
+        .book-sidebar {
+            display: none !important;
+        }
+        body.book-export .book-shell {
+            display: block !important;
+            grid-template-columns: none !important;
+        }
+        .book-main {
+            padding: 0 !important;
+            background: none !important;
+        }
+        .book-chapter {
+            page-break-after: always !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 0 2cm 0 !important;
+            background: none !important;
+            color: #000000 !important;
+        }
+    }
+</style>
+            `;
+            if (styledDoc.includes('</head>')) {
+                return styledDoc.replace('</head>', `${pdfPrintStyle}</head>`);
+            }
+            return `${pdfPrintStyle}${styledDoc}`;
+        }
+
+        return styledDoc;
     }
 
     async exportHTML({ markdown, context = {}, renderOptions = {} }) {
@@ -1140,6 +1497,7 @@ ${content}
         if (type === 'classical') return 'classic';
         if (type === 'wiki') return 'wiki';
         if (type === 'help') return 'helpdesk';
+        if (type === 'thesis') return 'standard';
         return 'dark';
     }
 
@@ -1296,4 +1654,5 @@ ${content}
 }
 
 window.BookManager = BookManager;
+window.BOOK_PREVIEW_STYLE_PRESETS = BOOK_PREVIEW_STYLE_PRESETS;
 

@@ -89,6 +89,43 @@ The CV Mode templates are inspired by popular LaTeX and Overleaf designs. In acc
    - Original design by Xavier Danaux
    - Source: https://github.com/moderncv/moderncv
 
+THESIS TEMPLATE INSPIRATIONS & ATTRIBUTION:
+
+The University Thesis Mode templates are inspired by popular academic LaTeX styles. In accordance with their respective open-source licensing, the source attributions are as follows:
+
+1. MIT Thesis Template (mitthesis)
+   - Inspired by Pietr Heeres and MIT LaTeX community styles
+   - Source: https://ctan.org/pkg/mitthesis
+
+2. Harvard University Graduate School of Arts and Sciences Dissertation Template
+   - Inspired by the Harvard GSAS LaTeX template
+
+3. Stanford University Thesis Template (suthesis)
+   - Inspired by the Stanford suthesis class design
+
+4. University of Oxford Thesis Template (OCIAM Thesis Style)
+   - Inspired by the OCIAM thesis design by Keith A. Gillow
+   - Source: https://ctan.org/pkg/ociamthesis
+
+5. University of Cambridge Thesis Template
+   - Inspired by the Cambridge University LaTeX thesis styles
+
+6. University of Oslo Thesis Template (uiothesis)
+   - Inspired by the uiothesis LaTeX document class by Dag Langmyhr
+   - Source: https://github.com/daglangmyhr/uiothesis
+
+7. Università di Bologna Thesis Template
+   - Inspired by community-sourced UniBo LaTeX templates
+
+8. Politecnico di Milano Thesis Template (polimithesis)
+   - Inspired by the polimithesis class design by the PoliMi LaTeX community
+
+9. ETH Zurich Thesis Template
+   - Inspired by the ETH Zurich Master/PhD LaTeX style guidelines
+
+10. Imperial College London Thesis Template
+    - Inspired by the Imperial College LaTeX thesis styles
+
 Integrated Third-Party Assets:
 - FontAwesome Free 6.4.0 (Icons): SIL OFL 1.1 (fonts) / MIT License (code). Loaded dynamically in HTML previews/exports via cdnjs.
 

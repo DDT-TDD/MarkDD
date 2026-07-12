@@ -45,7 +45,18 @@ class MarkDDApp {
             { value: 'classic', label: 'Classic Print' },
             { value: 'wiki', label: 'Knowledge Base (Wiki)' },
             { value: 'helpdesk', label: 'Help Center (CHM)' },
-            { value: 'technical', label: 'Professional Document' }
+            { value: 'technical', label: 'Professional Document' },
+            { value: 'standard', label: 'Standard Academic' },
+            { value: 'mit', label: 'MIT Style' },
+            { value: 'harvard', label: 'Harvard Style' },
+            { value: 'stanford', label: 'Stanford Style' },
+            { value: 'oxford', label: 'Oxford Style' },
+            { value: 'cambridge', label: 'Cambridge Style' },
+            { value: 'uio', label: 'University of Oslo (UiO)' },
+            { value: 'unibo', label: 'Università di Bologna (UniBo)' },
+            { value: 'polimi', label: 'Politecnico di Milano (PoliMi)' },
+            { value: 'eth', label: 'ETH Zurich' },
+            { value: 'imperial', label: 'Imperial College London' }
         ];
         this.bookStyleSelect = null;
         
@@ -1614,12 +1625,56 @@ class MarkDDApp {
         if (!config) {
             select.value = '';
             select.disabled = true;
+            this.injectMainPreviewStyles(null);
             return;
         }
         const targetStyle = config.bookStyle || this.resolveBookStyleForType(config.type);
         const validStyle = this.bookStyleOptions.some(option => option.value === targetStyle) ? targetStyle : 'dark';
         select.disabled = false;
         select.value = validStyle;
+        this.injectMainPreviewStyles(validStyle);
+    }
+
+    async injectMainPreviewStyles(styleKey) {
+        const key = (styleKey || '').toLowerCase();
+        let styleTag = document.getElementById('book-preview-custom-style');
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'book-preview-custom-style';
+            document.head.appendChild(styleTag);
+        }
+
+        const presets = window.BOOK_PREVIEW_STYLE_PRESETS;
+        let baseCss = '';
+        if (presets && presets[key]) {
+            const preset = presets[key];
+            baseCss = (preset.css || '')
+                .replace(/body\.book-export/g, '.book-chapter-preview')
+                .replace(/\.book-chapter-content/g, '.book-page-sheet');
+        }
+
+        // Check for custom.css in the project root and append it if it exists
+        let customCss = '';
+        const manager = this.getBookManagerInstance();
+        const rootDir = manager?.getStoredBookRoot();
+        const fs = manager?.getFsModule();
+        const pathModule = manager?.getPathModule();
+        if (rootDir && fs && pathModule) {
+            const customCssPath = pathModule.join(rootDir, 'custom.css');
+            try {
+                if (fs.existsSync(customCssPath)) {
+                    const localCustom = await fs.promises.readFile(customCssPath, 'utf-8');
+                    customCss = `\n/* ---- User Custom Styles ---- */\n` + 
+                        localCustom
+                            .replace(/body\.book-export/g, '.book-chapter-preview')
+                            .replace(/\.book-chapter-content/g, '.book-page-sheet');
+                }
+            } catch (e) {
+                console.error('[App] Failed to load custom.css for preview:', e);
+            }
+        }
+
+        styleTag.textContent = baseCss + customCss;
     }
 
     resolveBookStyleForType(type) {
@@ -1628,6 +1683,7 @@ class MarkDDApp {
         if (normalized === 'wiki') return 'wiki';
         if (normalized === 'help') return 'helpdesk';
         if (normalized === 'technical') return 'technical';
+        if (normalized === 'thesis') return 'standard';
         return 'dark';
     }
 
@@ -1663,10 +1719,18 @@ class MarkDDApp {
                 return;
             }
             config.bookStyle = newStyle;
+            if (config.type === 'thesis') {
+                config.university = newStyle;
+            }
             await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
             if (this.currentBookData && this.currentBookData.config) {
                 this.currentBookData.config.bookStyle = newStyle;
+                if (this.currentBookData.config.type === 'thesis') {
+                    this.currentBookData.config.university = newStyle;
+                }
             }
+            await this.injectMainPreviewStyles(newStyle);
+            this.updateBookChapterPreview();
             this.showMessage(`HTML style updated to ${this.getBookStyleLabel(newStyle)}.`);
         } catch (error) {
             console.error('[App] Failed to update book style:', error);
@@ -1709,13 +1773,14 @@ class MarkDDApp {
             'classical': 'Classical Book',
             'wiki': 'Wiki Documentation',
             'help': 'Help Documentation',
-            'technical': 'Technical Documentation'
+            'technical': 'Technical Documentation',
+            'thesis': 'Academic Thesis'
         };
 
         // Collect all book details in a single dialog
         const details = await this.showBookCreationDialog(type);
         if (!details) return;
-        const { title, author, description, sections, chapterCount, appendixCount, showChapterNumbers, technicalStyle } = details;
+        const { title, author, description, sections, chapterCount, appendixCount, showChapterNumbers, technicalStyle, degree, department, supervisor, coSupervisor, university, customTemplatePath } = details;
         const defaultBookStyle = this.resolveBookStyleForType(type);
 
         // Select directory
@@ -1737,7 +1802,16 @@ class MarkDDApp {
                     appendixCount: appendixCount || 0,
                     showChapterNumbers: showChapterNumbers !== false,
                     bookStyle: defaultBookStyle,
-                    ...(type === 'technical' ? { technicalStyle: technicalStyle || 'report' } : {})
+                    ...(type === 'technical' ? { technicalStyle: technicalStyle || 'report' } : {}),
+                    ...(type === 'thesis' ? {
+                        degree: degree || 'Doctor of Philosophy',
+                        department: department || 'Department of Computer Science',
+                        supervisor: supervisor || 'Prof. Alan Turing',
+                        coSupervisor: coSupervisor || '',
+                        university: university || 'standard',
+                        customTemplatePath: customTemplatePath || null,
+                        bookStyle: university || 'standard'
+                    } : {})
                 }
             });
 
@@ -2266,17 +2340,57 @@ class MarkDDApp {
         
         if (!editor || !preview) return;
 
-        const content = editor.value;
-        if (!content || !content.trim()) {
-            preview.innerHTML = '<div class="book-preview-placeholder"><p>No content to preview</p></div>';
-            return;
+        const config = this.currentBookData?.config || {};
+        const isThesis = config.type === 'thesis';
+        const activeStyleKey = config.bookStyle || 'standard';
+
+        if (isThesis) {
+            preview.className = `book-chapter-preview mode-page style-${activeStyleKey}`;
+        } else {
+            preview.className = 'book-chapter-preview';
         }
 
+        const content = editor.value;
+        const currentFile = editor.dataset.currentFile || '';
+        const path = require('path');
+        const fileName = path.basename(currentFile).toLowerCase();
+
         try {
+            if (isThesis && fileName === 'title.md') {
+                const { BookEngine } = require(path.join(process.cwd(), 'src/common/book-engine.js'));
+                const engine = new BookEngine();
+                const coverHtml = engine.renderThesisTitlePage({
+                    title: config.title || 'Academic Thesis',
+                    author: config.author || 'Author Name',
+                    degree: config.degree || 'Doctor of Philosophy',
+                    department: config.department || 'Department of Computer Science',
+                    supervisor: config.supervisor || 'Supervisor Name',
+                    coSupervisor: config.coSupervisor || '',
+                    university: config.university || 'standard',
+                    year: config.year || new Date().getFullYear().toString(),
+                    month: config.month || new Date().toLocaleString('default', { month: 'long' })
+                });
+                preview.innerHTML = `<div class="book-page-sheet">${coverHtml}</div>`;
+                return;
+            }
+
+            if (!content || !content.trim()) {
+                preview.innerHTML = '<div class="book-preview-placeholder"><p>No content to preview</p></div>';
+                return;
+            }
+
             // Use the main renderer for consistency
             if (this.renderer) {
-                const html = await this.renderer.render(content);
-                preview.innerHTML = html;
+                let markdownContent = content;
+                if (isThesis) {
+                    markdownContent = this.preprocessThesisMarkdown(content, fileName, config);
+                }
+                const html = await this.renderer.render(markdownContent);
+                if (isThesis) {
+                    preview.innerHTML = `<div class="book-page-sheet">${html}</div>`;
+                } else {
+                    preview.innerHTML = html;
+                }
                 
                 // Handle anchor scrolling for technical documents
                 const anchorFragment = editor.dataset.anchorFragment;
@@ -2303,6 +2417,63 @@ class MarkDDApp {
             console.error('[App] Book preview render failed:', error);
             preview.innerHTML = `<div class="book-preview-placeholder"><p>Preview error: ${error.message}</p></div>`;
         }
+    }
+
+    preprocessThesisMarkdown(content, fileName, config) {
+        let txt = content || '';
+        
+        // 1. Process Bibliography anchors if this is the bibliography file
+        if (fileName === 'bibliography.md') {
+            txt = txt.split('\n').map(line => {
+                const match = line.match(/^-\s+\[@?([a-zA-Z0-9_-]+)\]\s*(.*)/);
+                if (match) {
+                    const key = match[1];
+                    const rest = match[2];
+                    return `- <a id="ref-${key}"></a>**[${key}]** ${rest}`;
+                }
+                const boldMatch = line.match(/^-\s+\*\*([a-zA-Z0-9_-]+)\*\*:\s*(.*)/);
+                if (boldMatch) {
+                    const key = boldMatch[1];
+                    const rest = boldMatch[2];
+                    return `- <a id="ref-${key}"></a>**${key}**: ${rest}`;
+                }
+                return line;
+            }).join('\n');
+        }
+
+        // 2. Process inline citations: [@key] -> link to bibliography
+        txt = txt.replace(/\[@([a-zA-Z0-9_-]+)\]/g, (match, key) => {
+            return `<sup><a href="#ref-${key}" class="citation-link">${key}</a></sup>`;
+        });
+
+        // Helper to slugify caption
+        const slugify = (str) => {
+            return (str || '')
+                .toString()
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .substring(0, 64);
+        };
+
+        // 3. Inject anchors for Figures and Tables
+        txt = txt.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, caption, imgPath) => {
+            const slug = slugify('fig-' + caption.trim());
+            return `<div id="${slug}" class="figure-anchor"></div>\n\n${match}`;
+        });
+
+        txt = txt.replace(/(\*|_)(Figure\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi, (match, p1, captionText, p2) => {
+            const slug = slugify('fig-' + captionText.trim());
+            return `<div id="${slug}" class="figure-anchor"></div>\n\n${match}`;
+        });
+
+        txt = txt.replace(/(\*|_)(Table\s+[0-9.A-Z]+:\s+[^*_]+)(\*|_)/gi, (match, p1, captionText, p2) => {
+            const slug = slugify('tab-' + captionText.trim());
+            return `<div id="${slug}" class="table-anchor"></div>\n\n${match}`;
+        });
+
+        return txt;
     }
 
     async saveCurrentBookChapter() {
@@ -4045,6 +4216,7 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-book-new-wiki', () => this.newBookProject('wiki'));
         this.bindButton('menu-book-new-help', () => this.newBookProject('help'));
         this.bindButton('menu-book-new-technical', () => this.newBookProject('technical'));
+        this.bindButton('menu-book-new-thesis', () => this.newBookProject('thesis'));
 
         // Ensure Markdown menu toggles reflect current front-matter state
         this.refreshMarkdownMenuStates();
@@ -7915,6 +8087,59 @@ A passionate junior software engineer with solid foundations in computer science
         });
     }
 
+    async loadCustomThesisTemplates() {
+        const customTemplates = [];
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const { ipcRenderer } = require('electron');
+
+            const userDataPath = await ipcRenderer.invoke('get-user-data-path');
+            const cwd = await ipcRenderer.invoke('get-cwd');
+            const appPath = await ipcRenderer.invoke('get-app-path');
+
+            const pathsToScan = [];
+            if (appPath) {
+                pathsToScan.push(path.join(appPath, 'src', 'templates', 'thesis'));
+            }
+            if (userDataPath) {
+                pathsToScan.push(path.join(userDataPath, 'templates', 'thesis'));
+            }
+            if (cwd) {
+                pathsToScan.push(path.join(cwd, '.markdd', 'templates', 'thesis'));
+            }
+
+            for (const scanPath of pathsToScan) {
+                const isBuiltIn = scanPath.includes(path.join('src', 'templates', 'thesis'));
+                if (fs.existsSync(scanPath)) {
+                    const dirs = fs.readdirSync(scanPath, { withFileTypes: true })
+                                    .filter(dirent => dirent.isDirectory());
+                    for (const d of dirs) {
+                        const configPath = path.join(scanPath, d.name, 'template.json');
+                        if (fs.existsSync(configPath)) {
+                            try {
+                                const raw = fs.readFileSync(configPath, 'utf-8');
+                                const config = JSON.parse(raw);
+                                if (config.name) {
+                                    customTemplates.push({
+                                        value: `custom:${path.join(scanPath, d.name)}`,
+                                        label: isBuiltIn ? config.name : `${config.name} (Custom)`,
+                                        config
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn('[App] Failed to parse template config at', configPath, e);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[App] Failed to load custom thesis templates:', error);
+        }
+        return customTemplates;
+    }
+
     // Book section selection dialog
     getBookSectionDefinitions() {
         return {
@@ -7935,16 +8160,32 @@ A passionate junior software engineer with solid foundations in computer science
                 { id: 'bibliography', name: 'Bibliography', category: 'back', auto: false, checked: false },
                 { id: 'index', name: 'Index', category: 'back', auto: false, checked: false },
                 { id: 'author-bio', name: 'Author Biography', category: 'back', auto: false, checked: false }
+            ],
+            thesis: [
+                { id: 'title', name: 'Title Page', category: 'front', auto: true, checked: true },
+                { id: 'abstract', name: 'Abstract', category: 'front', auto: false, checked: true },
+                { id: 'declaration', name: 'Declaration of Authorship', category: 'front', auto: false, checked: true },
+                { id: 'dedication', name: 'Dedication', category: 'front', auto: false, checked: true },
+                { id: 'acknowledgements', name: 'Acknowledgements', category: 'front', auto: false, checked: true },
+                { id: 'toc', name: 'Table of Contents', category: 'front', auto: true, checked: true },
+                { id: 'lof', name: 'List of Figures', category: 'front', auto: false, checked: false },
+                { id: 'lot', name: 'List of Tables', category: 'front', auto: false, checked: false },
+                { id: 'chapters', name: 'Main Chapters', category: 'body', auto: false, checked: true },
+                { id: 'appendix', name: 'Appendix', category: 'back', auto: false, checked: true },
+                { id: 'bibliography', name: 'Bibliography', category: 'back', auto: false, checked: true }
             ]
         };
     }
 
     async showBookCreationDialog(bookType) {
+        const customTemplates = bookType === 'thesis' ? await this.loadCustomThesisTemplates() : [];
+
         const typeNames = {
             classical: 'Classical Book',
             wiki: 'Wiki Documentation',
             help: 'Help Documentation',
-            technical: 'Technical Documentation'
+            technical: 'Technical Documentation',
+            thesis: 'Academic Thesis'
         };
 
         const readableType = typeNames[bookType] || 'Book';
@@ -7985,7 +8226,7 @@ A passionate junior software engineer with solid foundations in computer science
                 label.textContent = labelText;
                 const input = document.createElement(isTextarea ? 'textarea' : 'input');
                 input.value = defaultValue;
-                input.required = !isTextarea;
+                input.required = !isTextarea && !options.optional && !labelText.toLowerCase().includes('optional');
                 input.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;resize:' + (isTextarea ? 'vertical' : 'none') + ';min-height:44px;';
                 if (!isTextarea) {
                     input.type = 'text';
@@ -7998,8 +8239,42 @@ A passionate junior software engineer with solid foundations in computer science
                 return input;
             };
 
-            const titleInput = createInputField('Book Title', `My ${readableType}`);
+            const titleInput = createInputField(bookType === 'thesis' ? 'Thesis Title' : 'Book Title', bookType === 'thesis' ? 'My Academic Thesis' : `My ${readableType}`);
             const authorInput = createInputField('Author Name', 'Author Name');
+
+            let degreeInput = null;
+            let departmentInput = null;
+            let supervisorInput = null;
+            let coSupervisorInput = null;
+            let universitySelect = null;
+
+            if (bookType === 'thesis') {
+                degreeInput = createInputField('Degree Name', 'Doctor of Philosophy');
+                departmentInput = createInputField('Department Name', 'Department of Computer Science');
+                supervisorInput = createInputField('Supervisor Name', 'Prof. Alan Turing');
+                coSupervisorInput = createInputField('Co-Supervisor Name (optional)', '');
+                
+                const uniWrapper = document.createElement('label');
+                uniWrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#ddd;min-width:0;grid-column:1 / -1;';
+                uniWrapper.innerHTML = '<span>University Template / Style</span>';
+
+                const select = document.createElement('select');
+                select.style.cssText = 'padding:10px 12px;background:#2e2e2e;border:1px solid #3b3b3b;border-radius:6px;color:#fff;font-size:14px;min-height:44px;';
+
+                if (typeof customTemplates !== 'undefined' && customTemplates) {
+                    customTemplates.forEach(ct => {
+                        const optEl = document.createElement('option');
+                        optEl.value = ct.value;
+                        optEl.textContent = ct.label;
+                        select.appendChild(optEl);
+                    });
+                }
+
+                uniWrapper.appendChild(select);
+                fieldsGrid.appendChild(uniWrapper);
+                universitySelect = select;
+            }
+
             const descriptionInput = createInputField('Short Description (optional)', `A ${readableType.toLowerCase()} created with MarkDD`, true, { fullWidth: true });
 
             let technicalStyleSelect = null;
@@ -8168,6 +8443,22 @@ A passionate junior software engineer with solid foundations in computer science
                     });
                 }
 
+                let universityVal = 'standard';
+                let customTemplatePath = null;
+                if (universitySelect) {
+                    if (universitySelect.value.startsWith('custom:')) {
+                        customTemplatePath = universitySelect.value.substring(7);
+                        const selectedTemplate = customTemplates.find(ct => ct.value === universitySelect.value);
+                        if (selectedTemplate && selectedTemplate.config && selectedTemplate.config.university) {
+                            universityVal = selectedTemplate.config.university;
+                        } else {
+                            universityVal = 'standard';
+                        }
+                    } else {
+                        universityVal = universitySelect.value;
+                    }
+                }
+
                 cleanup({
                     title,
                     author,
@@ -8176,7 +8467,13 @@ A passionate junior software engineer with solid foundations in computer science
                     chapterCount: Math.max(1, parseInt(chapterCountInput.value, 10) || 1),
                     appendixCount: Math.max(0, parseInt(appendixCountInput.value, 10) || 0),
                     showChapterNumbers: numberingToggle.checked,
-                    technicalStyle: technicalStyleSelect ? technicalStyleSelect.value : null
+                    technicalStyle: technicalStyleSelect ? technicalStyleSelect.value : null,
+                    degree: degreeInput ? degreeInput.value.trim() : '',
+                    department: departmentInput ? departmentInput.value.trim() : '',
+                    supervisor: supervisorInput ? supervisorInput.value.trim() : '',
+                    coSupervisor: coSupervisorInput ? coSupervisorInput.value.trim() : '',
+                    university: universityVal,
+                    customTemplatePath: customTemplatePath
                 });
             });
 

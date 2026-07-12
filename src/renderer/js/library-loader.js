@@ -536,6 +536,12 @@ class LibraryLoader {
             },
             // Enhanced: Add KityMinder mind mapping support
             {
+                name: 'Kity',
+                localUrl: null,
+                cdnUrl: 'https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js',
+                check: () => typeof window.kity !== 'undefined'
+            },
+            {
                 name: 'KityMinder',
                 localUrl: 'js/kityminder-fallback.js', // Local fallback for KityMinder
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js',
@@ -1123,6 +1129,7 @@ class LibraryLoader {
             'MarkmapLib': '0.15.0',
             'MarkmapView': '0.15.0',
             'LaTeX': '0.12.4',
+            'Kity': '2.0.4',
             'KityMinder': '1.4.50',
             'MathJax': '3.2.0'
         };

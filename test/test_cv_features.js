@@ -5,10 +5,13 @@ const { JSDOM } = require('jsdom');
 async function run() {
     console.log('Starting comprehensive CV features unit test suite...\n');
 
-    // 1. Initialize DOM context
-    const dom = new JSDOM('<!doctype html><html><body><div id="menu-bar"></div></body></html>');
+    // 1. Initialize DOM context using real renderer index.html
+    let htmlContent = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf-8');
+    htmlContent = htmlContent.replace('<body>', '<body><div id="tab-list"></div><button id="new-tab-btn"></button>');
+    const dom = new JSDOM(htmlContent);
     const window = dom.window;
     const document = window.document;
+    document.body.insertAdjacentHTML('beforeend', '<div id="tab-list"></div><button id="new-tab-btn"></button>');
 
     global.window = window;
     global.document = document;
@@ -28,22 +31,20 @@ async function run() {
     global.TextEncoder = window.TextEncoder;
     global.confirm = (msg) => true;
 
-    // Mock Electron ipcRenderer
-    global.require = (modName) => {
-        if (modName === 'electron') {
-            return {
-                ipcRenderer: {
-                    invoke: async (channel, ...args) => {
-                        if (channel === 'select-cv-photo-dialog') {
-                            return { filePath: 'assets/profile.jpg' };
-                        }
-                        return {};
+    // Mock Electron ipcRenderer in Node require cache
+    require.cache[require.resolve('electron')] = {
+        exports: {
+            ipcRenderer: {
+                on: () => {},
+                removeAllListeners: () => {},
+                invoke: async (channel, ...args) => {
+                    if (channel === 'select-cv-photo-dialog') {
+                        return { filePath: 'assets/profile.jpg' };
                     }
+                    return {};
                 }
-            };
+            }
         }
-        if (modName === 'path') return require('path');
-        return {};
     };
 
     // Stubs for Editor, Renderer, etc.
@@ -64,6 +65,27 @@ async function run() {
         setMathEngine() {}
     };
     window.PreviewManager = class {};
+    window.Preview = class {
+        setLivePreview() {}
+        setSyncScroll() {}
+    };
+    window.FileBrowser = class {};
+    window.PresentationManager = class {
+        getCustomThemes() { return []; }
+    };
+    window.TabManager = class {
+        on() {}
+        clearPersistedState() {}
+        getAllTabs() { return []; }
+        createTab() {}
+    };
+    window.TabUI = class {
+        constructor() {
+            this.tabListElement = true;
+            this.newTabBtn = true;
+        }
+        init() {}
+    };
     window.MarkdownRenderer = class {
         constructor() {}
         setMathEngine() {}
@@ -72,6 +94,11 @@ async function run() {
     global.Editor = window.Editor;
     global.Renderer = window.Renderer;
     global.PreviewManager = window.PreviewManager;
+    global.Preview = window.Preview;
+    global.FileBrowser = window.FileBrowser;
+    global.PresentationManager = window.PresentationManager;
+    global.TabManager = window.TabManager;
+    global.TabUI = window.TabUI;
     global.MarkdownRenderer = window.MarkdownRenderer;
     window.markdownRenderer = {
         render: async (md) => '<h2>Mock Rendered Content</h2>'
@@ -80,6 +107,9 @@ async function run() {
     // 2. Load classes
     const CVManager = require(path.join(__dirname, '../src/renderer/js/cv.js'));
     const MarkDDApp = require(path.join(__dirname, '../src/renderer/js/app.js'));
+    if (typeof TabUI !== 'undefined') {
+        TabUI.prototype.init = function() {};
+    }
 
     const cvManager = new CVManager();
     const app = Object.create(MarkDDApp.prototype);
@@ -111,8 +141,9 @@ async function run() {
     // Let the DOM update
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Find the inputs
-    const inputs = document.querySelectorAll('input');
+    // Find the inputs inside the generated form dialog
+    const dialogEl = document.body.lastElementChild;
+    const inputs = dialogEl ? dialogEl.querySelectorAll('input') : [];
     if (inputs.length !== 2) {
         console.error(`FAILURE: Expected 2 inputs, found ${inputs.length}`);
         process.exit(1);
