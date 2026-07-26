@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MarkDD Editor",
+  "version": "2.0.0",
+  "identifier": "com.markdd.editor",
+  "build": {
+    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File ./scripts/prepare-resources.ps1",
+    "frontendDist": "../src/renderer"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "MarkDD Editor",
+        "width": 1200,
+        "height": 750,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../resources": "resources/"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["md"],
+        "name": "Markdown File",
+        "description": "Markdown Document",
+        "role": "Editor"
+      },
+      {
+        "ext": ["markdown"],
+        "name": "Markdown File",
+        "description": "Markdown Document",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "windows/installer-hooks.nsh",
+        "template": "windows/installer.nsi"
+      }
+    },
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  }
+}

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KityMinder Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .toolbar {
+            height: 45px;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            border-bottom: 1px solid #dee2e6;
+            padding: 8px 15px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .toolbar button {
+            padding: 6px 14px;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #495057;
+            transition: all 0.2s;
+        }
+        
+        .toolbar button:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        
+        .toolbar button:active {
+            transform: translateY(1px);
+        }
+        
+        #mindmap-container {
+            width: 100%;
+            height: calc(100% - 45px);
+            background: #ffffff;
+        }
+        
+        .node circle {
+            fill: #4a90e2;
+            stroke: #2e5c8a;
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        
+        .node.selected circle {
+            stroke: #ff6b6b;
+            stroke-width: 3px;
+        }
+        
+        .node text {
+            font-size: 14px;
+            fill: #333;
+            cursor: pointer;
+        }
+        
+        .link {
+            fill: none;
+            stroke: #999;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button id="btn-add">➕ Add Node</button>
+        <button id="btn-edit">✏️ Edit</button>
+        <button id="btn-delete">🗑️ Delete</button>
+        <button id="btn-expand">📂 Expand All</button>
+        <button id="btn-collapse">📁 Collapse All</button>
+        <button id="btn-export">💾 Export</button>
+        <button id="btn-import">📂 Import</button>
+        <input type="file" id="file-import" accept=".json,.km" style="display:none">
+    </div>
+    <div id="mindmap-container"></div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        class MindMapEditor {
+            constructor() {
+                this.data = {
+                    name: 'Central Topic',
+                    children: [
+                        {
+                            name: 'Subtopic 1',
+                            children: [
+                                { name: 'Detail 1.1' },
+                                { name: 'Detail 1.2' }
+                            ]
+                        },
+                        {
+                            name: 'Subtopic 2',
+                            children: [
+                                { name: 'Detail 2.1' }
+                            ]
+                        }
+                    ]
+                };
+                
+                this.selected = null;
+                this.width = window.innerWidth;
+                this.height = window.innerHeight - 45;
+                
+                this.svg = d3.select('#mindmap-container')
+                    .append('svg')
+                    .attr('width', this.width)
+                    .attr('height', this.height);
+                
+                this.g = this.svg.append('g')
+                    .attr('transform', `translate(${this.width/2},${this.height/2})`);
+                
+                this.tree = d3.tree()
+                    .size([360, Math.min(this.width, this.height) / 3])
+                    .separation((a, b) => (a.parent == b.parent ? 1 : 2) / a.depth);
+                
+                this.setupZoom();
+                this.setupButtons();
+                this.update();
+                this.setupParentCommunication();
+                
+                // Notify parent
+                this.notifyParent('mindmap-ready');
+            }
+            
+            setupZoom() {
+                const zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on('zoom', (event) => {
+                        this.g.attr('transform', event.transform);
+                    });
+                
+                this.svg.call(zoom);
+            }
+            
+            setupButtons() {
+                document.getElementById('btn-add').onclick = () => this.addNode();
+                document.getElementById('btn-edit').onclick = () => this.editNode();
+                document.getElementById('btn-delete').onclick = () => this.deleteNode();
+                document.getElementById('btn-expand').onclick = () => this.expandAll();
+                document.getElementById('btn-collapse').onclick = () => this.collapseAll();
+                document.getElementById('btn-export').onclick = () => this.export();
+                document.getElementById('btn-import').onclick = () => document.getElementById('file-import').click();
+                document.getElementById('file-import').onchange = (e) => this.import(e);
+            }
+            
+            update() {
+                const root = d3.hierarchy(this.data);
+                const nodes = this.tree(root);
+                
+                // Links
+                const links = this.g.selectAll('.link')
+                    .data(nodes.links())
+                    .join('path')
+                    .attr('class', 'link')
+                    .attr('d', d3.linkRadial()
+                        .angle(d => d.x * Math.PI / 180)
+                        .radius(d => d.y));
+                
+                // Nodes
+                const node = this.g.selectAll('.node')
+                    .data(nodes.descendants())
+                    .join('g')
+                    .attr('class', 'node')
+                    .attr('transform', d => `rotate(${d.x - 90}) translate(${d.y},0)`)
+                    .on('click', (event, d) => this.selectNode(d));
+                
+                node.append('circle')
+                    .attr('r', 5);
+                
+                node.append('text')
+                    .attr('dy', '0.31em')
+                    .attr('x', d => d.x < 180 === !d.children ? 8 : -8)
+                    .attr('text-anchor', d => d.x < 180 === !d.children ? 'start' : 'end')
+                    .attr('transform', d => d.x >= 180 ? 'rotate(180)' : null)
+                    .text(d => d.data.name);
+            }
+            
+            selectNode(event, d) {
+                this.selected = d;
+                this.g.selectAll('.node').classed('selected', false);
+                d3.select(event.currentTarget).classed('selected', true);
+            }
+            
+            addNode() {
+                if (!this.selected) {
+                    alert('Please select a parent node first');
+                    return;
+                }
+                
+                const name = prompt('Enter node name:', 'New Node');
+                if (!name) return;
+                
+                if (!this.selected.data.children) {
+                    this.selected.data.children = [];
+                }
+                
+                this.selected.data.children.push({ name: name });
+                this.update();
+                this.sendData();
+            }
+            
+            editNode() {
+                if (!this.selected) {
+                    alert('Please select a node first');
+                    return;
+                }
+                
+                const name = prompt('Edit node name:', this.selected.data.name);
+                if (!name) return;
+                
+                this.selected.data.name = name;
+                this.update();
+                this.sendData();
+            }
+            
+            deleteNode() {
+                if (!this.selected || this.selected.depth === 0) {
+                    alert('Cannot delete root node or no node selected');
+                    return;
+                }
+                
+                if (!confirm('Delete this node and all children?')) return;
+                
+                const parent = this.selected.parent;
+                if (parent && parent.data.children) {
+                    parent.data.children = parent.data.children.filter(child => child !== this.selected.data);
+                }
+                
+                this.selected = null;
+                this.update();
+                this.sendData();
+            }
+            
+            expandAll() {
+                // Implement expand/collapse logic if needed
+                this.update();
+            }
+            
+            collapseAll() {
+                // Implement expand/collapse logic if needed
+                this.update();
+            }
+            
+            export() {
+                const json = JSON.stringify(this.data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mindmap_' + Date.now() + '.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            
+            import(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        this.data = JSON.parse(e.target.result);
+                        this.update();
+                        this.sendData();
+                    } catch (error) {
+                        alert('Invalid file format');
+                    }
+                };
+                reader.readAsText(file);
+            }
+            
+            setupParentCommunication() {
+                window.addEventListener('message', (event) => {
+                    if (!event.data || !event.data.type) return;
+                    
+                    switch (event.data.type) {
+                        case 'load-mindmap':
+                            if (event.data.data) {
+                                try {
+                                    this.data = typeof event.data.data === 'string' ? 
+                                        JSON.parse(event.data.data) : event.data.data;
+                                    this.update();
+                                } catch (error) {
+                                    console.error('Load error:', error);
+                                }
+                            }
+                            break;
+                        case 'get-mindmap-data':
+                            this.sendData();
+                            break;
+                    }
+                });
+            }
+            
+            sendData() {
+                this.notifyParent('mindmap-data', {
+                    json: JSON.stringify(this.data)
+                });
+            }
+            
+            notifyParent(type, data = {}) {
+                if (!window.parent || window.parent === window) return;
+                
+                try {
+                    window.parent.postMessage({ type, ...data }, '*');
+                } catch (error) {
+                    // Silent fail
+                }
+            }
+        }
+        
+        // Initialize
+        window.editor = new MindMapEditor();
+    </script>
+</body>
+</html>

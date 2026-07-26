@@ -121,10 +121,12 @@ async function run() {
     app.customizeCVColors = MarkDDApp.prototype.customizeCVColors;
     app.updateFrontMatterColorsInEditor = MarkDDApp.prototype.updateFrontMatterColorsInEditor;
     
-    // Stub methods called by customizeCVColors
+    // Stub methods called by customizeCVColors and setCVTheme
     app.showMessage = () => {};
     app.showError = () => {};
     app.refreshCVPreview = () => {};
+    app.closeAllMenus = () => {};
+    app.setCVTheme = MarkDDApp.prototype.setCVTheme;
 
     // --- TEST 1: showFormDialog Value & DefaultValue Binding ---
     console.log('TEST 1: Verifying showFormDialog input value population...');
@@ -164,10 +166,19 @@ async function run() {
     }
     console.log('SUCCESS: Input defaultValue binding verified.');
 
-    // Cancel test dialog
-    const cancelButton = Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Cancel');
-    if (cancelButton) cancelButton.click();
+    // Cancel test dialog — search ONLY within the dialog overlay (not the entire document,
+    // which may contain other buttons named 'Cancel' such as the PPTX import cancel button)
+    const cancelButton = dialogEl
+        ? Array.from(dialogEl.querySelectorAll('button')).find(b => b.textContent === 'Cancel')
+        : null;
+    if (cancelButton) {
+        cancelButton.click();
+    } else {
+        // Fallback: resolve by removing overlay manually
+        if (dialogEl && dialogEl.parentNode) dialogEl.parentNode.removeChild(dialogEl);
+    }
     await dialogPromise;
+
 
 
     // --- TEST 2: updateFrontMatterColorsInEditor ---

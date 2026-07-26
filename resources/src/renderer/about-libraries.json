@@ -1,0 +1,23 @@
+[
+  { "name": "Electron", "version": "38.0.0" },
+  { "name": "Marked", "version": "16.3.0" },
+  { "name": "KaTeX", "version": "0.16.22" },
+  { "name": "MathJax", "version": "4.0.0" },
+  { "name": "HighlightJS", "version": "11.11.1" },
+  { "name": "Mermaid", "version": "11.4.1" },
+  { "name": "D3", "version": "7.8.0" },
+  { "name": "Viz.js", "version": "3.7.0" },
+  { "name": "Vega", "version": "5.33.0" },
+  { "name": "VegaLite", "version": "5.23.0" },
+  { "name": "VegaEmbed", "version": "6.29.0" },
+  { "name": "ABCJS", "version": "6.5.2" },
+  { "name": "PlantUML Encoder", "version": "1.4.0" },
+  { "name": "node-tikzjax", "version": "Latest" },
+  { "name": "Markmap Lib", "version": "0.15.0" },
+  { "name": "Markmap View", "version": "0.15.0" },
+  { "name": "KityMinder Core", "version": "1.4.50" },
+  { "name": "LaTeX.js", "version": "0.12.6" },
+  { "name": "DOMPurify", "version": "3.2.6" },
+  { "name": "CodeMirror", "version": "5.65.2" },
+  { "name": "Puppeteer", "version": "24.19.0" }
+]

@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="kityminderDemo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KityMinder Editor</title>
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+    
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.css">
+    
+    <!-- KityMinder CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.css">
+    
+    <!-- KityMinder Editor CSS -->
+    <link rel="stylesheet" href="kityminder.editor.css">
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        h1.editor-title {
+            background: #526aad;
+            color: white;
+            margin: 0;
+            height: 30px;
+            font-size: 12px;
+            line-height: 29.5px;
+            font-family: 'Hiragino Sans GB', 'Arial', 'Microsoft Yahei';
+            font-weight: normal;
+        }
+        
+        .title-left {
+            float: left;
+            padding-left: 10px;
+        }
+        
+        .title-left span {
+            padding: 0 10px 0 0;
+        }
+        
+        .title-right {
+            float: right;
+            color: #fff;
+        }
+        
+        .title-right span {
+            padding: 0 10px 0 100px;
+        }
+        
+        .hidden-frame {
+            display: none;
+        }
+        
+        /* Legacy styles removed - using kityminder.editor.css */
+    </style>
+</head>
+<body ng-controller="MainController">
+    <h1 class="editor-title">
+        <div class="title-left">
+            <span>KityMinder Editor</span>
+        </div>
+        <div class="title-right">
+            <span>Zoom In/Out--Ctrl+Scroll</span>
+        </div>
+    </h1>
+    
+    <kityminder-editor 
+        on-init="initEditor(editor, minder)"
+        data-theme="fresh-blue">
+    </kityminder-editor>
+    
+    <iframe name="frameFile" class="hidden-frame"></iframe>
+
+    <!-- jQuery -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+    
+    <!-- Angular -->
+    <script src="https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.min.js"></script>
+    
+    <!-- JSZip for XMind import -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    
+    <!-- Kity -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kity.min.js"></script>
+    
+    <!-- Hotbox -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/hotbox.min.js"></script>
+    
+    <!-- KityMinder Core -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script>
+    
+    <!-- CodeMirror Modes -->
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/xml/xml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/javascript/javascript.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/markdown/markdown.js"></script>
+    
+    <!-- Angular UI Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/angular-ui-bootstrap@2.5.0/dist/ui-bootstrap-tpls.min.js"></script>
+    
+    <!-- Angular UI CodeMirror -->
+    <script src="https://cdn.jsdelivr.net/npm/angular-ui-codemirror@0.3.0/ui-codemirror.min.js"></script>
+    
+    <!-- KityMinder Editor (Angular directive) -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-editor@1.4.50/dist/kityminder.editor.min.js"></script>
+    
+    <!-- Language Support -->
+    <script>
+        // English language configuration
+        if (typeof kityminder !== 'undefined' && kityminder.lang) {
+            kityminder.lang = {
+                name: 'en',
+                maintainer: 'MarkDD Team',
+                version: '1.0',
+                language: 'English'
+            };
+        }
+    </script>
+
+    <!-- Angular App -->
+    <script>
+        console.log('[KityMinder DEBUG] Script loading started');
+        console.log('[KityMinder DEBUG] Angular available:', typeof angular !== 'undefined');
+        console.log('[KityMinder DEBUG] kityminderEditor module available:', typeof angular !== 'undefined' && angular.module ? 'checking...' : 'no');
+        
+        angular.module('kityminderDemo', ['kityminderEditor'])
+        .controller('MainController', ['$scope', function($scope) {
+            console.log('[KityMinder DEBUG] MainController initializing...');
+            var editor, minder;
+            
+            // Initialize editor
+            $scope.initEditor = function(editorInstance, minderInstance) {
+                console.log('[KityMinder DEBUG] initEditor called with:', editorInstance, minderInstance);
+                editor = editorInstance;
+                minder = minderInstance;
+                window.editor = editor;
+                window.minder = minder;
+                
+                console.log('[KityMinder] Editor initialized');
+                
+                // Load default data
+                loadDefaultData();
+                
+                // Setup mouse wheel zoom
+                setupMouseWheelZoom();
+            };
+            
+            // Load default data
+            function loadDefaultData() {
+                var defaultData = '{"root":{"data":{"id":"root","created":1661683403686,"text":"Central Topic"},"children":[{"data":{"id":"child1","created":1661683403686,"text":"Topic 1"},"children":[]},{"data":{"id":"child2","created":1661683403686,"text":"Topic 2"},"children":[]},{"data":{"id":"child3","created":1661683403686,"text":"Topic 3"},"children":[]}]},"template":"default","theme":"fresh-blue","version":"1.4.50"}';
+                
+                if (editor && minder) {
+                    minder.importData('json', defaultData).then(function(data) {
+                        console.log('[KityMinder] Default data loaded');
+                    });
+                }
+            }
+            
+            // Setup mouse wheel zoom (Ctrl + Scroll)
+            function setupMouseWheelZoom() {
+                $('.minder-editor').on('mousewheel DOMMouseScroll', function(event) {
+                    if (event.ctrlKey == true) {
+                        event.preventDefault();
+                        if (event.originalEvent.wheelDelta > 0) {
+                            minder.execCommand('zoomIn');
+                        } else {
+                            minder.execCommand('zoomOut');
+                        }
+                    }
+                });
+            }
+        }]);
+    </script>
+</body>
+</html>
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: #ffffff;
+            min-width: 220px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            z-index: 10001;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        
+        .export-dropdown-content button {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            text-align: left;
+            border: none;
+            background: transparent;
+            color: #374151;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .export-dropdown-content button:hover {
+            background: #f3f4f6;
+            color: #2563eb;
+        }
+        
+
+        
+        .export-dropdown.open .export-dropdown-content {
+            display: block;
+        }
+        
+        .btn-export::after {
+            content: ' ▼';
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        
+        .btn-export:hover, .btn-import:hover, .btn-theme:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-export:active, .btn-import:active, .btn-theme:active {
+            background: #f3f4f6;
+        }
+        
+        .btn-theme, .btn-fullscreen {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-fullscreen:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-fullscreen.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+        
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+            border-left: 1px solid #e5e7eb;
+            margin-left: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .btn-zoom {
+            padding: 6px;
+            font-size: 18px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-zoom:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-zoom:active {
+            background: #f3f4f6;
+        }
+        
+        .zoom-display {
+            font-size: 13px;
+            color: #374151;
+            min-width: 55px;
+            text-align: center;
+            font-weight: 600;
+            background: #f9fafb;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .theme-dropdown {
+            position: relative;
+            display: inline-block;
+            z-index: 10000;
+        }
+        
+        .theme-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: #ffffff;
+            min-width: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            z-index: 10001;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        
+        .theme-dropdown-content button {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            text-align: left;
+            border: none;
+            background: transparent;
+            color: #374151;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .theme-dropdown-content button:hover {
+            background: #f3f4f6;
+            color: #2563eb;
+        }
+        
+        .theme-dropdown-content button.active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        
+        .theme-dropdown-content button.active::after {
+            content: '✓';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 600;
+            font-size: 14px;
+            color: #2563eb;
+        }
+        
+        .theme-dropdown.open .theme-dropdown-content {
+            display: block;
+        }
+        
+        .btn-import {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-import input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        kityminder-editor {
+            flex: 1;
+            display: block;
+            width: 100%;
+            height: calc(100% - 60px);
+            background: #ffffff;
+        }
+        
+        /* Enhanced KityMinder Canvas Styling */
+        kityminder-editor .km-editor {
+            background: #ffffff;
+            border-radius: 0;
+        }
+        
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 72px;
+            right: 16px;
+            z-index: 10001;
+            pointer-events: none;
+        }
+        
+        .toast {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 380px;
+            pointer-events: auto;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .toast.success {
+            border-left-color: #10b981;
+        }
+        
+        .toast.error {
+            border-left-color: #ef4444;
+        }
+        
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+        
+        .toast-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .toast-message {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .toast-close:hover {
+            color: #4b5563;
+        }
+        
+
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body ng-controller="MainController">
+    <h1 class="editor-title">
+        <div style="float:left; padding-left: 10px;">
+            <span style="padding: 0 10px 0 0;">KityMinder Editor</span>
+        </div>
+        <div style="float:right;color:#fff">
+            <span style="padding: 0 10px 0 100px;">Zoom In/Out--Ctrl+Scroll</span>
+        </div>
+    </h1>
+    
+    <kityminder-editor 
+        on-init="initEditor(editor, minder)"
+        data-theme="fresh-blue">
+    </kityminder-editor>
+    
+    <iframe name="frameFile" style="display:none;"></iframe>
+    
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+    
+    <!-- Angular -->
+    <script src="https://cdn.jsdelivr.net/npm/angular@1.8.3/angular.min.js"></script>
+    
+    <!-- JSZip for XMind import -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    
+    <!-- Kity -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kity.min.js"></script>
+    
+    <!-- Hotbox -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/hotbox.min.js"></script>
+    
+    <!-- KityMinder Core -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script>
+    
+    <!-- CodeMirror Modes -->
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/xml/xml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/javascript/javascript.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/markdown/markdown.js"></script>
+    
+    <!-- Angular UI Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/angular-ui-bootstrap@2.5.0/dist/ui-bootstrap-tpls.min.js"></script>
+    
+    <!-- Angular UI CodeMirror -->
+    <script src="https://cdn.jsdelivr.net/npm/angular-ui-codemirror@0.3.0/ui-codemirror.min.js"></script>
+    
+    <!-- KityMinder Editor (Angular directive) -->
+    <script src="https://cdn.jsdelivr.net/npm/kityminder-editor@1.4.50/dist/kityminder.editor.min.js"></script>
+    
+    <!-- Language Support -->
+    <script>
+        // English language configuration
+        if (typeof kityminder !== 'undefined' && kityminder.lang) {
+            kityminder.lang = {
+                name: 'en',
+                maintainer: 'MarkDD Team',
+                version: '1.0',
+                language: 'English'
+            };
+        }
+    </script>
+
+    <!-- Angular App -->
+    <script>
+        console.log('[KityMinder DEBUG] Script loading started');
+        console.log('[KityMinder DEBUG] Angular available:', typeof angular !== 'undefined');
+        console.log('[KityMinder DEBUG] kityminderEditor module available:', typeof angular !== 'undefined' && angular.module ? 'checking...' : 'no');
+        
+        angular.module('kityminderDemo', ['kityminderEditor'])
+        .controller('MainController', ['$scope', function($scope) {
+            console.log('[KityMinder DEBUG] MainController initializing...');
+            var editor, minder;
+            var autoSaveInterval;
+            
+            // Initialize editor
+            $scope.initEditor = function(editorInstance, minderInstance) {
+                console.log('[KityMinder DEBUG] initEditor called with:', editorInstance, minderInstance);
+                editor = editorInstance;
+                minder = minderInstance;
+                window.editor = editor;
+                window.minder = minder;
+                
+                console.log('[KityMinder] Editor initialized');
+                
+                // Load saved theme or default
+                loadSavedTheme();
+                
+                // Setup fullscreen listeners
+                setupFullscreenListeners();
+                
+                // Initialize zoom display
+                initializeZoomDisplay();
+                
+                // Load comprehensive test data
+                loadComprehensiveTestData();
+                
+                // Set up export functionality
+                setupExport();
+                
+                // Set up import functionality
+                setupImport();
+                
+                // Listen for messages from parent window
+                setupParentCommunication();
+                
+                // Auto-save periodically
+                startAutoSave();
+                
+                // Notify parent that editor is ready
+                notifyParent('mindmap-ready');
+            };
+            
+            // Change theme function
+            $scope.changeTheme = function(themeName) {
+                if (!minder) {
+                    alert('Editor not initialized');
+                    return;
+                }
+                
+                console.log('[KityMinder] Changing theme to:', themeName);
+                
+                try {
+                    // Apply theme using KityMinder API
+                    minder.useTheme(themeName);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('kityminder-theme', themeName);
+                    
+                    // Update UI to show active theme
+                    updateThemeUI(themeName);
+                    
+                    console.log('[KityMinder] Theme changed successfully');
+                } catch (error) {
+                    console.error('[KityMinder] Theme change failed:', error);
+                    alert('Failed to change theme: ' + error.message);
+                }
+            };
+            
+            // Toggle fullscreen function
+            $scope.toggleFullscreen = function() {
+                console.log('[KityMinder] Toggling fullscreen');
+                
+                var elem = document.documentElement;
+                
+                if (!document.fullscreenElement && !document.mozFullScreenElement && 
+                    !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                    // Enter fullscreen
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        elem.mozRequestFullScreen();
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    }
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    }
+                }
+            };
+            
+            // Zoom In function
+            $scope.zoomIn = function() {
+                if (!minder) return;
+                
+                var currentZoom = minder.getZoomValue();
+                var newZoom = Math.min(currentZoom + 0.1, 2.0);
+                minder.zoom(newZoom);
+                updateZoomDisplay(newZoom);
+                console.log('[KityMinder] Zoomed in to:', Math.round(newZoom * 100) + '%');
+            };
+            
+            // Zoom Out function
+            $scope.zoomOut = function() {
+                if (!minder) return;
+                
+                var currentZoom = minder.getZoomValue();
+                var newZoom = Math.max(currentZoom - 0.1, 0.5);
+                minder.zoom(newZoom);
+                updateZoomDisplay(newZoom);
+                console.log('[KityMinder] Zoomed out to:', Math.round(newZoom * 100) + '%');
+            };
+            
+            // Reset Zoom function
+            $scope.zoomReset = function() {
+                if (!minder) return;
+                
+                minder.zoom(1.0);
+                updateZoomDisplay(1.0);
+                console.log('[KityMinder] Zoom reset to 100%');
+            };
+            
+            // Load comprehensive test mindmap
+            function loadComprehensiveTestData() {
+                if (!minder) return;
+                
+                var testData = {
+                    "root": {
+                        "data": {
+                            "text": "MarkDD KityMinder - Feature Test"
+                        },
+                        "children": [
+                            {
+                                "data": { "text": "Core Features" },
+                                "children": [
+                                    { "data": { "text": "Create/Edit Nodes" } },
+                                    { "data": { "text": "Drag & Drop" } },
+                                    { "data": { "text": "Multi-select" } },
+                                    { "data": { "text": "Copy/Paste" } },
+                                    { "data": { "text": "Undo/Redo" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Layouts" },
+                                "children": [
+                                    { "data": { "text": "Mind Map (default)" } },
+                                    { "data": { "text": "Tree Layout" } },
+                                    { "data": { "text": "Org Chart" } },
+                                    { "data": { "text": "Fishbone" } },
+                                    { "data": { "text": "Tianpan" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Themes" },
+                                "children": [
+                                    { "data": { "text": "Fresh Blue (current)" } },
+                                    { "data": { "text": "Classic" } },
+                                    { "data": { "text": "Snow" } },
+                                    { "data": { "text": "Dark" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Export Formats" },
+                                "children": [
+                                    { "data": { "text": "✅ JSON (.km)" } },
+                                    { "data": { "text": "🔧 PNG Image" } },
+                                    { "data": { "text": "🔧 SVG Vector" } },
+                                    { "data": { "text": "🔧 PDF Document" } },
+                                    { "data": { "text": "🔧 Markdown" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Import Formats" },
+                                "children": [
+                                    { "data": { "text": "✅ JSON/KM" } },
+                                    { "data": { "text": "✅ XMind (.xmind)" } },
+                                    { "data": { "text": "✅ MindManager (.mmap)" } },
+                                    { "data": { "text": "🔧 FreeMind (.mm)" } },
+                                    { "data": { "text": "🔧 Markdown" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Keyboard Shortcuts" },
+                                "children": [
+                                    { "data": { "text": "Tab - New child" } },
+                                    { "data": { "text": "Enter - New sibling" } },
+                                    { "data": { "text": "Delete - Remove node" } },
+                                    { "data": { "text": "Ctrl+C/V - Copy/Paste" } },
+                                    { "data": { "text": "Ctrl+Z/Y - Undo/Redo" } },
+                                    { "data": { "text": "Arrows - Navigate" } }
+                                ]
+                            },
+                            {
+                                "data": { "text": "Planned Enhancements" },
+                                "children": [
+                                    { "data": { "text": "🔧 Full menu system" } },
+                                    { "data": { "text": "🔧 Fullscreen mode" } },
+                                    { "data": { "text": "🔧 Style toolbar" } },
+                                    { "data": { "text": "🔧 Zoom controls" } },
+                                    { "data": { "text": "🔧 MarkDD integration" } }
+                                ]
+                            }
+                        ]
+                    }
+                };
+                
+                try {
+                    minder.importData(testData);
+                    console.log('[KityMinder] Comprehensive test data loaded');
+                } catch (error) {
+                    console.error('[KityMinder] Failed to load test data:', error);
+                }
+            }
+            
+            // Export KM (JSON) function
+            $scope.exportKM = function() {
+                if (!minder) {
+                    alert('Editor not initialized');
+                    return;
+                }
+                
+                minder.exportData('json').then(function(content) {
+                    var timestamp = getDateTime();
+                    var filename = 'mindmap_' + timestamp + '.km';
+                    downloadFile(content, filename, 'application/json');
+                    console.log('[KityMinder] Exported JSON:', filename);
+                });
+            };
+            
+            // Export PNG function
+            $scope.exportPNG = function() {
+                if (!minder) {
+                    alert('Editor not initialized');
+                    return;
+                }
+                
+                console.log('[KityMinder] Starting PNG export...');
+                
+                try {
+                    // Use KityMinder's built-in PNG export
+                    minder.exportData('png').then(function(dataUrl) {
+                        var timestamp = getDateTime();
+                        var filename = 'mindmap_' + timestamp + '.png';
+                        
+                        // Convert data URL to blob
+                        var base64Data = dataUrl.split(',')[1];
+                        var byteCharacters = atob(base64Data);
+                        var byteNumbers = new Array(byteCharacters.length);
+                        for (var i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        var byteArray = new Uint8Array(byteNumbers);
+                        var blob = new Blob([byteArray], { type: 'image/png' });
+                        
+                        downloadBlob(blob, filename);
+                        console.log('[KityMinder] Exported PNG:', filename);
+                    }).catch(function(error) {
+                        console.error('[KityMinder] PNG export failed:', error);
+                        alert('PNG export failed: ' + error.message);
+                    });
+                } catch (error) {
+                    console.error('[KityMinder] PNG export error:', error);
+                    alert('PNG export failed: ' + error.message);
+                }
+            };
+            
+            // Export SVG function
+            $scope.exportSVG = function() {
+                if (!minder) {
+                    alert('Editor not initialized');
+                    return;
+                }
+                
+                console.log('[KityMinder] Starting SVG export...');
+                
+                try {
+                    // Use KityMinder's built-in SVG export
+                    minder.exportData('svg').then(function(svgContent) {
+                        var timestamp = getDateTime();
+                        var filename = 'mindmap_' + timestamp + '.svg';
+                        downloadFile(svgContent, filename, 'image/svg+xml');
+                        console.log('[KityMinder] Exported SVG:', filename);
+                    }).catch(function(error) {
+                        console.error('[KityMinder] SVG export failed:', error);
+                        alert('SVG export failed: ' + error.message);
+                    });
+                } catch (error) {
+                    console.error('[KityMinder] SVG export error:', error);
+                    alert('SVG export failed: ' + error.message);
+                }
+            };
+            
+            // Export PDF function
+            $scope.exportPDF = function() {
+                if (!minder) {
+                    alert('Editor not initialized');
+                    return;
+                }
+                
+                console.log('[KityMinder] Starting PDF export...');
+                
+                // PDF export: First get PNG, then convert to PDF using main process
+                try {
+                    minder.exportData('png').then(function(dataUrl) {
+                        var timestamp = getDateTime();
+                        var filename = 'mindmap_' + timestamp + '.pdf';
+                        
+                        // Send to main process for PDF conversion
+                        if (window.require) {
+                            var ipcRenderer = window.require('electron').ipcRenderer;
+                            ipcRenderer.invoke('export-mindmap-pdf', {
+                                imageData: dataUrl,
+                                fileName: filename
+                            }).then(function(result) {
+                                if (result.success) {
+                                    console.log('[KityMinder] Exported PDF:', result.filePath);
+                                    alert('PDF exported successfully to: ' + result.filePath);
+                                } else {
+                                    console.error('[KityMinder] PDF export failed:', result.error);
+                                    alert('PDF export failed: ' + result.error);
+                                }
+                            }).catch(function(error) {
+                                console.error('[KityMinder] PDF IPC error:', error);
+                                alert('PDF export failed: ' + error.message);
+                            });
+                        } else {
+                            alert('PDF export requires Electron environment');
+                        }
+                    }).catch(function(error) {
+                        console.error('[KityMinder] PNG generation for PDF failed:', error);
+                        alert('PDF export failed: ' + error.message);
+                    });
+                } catch (error) {
+                    console.error('[KityMinder] PDF export error:', error);
+                    alert('PDF export failed: ' + error.message);
+                }
+            };
+            
+            function setupExport() {
+                // Export button is handled by ng-click in template
+                console.log('[KityMinder] Export setup complete');
+            }
+            
+            function setupImport() {
+                var fileInput = document.getElementById('fileInput');
+                if (!fileInput) return;
+                
+                fileInput.addEventListener('change', function(e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+                    
+                    var fileName = file.name.toLowerCase();
+                    var fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+                    
+                    console.log('[KityMinder] Importing file:', fileName);
+                    
+                    if (fileExtension === '.xmind') {
+                        importXMindFile(file);
+                    } else if (fileExtension === '.mmap') {
+                        importMindManagerFile(file);
+                    } else if (fileExtension === '.json' || fileExtension === '.km') {
+                        importJSONFile(file);
+                    } else {
+                        alert('Unsupported file format. Please use .xmind, .mmap, .json, or .km files.');
+                    }
+                    
+                    // Clear file input
+                    e.target.value = '';
+                });
+                
+                console.log('[KityMinder] Import setup complete');
+            }
+            
+            function setupParentCommunication() {
+                window.addEventListener('message', function(event) {
+                    if (!event.data || !event.data.type) return;
+                    
+                    switch (event.data.type) {
+                        case 'load-mindmap':
+                            loadMindmapData(event.data.data);
+                            break;
+                        case 'get-mindmap-data':
+                            sendMindmapData();
+                            break;
+                        case 'export-mindmap':
+                            $scope.exportKM();
+                            break;
+                    }
+                });
+                
+                console.log('[KityMinder] Parent communication setup complete');
+            }
+            
+            function startAutoSave() {
+                // Auto-save every 30 seconds
+                autoSaveInterval = setInterval(function() {
+                    if (minder) {
+                        sendMindmapData();
+                    }
+                }, 30000);
+                
+                console.log('[KityMinder] Auto-save started');
+            }
+            
+            function loadMindmapData(data) {
+                if (!minder) return;
+                
+                try {
+                    var jsonData = typeof data === 'string' ? JSON.parse(data) : data;
+                    minder.importData(jsonData);
+                    console.log('[KityMinder] Data loaded');
+                } catch (error) {
+                    console.error('[KityMinder] Load error:', error);
+                }
+            }
+            
+            function sendMindmapData() {
+                if (!minder) return;
+                
+                // Wrap in try-catch since KityMinder may not return full ES6 Promise
+                try {
+                    var jsonPromise = minder.exportData('json');
+                    if (jsonPromise && jsonPromise.then) {
+                        jsonPromise.then(function(content) {
+                            // Also export PNG for preview
+                            try {
+                                var pngPromise = minder.exportData('png');
+                                if (pngPromise && pngPromise.then) {
+                                    pngPromise.then(function(pngData) {
+                                        notifyParent('mindmap-data', {
+                                            json: content,
+                                            png: pngData
+                                        });
+                                    });
+                                }
+                            } catch (pngError) {
+                                // PNG export might fail, send JSON anyway
+                                console.warn('[KityMinder] PNG export failed:', pngError);
+                                notifyParent('mindmap-data', {
+                                    json: content,
+                                    png: null
+                                });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('[KityMinder] Export error:', error);
+                }
+            }
+            
+            function importJSONFile(file) {
+                showLoading();
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        var jsonData = JSON.parse(e.target.result);
+                        
+                        // Check if it's KityMinder format
+                        if (jsonData.root) {
+                            minder.importData(jsonData);
+                        } else {
+                            // Convert simple format
+                            minder.importData({
+                                root: jsonData
+                            });
+                        }
+                        
+                        hideLoading();
+                        showToast('Success', 'JSON file imported successfully!', 'success');
+                        console.log('[KityMinder] JSON imported');
+                    } catch (error) {
+                        hideLoading();
+                        console.error('[KityMinder] JSON import error:', error);
+                        showToast('Import Failed', 'Invalid JSON format: ' + error.message, 'error');
+                    }
+                };
+                reader.onerror = function() {
+                    hideLoading();
+                    showToast('Import Failed', 'Failed to read file', 'error');
+                };
+                reader.readAsText(file);
+            }
+            
+            function importXMindFile(file) {
+                if (typeof JSZip === 'undefined') {
+                    showToast('Import Failed', 'JSZip library not loaded. Please check internet connection.', 'error');
+                    return;
+                }
+                
+                showLoading();
+                
+                JSZip.loadAsync(file).then(function(zip) {
+                    var contentFile = zip.file('content.xml') || zip.file('content.json');
+                    
+                    if (!contentFile) {
+                        throw new Error('Invalid XMind file: content.xml or content.json not found');
+                    }
+                    
+                    return contentFile.async('string');
+                }).then(function(content) {
+                    var mindmapData;
+                    
+                    if (content.startsWith('{')) {
+                        // JSON format (XMind 2020+)
+                        var xmindData = JSON.parse(content);
+                        mindmapData = convertXMindJSONToKityMinder(xmindData);
+                    } else {
+                        // XML format (XMind 8)
+                        var parser = new DOMParser();
+                        var xmlDoc = parser.parseFromString(content, 'text/xml');
+                        
+                        // Check for parse errors
+                        var parseError = xmlDoc.querySelector('parsererror');
+                        if (parseError) {
+                            throw new Error('Invalid XMind XML structure');
+                        }
+                        
+                        mindmapData = convertXMindXMLToKityMinder(xmlDoc);
+                    }
+                    
+                    minder.importData({
+                        root: mindmapData
+                    });
+                    
+                    hideLoading();
+                    showToast('Success', 'XMind file imported successfully!', 'success');
+                    console.log('[KityMinder] XMind imported');
+                }).catch(function(error) {
+                    hideLoading();
+                    console.error('[KityMinder] XMind import error:', error);
+                    showToast('Import Failed', error.message || 'Failed to import XMind file', 'error');
+                });
+            }
+            
+            function importMindManagerFile(file) {
+                showLoading();
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        var parser = new DOMParser();
+                        var xmlDoc = parser.parseFromString(e.target.result, 'text/xml');
+                        
+                        var parseError = xmlDoc.querySelector('parsererror');
+                        if (parseError) {
+                            throw new Error('Invalid MindManager XML structure');
+                        }
+                        
+                        var mindmapData = convertMindManagerToKityMinder(xmlDoc);
+                        
+                        if (!mindmapData || !mindmapData.data) {
+                            throw new Error('Failed to convert MindManager data');
+                        }
+                        
+                        minder.importData({
+                            root: mindmapData
+                        });
+                        
+                        hideLoading();
+                        showToast('Success', 'MindManager file imported successfully!', 'success');
+                        console.log('[KityMinder] MindManager imported');
+                    } catch (error) {
+                        hideLoading();
+                        console.error('[KityMinder] MindManager import error:', error);
+                        showToast('Import Failed', error.message || 'Invalid MindManager file', 'error');
+                    }
+                };
+                reader.onerror = function() {
+                    hideLoading();
+                    showToast('Import Failed', 'Failed to read file', 'error');
+                };
+                reader.readAsText(file);
+            }
+            
+            function convertXMindJSONToKityMinder(xmindData) {
+                var rootTopic = xmindData[0] && xmindData[0].rootTopic;
+                if (!rootTopic) {
+                    throw new Error('Invalid XMind JSON structure');
+                }
+                return convertXMindTopicToNode(rootTopic);
+            }
+            
+            function convertXMindTopicToNode(topic) {
+                // Handle various XMind topic structures
+                var text = topic.title || topic.text || topic.name || 'Topic';
+                
+                var node = {
+                    data: { 
+                        text: text
+                    },
+                    children: []
+                };
+                
+                // Handle different children structures
+                if (topic.children) {
+                    if (topic.children.attached) {
+                        // XMind 2020+ format
+                        node.children = topic.children.attached.map(function(child) {
+                            return convertXMindTopicToNode(child);
+                        });
+                    } else if (Array.isArray(topic.children)) {
+                        // Alternative format
+                        node.children = topic.children.map(function(child) {
+                            return convertXMindTopicToNode(child);
+                        });
+                    }
+                }
+                
+                return node;
+            }
+            
+            function convertXMindXMLToKityMinder(xmlDoc) {
+                var rootTopic = xmlDoc.querySelector('topic[id="root"]') || 
+                               xmlDoc.querySelector('sheet > topic');
+                
+                if (!rootTopic) {
+                    throw new Error('Invalid XMind XML structure');
+                }
+                
+                return convertXMindXMLTopicToNode(rootTopic);
+            }
+            
+            function convertXMindXMLTopicToNode(topicElement) {
+                // Try multiple ways to get the text
+                var titleElement = topicElement.querySelector(':scope > title');
+                var text = titleElement ? titleElement.textContent.trim() : 
+                          (topicElement.getAttribute('text') || 
+                           topicElement.getAttribute('title') || 'Topic');
+                
+                var node = {
+                    data: { text: text },
+                    children: []
+                };
+                
+                // Try multiple ways to find children
+                var childrenElement = topicElement.querySelector(':scope > children');
+                if (childrenElement) {
+                    // Standard XMind structure
+                    var childTopics = childrenElement.querySelectorAll(':scope > topics > topic');
+                    if (childTopics.length > 0) {
+                        node.children = Array.from(childTopics).map(function(child) {
+                            return convertXMindXMLTopicToNode(child);
+                        });
+                    } else {
+                        // Alternative: direct topic children
+                        childTopics = childrenElement.querySelectorAll(':scope > topic');
+                        node.children = Array.from(childTopics).map(function(child) {
+                            return convertXMindXMLTopicToNode(child);
+                        });
+                    }
+                } else {
+                    // Direct child topics (some XMind versions)
+                    var directTopics = topicElement.querySelectorAll(':scope > topic');
+                    node.children = Array.from(directTopics).map(function(child) {
+                        return convertXMindXMLTopicToNode(child);
+                    });
+                }
+                
+                return node;
+            }
+            
+            function convertMindManagerToKityMinder(xmlDoc) {
+                var rootTopic = xmlDoc.querySelector('map > topic') || 
+                               xmlDoc.querySelector('ap > topic');
+                
+                if (!rootTopic) {
+                    throw new Error('Invalid MindManager XML structure');
+                }
+                
+                return convertMindManagerTopicToNode(rootTopic);
+            }
+            
+            function convertMindManagerTopicToNode(topicElement) {
+                // Try multiple ways to extract text
+                var text = topicElement.getAttribute('text') || 
+                          topicElement.getAttribute('TEXT') ||
+                          topicElement.getAttribute('title') ||
+                          (topicElement.querySelector('text') && topicElement.querySelector('text').textContent) ||
+                          (topicElement.querySelector('TEXT') && topicElement.querySelector('TEXT').textContent) ||
+                          'Topic';
+                
+                // Trim and clean the text
+                text = text.trim();
+                
+                var node = {
+                    data: { text: text },
+                    children: []
+                };
+                
+                // Get all direct child topics (various structures)
+                var childTopics = topicElement.querySelectorAll(':scope > topic, :scope > TOPIC, :scope > node, :scope > NODE');
+                if (childTopics.length > 0) {
+                    node.children = Array.from(childTopics).map(function(child) {
+                        return convertMindManagerTopicToNode(child);
+                    });
+                }
+                
+                return node;
+            }
+            
+            function notifyParent(type, data) {
+                if (!window.parent || window.parent === window) {
+                    return;
+                }
+                
+                try {
+                    window.parent.postMessage({ 
+                        type: type, 
+                        data: data || {} 
+                    }, '*');
+                } catch (error) {
+                    // Silently fail for cross-origin issues
+                    if (error.name !== 'DataCloneError' && error.name !== 'SecurityError') {
+                        console.warn('[KityMinder] Parent notification skipped');
+                    }
+                }
+            }
+            
+            function loadSavedTheme() {
+                if (!minder) return;
+                
+                var savedTheme = localStorage.getItem('kityminder-theme') || 'fresh-blue';
+                console.log('[KityMinder] Loading saved theme:', savedTheme);
+                
+                try {
+                    minder.useTheme(savedTheme);
+                    updateThemeUI(savedTheme);
+                } catch (error) {
+                    console.warn('[KityMinder] Failed to load saved theme:', error);
+                    // Fallback to default
+                    minder.useTheme('fresh-blue');
+                    updateThemeUI('fresh-blue');
+                }
+            }
+            
+            function setupFullscreenListeners() {
+                // Listen for fullscreen changes (including ESC key)
+                document.addEventListener('fullscreenchange', updateFullscreenUI);
+                document.addEventListener('mozfullscreenchange', updateFullscreenUI);
+                document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
+                document.addEventListener('msfullscreenchange', updateFullscreenUI);
+                
+                // Keyboard shortcut (F11 is handled by browser, but we can add custom)
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'F11') {
+                        e.preventDefault();
+                        $scope.toggleFullscreen();
+                        $scope.$apply();
+                    }
+                });
+                
+                console.log('[KityMinder] Fullscreen listeners set up');
+            }
+            
+            function updateFullscreenUI() {
+                var isFullscreen = !!(document.fullscreenElement || document.mozFullScreenElement || 
+                                     document.webkitFullscreenElement || document.msFullscreenElement);
+                
+                var btn = document.getElementById('fullscreenBtn');
+                if (btn) {
+                    if (isFullscreen) {
+                        btn.classList.add('active');
+                        btn.innerHTML = '⛶';
+                        btn.title = 'Exit Fullscreen (ESC or F11)';
+                    } else {
+                        btn.classList.remove('active');
+                        btn.innerHTML = '⛶';
+                        btn.title = 'Toggle Fullscreen (F11)';
+                    }
+                }
+                
+                // Save state to localStorage
+                localStorage.setItem('kityminder-fullscreen', isFullscreen);
+            }
+            
+            function updateZoomDisplay(zoomValue) {
+                var display = document.getElementById('zoomDisplay');
+                if (display) {
+                    var percentage = Math.round(zoomValue * 100);
+                    display.textContent = percentage + '%';
+                }
+            }
+            
+            function initializeZoomDisplay() {
+                if (!minder) return;
+                
+                var currentZoom = minder.getZoomValue();
+                updateZoomDisplay(currentZoom);
+                
+                // Listen for zoom changes from other sources (mouse wheel, etc.)
+                minder.on('viewchange', function() {
+                    var zoom = minder.getZoomValue();
+                    updateZoomDisplay(zoom);
+                });
+            }
+            
+            function updateThemeUI(themeName) {
+                // Remove active class from all theme buttons
+                var themeButtons = document.querySelectorAll('.theme-dropdown-content button');
+                themeButtons.forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                
+                // Add active class to selected theme
+                var activeButton = document.getElementById('theme-' + themeName);
+                if (activeButton) {
+                    activeButton.classList.add('active');
+                }
+            }
+            
+            function getDateTime() {
+                var now = new Date();
+                var year = now.getFullYear();
+                var month = String(now.getMonth() + 1).padStart(2, '0');
+                var day = String(now.getDate()).padStart(2, '0');
+                var hours = String(now.getHours()).padStart(2, '0');
+                var minutes = String(now.getMinutes()).padStart(2, '0');
+                var seconds = String(now.getSeconds()).padStart(2, '0');
+                return year + month + day + hours + minutes + seconds;
+            }
+            
+            // Helper function to download text files
+            function downloadFile(content, filename, mimeType) {
+                var blob = new Blob([content], { type: mimeType });
+                downloadBlob(blob, filename);
+            }
+            
+            // Helper function to download blob
+            function downloadBlob(blob, filename) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            
+            // Toast notification system
+            function showToast(title, message, type) {
+                var container = document.getElementById('toastContainer');
+                if (!container) return;
+                
+                var icons = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+                
+                var toast = document.createElement('div');
+                toast.className = 'toast ' + (type || 'info');
+                toast.innerHTML = `
+                    <div class="toast-icon">${icons[type] || icons.info}</div>
+                    <div class="toast-content">
+                        <div class="toast-title">${title}</div>
+                        <div class="toast-message">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+                `;
+                
+                container.appendChild(toast);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(function() {
+                    toast.remove();
+                }, 5000);
+            }
+            
+            // Loading overlay
+            function showLoading() {
+                var overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.classList.add('active');
+            }
+            
+            function hideLoading() {
+                var overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.classList.remove('active');
+            }
+            
+            // Insert mindmap in markdown with embedded image and JSON metadata
+            $scope.insertInMarkdown = function() {
+                if (!minder) {
+                    showToast('Error', 'Editor not initialized', 'error');
+                    return;
+                }
+                
+                console.log('[KityMinder] Inserting mindmap in markdown...');
+                showLoading();
+                
+                try {
+                    // Export both PNG and JSON
+                    minder.exportData('png').then(function(pngDataUrl) {
+                        minder.exportData('json').then(function(jsonContent) {
+                            hideLoading();
+                            
+                            // Create markdown with embedded image and metadata comment
+                            var timestamp = Date.now();
+                            var mindmapId = 'mindmap-' + timestamp;
+                            
+                            // Encode JSON for HTML comment (escape special characters)
+                            var encodedJson = btoa(unescape(encodeURIComponent(jsonContent)));
+                            
+                            // Create markdown syntax:
+                            // 1. HTML comment with JSON data
+                            // 2. Image with base64 data
+                            var markdown = `<!-- mindmap-data:${encodedJson} -->\n`;
+                            markdown += `![KityMinder Mind Map](${pngDataUrl})\n`;
+                            markdown += `<!-- /mindmap-data -->\n\n`;
+                            
+                            // Send to parent window to insert into editor
+                            if (window.parent && window.parent !== window) {
+                                window.parent.postMessage({
+                                    type: 'insert-mindmap-markdown',
+                                    markdown: markdown,
+                                    json: jsonContent,
+                                    image: pngDataUrl
+                                }, '*');
+                                
+                                showToast(
+                                    'Success!', 
+                                    'Mind map inserted into markdown with editable metadata', 
+                                    'success'
+                                );
+                            } else {
+                                showToast(
+                                    'Info', 
+                                    'Markdown copied to clipboard (no parent editor detected)', 
+                                    'info'
+                                );
+                                
+                                // Fallback: copy to clipboard
+                                navigator.clipboard.writeText(markdown).then(function() {
+                                    console.log('[KityMinder] Markdown copied to clipboard');
+                                });
+                            }
+                            
+                            console.log('[KityMinder] Mindmap markdown generated successfully');
+                        }).catch(function(error) {
+                            hideLoading();
+                            console.error('[KityMinder] JSON export failed:', error);
+                            showToast('Error', 'Failed to export JSON: ' + error.message, 'error');
+                        });
+                    }).catch(function(error) {
+                        hideLoading();
+                        console.error('[KityMinder] PNG export failed:', error);
+                        showToast('Error', 'Failed to export PNG: ' + error.message, 'error');
+                    });
+                } catch (error) {
+                    hideLoading();
+                    console.error('[KityMinder] Insert markdown error:', error);
+                    showToast('Error', 'Failed to insert in markdown: ' + error.message, 'error');
+                }
+            };
+        }]);
+        
+        // Global function for export dropdown menu
+        function toggleExportMenu(event) {
+            event.stopPropagation();
+            var exportDropdown = document.getElementById('exportDropdown');
+            var themeDropdown = document.getElementById('themeDropdown');
+            exportDropdown.classList.toggle('open');
+            themeDropdown.classList.remove('open');
+        }
+        
+        // Global function for theme dropdown menu
+        function toggleThemeMenu(event) {
+            event.stopPropagation();
+            var themeDropdown = document.getElementById('themeDropdown');
+            var exportDropdown = document.getElementById('exportDropdown');
+            themeDropdown.classList.toggle('open');
+            exportDropdown.classList.remove('open');
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            var exportDropdown = document.getElementById('exportDropdown');
+            var themeDropdown = document.getElementById('themeDropdown');
+            
+            if (exportDropdown && !exportDropdown.contains(event.target)) {
+                exportDropdown.classList.remove('open');
+            }
+            if (themeDropdown && !themeDropdown.contains(event.target)) {
+                themeDropdown.classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>

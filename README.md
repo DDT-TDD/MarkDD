@@ -1,6 +1,6 @@
 # MarkDD Editor
 
-MarkDD Editor is a cross-platform Electron-based Markdown editor with advanced rendering features inspired by MarkText and VS Code Markdown Preview Enhanced. It includes support for KaTeX/MathJax math, Mermaid, markmap, Graphviz/viz.js, TikZ/CircuiTikZ integrations, and export capabilities.
+MarkDD Editor is a lightweight, cross-platform Markdown editor powered by **Tauri 2.0** and **Electron** with advanced rendering features inspired by MarkText and VS Code Markdown Preview Enhanced. It includes support for KaTeX/MathJax math, Mermaid diagrams, markmap, Graphviz/viz.js, TikZ/CircuiTikZ, Beamer-style presentations, PowerPoint (.pptx) exports, and a full Book Publishing system.
 
 Quick links
 - Homepage: ./ (packaged app entry)
@@ -17,37 +17,32 @@ Getting started (development)
 
    npm run dev
 
-3. Build distributables (electron-builder):
+3. Build distributables (Tauri 2.0 / electron-builder):
 
-   npm run build
+   npm run tauri:build
+   npm run build:win
 
 Notes for release
 
-- The project license is MIT. A summary of third-party dependency licenses is in `THIRD-PARTY-LICENSES.md`. Please review the upstream repositories for any GitHub-only dependencies (for example, `node-tikzjax`) and include their license files if you redistribute their code.
-- To prepare a minimal release bundle (only files required for the build), use the provided PowerShell helper script `scripts/prepare-release.ps1` which copies the files referenced by `build.files` in `package.json` into a `release/` directory. This is recommended before uploading to GitHub Releases.
+- The project license is MIT. A summary of third-party dependency licenses is in `THIRD-PARTY-LICENSES.md`.
+- To prepare a minimal release bundle, use `scripts/prepare-resources.ps1` and `scripts/pack-portable.js`.
 
 What this repository includes
 
 - `src/` — application source for main/renderer processes
+- `src-tauri/` — Rust Tauri 2.0 core application configuration and system bridge
 - `assets/` — icons and static assets
-- `COMPREHENSIVE-FEATURES-SHOWCASE.md` — extra resource included in packaged app
-- Tests and logs (large files) are present in the repo but are excluded by the release script by default (see `RELEASE_FILES.txt`)
+- `examples/` — sample presentation, CV, and feature showcase documents
 
-If you are preparing a GitHub release, confirm that:
+---
 
-1. `LICENSE` (MIT) is present at the repository root.
-2. `THIRD-PARTY-LICENSES.md` is included and you have inspected any GitHub-only dependencies for their license obligations.
-3. The `release/` folder produced by `scripts/prepare-release.ps1` contains only the files you want to upload. Do not upload `node_modules` unless required; prefer building platform-specific distributables (`dist-final` by default) and uploading installers.
-
-Contact
-
-Author: MarkDD Team
 # MarkDD Editor
 
 A fully-featured Markdown editor with advanced capabilities, combining the best features from MarkText, VS Code Markdown Preview Enhanced, Markmap, and obsidian-tikzjax.
 
-![MarkDD Editor](https://img.shields.io/badge/Version-1.4.1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
+![Tauri](https://img.shields.io/badge/Tauri-2.0.0-blue)
 ![Electron](https://img.shields.io/badge/Electron-38.0.0-blue)
 
 ## 🚀 Features
@@ -56,7 +51,7 @@ A fully-featured Markdown editor with advanced capabilities, combining the best 
 - **WYSIWYG-style editing** with real-time preview
 - **Syntax highlighting** with Highlight.js
 - **Live scroll sync** between editor and preview
-- **Multiple export formats** (HTML, PDF)
+- **Multiple export formats** (HTML, PDF, PowerPoint `.pptx`)
 - **Advanced theming** with light/dark mode support
 
 ### Mathematical Rendering
@@ -273,7 +268,7 @@ src/
 ## Dependencies
 
 ### Core
-- **Electron**: Desktop application framework
+- **Tauri 2.0 / Electron**: Dual-runtime desktop application shell
 - **marked**: Markdown parser and renderer
 - **highlight.js**: Syntax highlighting
 - **KaTeX**: Math rendering
@@ -285,7 +280,8 @@ src/
 - **tikzjax**: TikZ rendering (optional)
 
 ### Build Tools
-- **electron-builder**: Package and distribute
+- **electron-builder**: Package and distribute Electron builds
+- **tauri-cli**: Package and distribute Tauri builds
 
 ## Development
 

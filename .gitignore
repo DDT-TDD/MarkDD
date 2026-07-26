@@ -58,6 +58,16 @@ test/placeholder-diagnostics-*
 test/render-failure-*
 test/run_results.json
 test/run_issues.json
+test/test-*.js
+test/test-*.pptx
+test/test-*.html
+test/verify-*.js
+test/scratch/
+
+# Scratch & Temporary Files
+scratch/
+*.pptx
+*.html.tmp
 
 # Archive & Backup files
 *.7z

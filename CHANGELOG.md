@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.0.0] - 2026-07-26
+
+### Changed / Upgraded
+
+1. **Electron to Tauri 2.0 Migration** 🚀
+   - Migrated application shell from Electron to Tauri 2.0, achieving a 93% installer size reduction down to **10.5 MB** (`markdd-editor_2.0.0_x64-setup.exe`).
+   - Authored transparent frontend platform bridge (`bridge.js`) mocking `ipcRenderer`, `fs`, and `path` operations.
+   - Built headless Node.js backend server (`main-tauri.js`) running on loopback port 3001 for zero-churn compatibility with MathJax, TikZJax, Puppeteer PDF exports, and Book/Thesis compilation engines.
+   - Fixed Windows installer setup paths to force installation in `C:\Users\<username>\AppData\Local\Programs\markdd-editor`.
+   - Fixed binary naming to `markdd-editor.exe`.
+   - Optimized startup window handling to ensure only 1 primary window opens on launch.
+
+2. **PowerPoint (.pptx) Presentation Export System** 🎭
+   - Overhauled PPTX presentation exporter (`pptx-exporter.js`) to parse rendered HTML elements with full structural fidelity.
+   - **Diagrams**: Converted Mermaid and sequence diagram exports to compressed PNG format via Kroki (`/png/`), ensuring 100% native image compatibility without "The picture can't be displayed" errors in Microsoft PowerPoint.
+   - **Math & Equations**: Integrated 300 DPI high-definition PNG equation rendering via TeX PNG API for complex display math formulas ($\int_0^{2\pi} \sin(x) dx = 0$, $\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$), combined with Unicode `Cambria Math` typography for inline expressions.
+   - **Multi-Column Layouts**: Built native multi-column side-by-side PowerPoint text frames for `.columns > .column` layout blocks.
+   - **Formatting & Themes**: Synchronized slide headers and background styles across 30+ built-in themes (e.g. `darmstadt`, `berlin`, `madrid`, `copenhagen`), fixed blockquote duplication, and styled monospaced code blocks with padding and container borders.
+   - **Windows File Associations**: Enabled double-click file opening for `.md`, `.markdown`, `.mdown`, `.mdwn` files via single-instance IPC messaging.
 
 ## [1.7.0] - 2026-07-11
 
