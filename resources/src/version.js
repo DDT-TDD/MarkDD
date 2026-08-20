@@ -23,11 +23,11 @@ function getVersion() {
         // Try to read package.json from project root
         const packagePath = path.join(__dirname, '..', 'package.json');
         const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-        cachedVersion = packageJson.version || '2.0.0';
+        cachedVersion = packageJson.version || '2.1.0';
         return cachedVersion;
     } catch (error) {
         console.error('Failed to read version from package.json:', error);
-        return '2.0.0';
+        return '2.1.0';
     }
 }
 

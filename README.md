@@ -40,7 +40,7 @@ What this repository includes
 
 A fully-featured Markdown editor with advanced capabilities, combining the best features from MarkText, VS Code Markdown Preview Enhanced, Markmap, and obsidian-tikzjax.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0.0-blue)
 ![Electron](https://img.shields.io/badge/Electron-38.0.0-blue)

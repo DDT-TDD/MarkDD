@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.1.0] - 2026-08-20
+
+### Security & Hardening
+- **Dependency Vulnerability Remediation**: Fixed 32+ security advisories across npm dependencies (including `ws`, `tar`, `vega`, `vega-lite`, `vega-embed`, `nanoid`, `picomatch`, `postcss`, `tmp`, `uuid`).
+- **Eliminated Deprecated & Vulnerable Subpackages**: Removed unused `@cartamd/plugin-tikz` (and transitively vulnerable `vue-template-compiler`) and cleaned deprecated `viz.js@2.x` in favor of `@aduh95/viz.js@3.7.0`.
+- **IPC & Local Server Hardening**: Added strict path sanitization, traversal protections, and validated request boundaries across loopback endpoints.
+
+### Fixed & Improved
+- **False-Positive Math Rendering**:
+  - Removed greedy AsciiMath backtick interceptor that mistakenly transformed inline code containing hyphens (`markdd-editor`), path slashes (`src/renderer/js`), variable assignments (`id = 123`), and programming keywords (`int`, `sin`, `log`, `exp`) into broken math formulas.
+  - Hardened inline math `$...$` delimiter parsing with strict TeX whitespace boundary checks (`(?<![\w\\$])\$(?!\s)` and `(?<!\s)\$(?![0-9\w\$])`), preventing multi-word currency sentences (e.g. `$50 ... $100`) from false-positive math conversion while fully preserving valid LaTeX expressions (`$E = mc^2$`, `$\int_0^1 x dx$`).
+- **File Association & Single Instance Handling**:
+  - Fixed Windows Registry file association to point directly to `markdd-editor.exe "%1"` with zero extraneous console windows.
+  - Implemented `tauri-plugin-single-instance` and seamless background IPC file forwarding: double-clicking Markdown documents now focuses the active window and cleanly opens the file in a new editor tab.
+  - Fixed recent files list opening and prevented accidental removal of valid recent entries.
+- **Enhanced About Dialog**:
+  - Upgraded the About modal to dynamically list all 25+ loaded modules and libraries with verified runtime version tracking across Electron, Tauri 2.0, and Web modes.
+
+---
 ## [2.0.0] - 2026-07-26
 
 ### Changed / Upgraded

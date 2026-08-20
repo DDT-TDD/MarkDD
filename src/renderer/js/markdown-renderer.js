@@ -2346,64 +2346,8 @@ class MarkdownRenderer {
             placeholderIndex++;
         });
 
-        // --- AsciiMath Backtick Protection ---
-        // MUST come AFTER \[...\] and BEFORE inline math to avoid conflicts with code blocks
-        // Protect backtick-delimited AsciiMath: `x = (-b +- sqrt(b^2 - 4ac))/(2a)`
-        const backtickMathRegex = /`([^`\n\r]+?)`/g;
-        const backtickMatches = [];
-        let backtickMatch;
-        
-        while ((backtickMatch = backtickMathRegex.exec(protectedContent)) !== null) {
-            const fullMatch = backtickMatch[0];
-            const innerContent = backtickMatch[1].trim();
-            
-            // Validate it's math-like content (AsciiMath uses operators like +-, sqrt, /, *, ^, etc.)
-            const isMathLike = (
-                innerContent.length > 0 &&
-                !fullMatch.includes('PLACEHOLDER_') &&
-                // AsciiMath typically has math operators or functions
-                /[+\-*/^=<>]|sqrt|frac|sum|int|lim|sin|cos|tan|log|exp|alpha|beta|gamma|theta|pi/.test(innerContent) &&
-                // Not a code snippet (no common code keywords)
-                !/function|const|let|var|return|if|for|while|class|import|export/.test(innerContent)
-            );
-            
-            if (isMathLike) {
-                backtickMatches.push({
-                    fullMatch: fullMatch,
-                    innerContent: innerContent,
-                    index: backtickMatch.index
-                });
-            }
-        }
-
-        // Replace from end to start
-        backtickMatches.sort((a, b) => b.index - a.index);
-
-        backtickMatches.forEach(matchData => {
-            const { fullMatch, innerContent } = matchData;
-            const placeholderKey = `MATH_ASCIIMATH_${placeholderIndex}`;
-
-            placeholders.set(placeholderKey, {
-                type: 'asciimath',
-                content: innerContent,
-                originalMatch: fullMatch,
-                index: placeholderIndex
-            });
-
-            const asciiHidden = `\u200C[${placeholderKey}]`;
-            const replacement = `<span class="math-placeholder" data-math-placeholder="${placeholderKey}">${asciiHidden}</span>`;
-
-            protectedContent = protectedContent.substring(0, matchData.index) +
-                               replacement +
-                               protectedContent.substring(matchData.index + fullMatch.length);
-
-            placeholderIndex++;
-        });
-
-        // --- Display Math Protection ---
-    // Capture optional following newline so we can preserve spacing when
-    // a header follows immediately after a display math block.
-    const displayMathRegex = /(?:^|\s)\$\$((?:[^$]|\$(?!\$))*?)\$\$(\r?\n)?(?=\s|$)/gm;
+        // --- Display Math Protection ($$...$$) ---
+        const displayMathRegex = /(?:^|\s)\$\$((?:[^$]|\$(?!\$))*?)\$\$(\r?\n)?(?=\s|$)/gm;
         const displayMatches = [];
         let match;
         while ((match = displayMathRegex.exec(protectedContent)) !== null) {
@@ -2434,14 +2378,12 @@ class MarkdownRenderer {
             const isEnvironment = /\\begin\{[^}]+\}/.test(innerContent);
 
             if (isEnvironment) {
-                // If there's text before the \begin{...}, keep it outside the math placeholder
                 const beginMatch = innerContent.match(/\\begin\{/);
                 if (beginMatch && beginMatch.index > 0) {
                     leadingMarkdown = innerContent.slice(0, beginMatch.index).trim();
                     innerContent = innerContent.slice(beginMatch.index).trim();
                 }
 
-                // If there's text after the last \end{...}, keep it outside the placeholder
                 const endMatch = innerContent.match(/\\end\{[^}]+\}/g);
                 if (endMatch) {
                     const lastEnd = endMatch[endMatch.length - 1];
@@ -2467,14 +2409,8 @@ class MarkdownRenderer {
             
             const beforeWhitespace = matchData.fullMatch.match(/^(\s*)/)[1];
             const afterWhitespace = matchData.fullMatch.match(/(\s*)$/)[1];
-            // Preserve a single newline after the placeholder if the original
-            // match included one (helps keep headers separated).
             const newlineSuffix = matchData.newlineSuffix || (matchData.fullMatch.endsWith('\n') || matchData.fullMatch.endsWith('\r\n') ? '\n' : '');
 
-            // IMPORTANT: Do NOT insert leading/trailing markdown back into the raw
-            // markdown (it will be processed by marked and may generate HTML that
-            // corrupts math placeholders). Keep leading/trailing text in the
-            // placeholder data and reinsert into the DOM after marked renders.
             const replacement = `${beforeWhitespace}${spanPlaceholder}${afterWhitespace}${newlineSuffix}`;
 
             protectedContent = protectedContent.substring(0, matchData.index) +
@@ -2530,10 +2466,11 @@ class MarkdownRenderer {
             placeholderIndex++;
         });
 
-        // --- Inline Math Protection ---
-    // Match $...$ without consuming trailing whitespace so spacing after math is preserved.
-    // Allow backslash-letter sequences (e.g. \Gamma) including capital Greek names.
-    const inlineMathRegex = /(?<![\\$])\$([^$\n\r]+?)\$(?![\\$])/g;
+        // --- Inline Math Protection ($...$) ---
+        // Standard TeX conventions:
+        // - Opening $ must NOT be preceded by a word char or backslash, and NOT followed by whitespace
+        // - Closing $ must NOT be preceded by whitespace, and NOT followed by a digit or word char
+        const inlineMathRegex = /(?<![\w\\$])\$(?!\s)([^\$\n\r]+?)(?<!\s)\$(?![0-9\w\$])/g;
         const inlineMatches = [];
         let inlineMatch;
         
@@ -2552,21 +2489,31 @@ class MarkdownRenderer {
 
         inlineMatches.forEach(matchData => {
             const { fullMatch, innerContent } = matchData;
+            const trimmed = innerContent.trim();
 
-            // Improved validation for what constitutes actual math
+            // Improved validation for what constitutes actual math vs plain text / currency
+            const isCurrencyOrNumber = /^[\d,.]+(?:\s*(?:to|-)\s*[\d,.]+)?$/.test(trimmed);
+            const containsCodeOrMarkdown = /[`*_~]/.test(innerContent) || fullMatch.includes('PLACEHOLDER_');
+            const isUrl = innerContent.includes('http://') || innerContent.includes('https://');
+            const isJustPunctuation = /^[\s.,!?;:()\-]+$/.test(trimmed);
+            const isFunctionCall = /^[a-zA-Z_][a-zA-Z0-9_.]*\s*\(.*\)$/.test(trimmed);
+
+            // If it's multi-word text (contains spaces), it MUST contain LaTeX markers or math operators
+            const hasMultipleWords = /\s+/.test(trimmed);
+            const hasMathIndicators = /[\\{}^_=<>+*\/]|\b(?:alpha|beta|gamma|delta|theta|pi|sigma|omega|sum|prod|int|sqrt|frac|times|div|pm|mp|le|ge|ne|approx|equiv)\b/i.test(trimmed);
+
             const isActualMath = (
-                innerContent.trim().length > 0 &&
-                !/\s{2,}/.test(innerContent) && // No multiple spaces
-                !innerContent.includes('http') && // Not a URL
-                !/^[\s.,!?;:()-]+$/.test(innerContent) && // Not just punctuation
-                // Exclude function calls (identifier followed by parentheses) and method calls (with dots)
-                !/^[a-zA-Z_][a-zA-Z0-9_.]*\s*\(.*\)$/.test(innerContent) && // Not function calls like showMarkmapCreationDialog() or Math.sqrt(4)
-                // It's math if it has letters, commands, or structure chars.
-                // This avoids matching prices like $10.99 but allows $10^2$.
-                /[a-zA-Z\\{}^_]/.test(innerContent)
+                trimmed.length > 0 &&
+                !isCurrencyOrNumber &&
+                !containsCodeOrMarkdown &&
+                !isUrl &&
+                !isJustPunctuation &&
+                !isFunctionCall &&
+                (!hasMultipleWords || hasMathIndicators) &&
+                /[a-zA-Z0-9\\{}^_+\-*\/=]/.test(trimmed)
             );
 
-            if (isActualMath && !fullMatch.includes('PLACEHOLDER_') && !innerContent.includes('**') && !innerContent.includes('`')) {
+            if (isActualMath) {
                 const placeholderKey = `MATH_INLINE_${placeholderIndex}`;
 
                 placeholders.set(placeholderKey, {

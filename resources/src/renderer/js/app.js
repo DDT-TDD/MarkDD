@@ -9038,7 +9038,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.0.0', // Fallback, will be replaced by main process
+            version: '2.1.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9073,11 +9073,13 @@ A passionate junior software engineer with solid foundations in computer science
         const isElectron = window.MarkDDBridge && window.MarkDDBridge.isElectron;
         const isTauri = window.MarkDDBridge && window.MarkDDBridge.isTauri;
         libs = libs.map(lib => {
-            if (lib.name === 'Electron') {
+            if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Tauri', version: '2.0.0' };
-                } else if (!isElectron) {
-                    return { name: 'Web Mode', version: '2.0.0' };
+                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.1.0' };
+                } else if (isElectron) {
+                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.1.0' };
+                } else {
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.1.0' };
                 }
             }
             return lib;
@@ -9087,27 +9089,22 @@ A passionate junior software engineer with solid foundations in computer science
         <p>${packageData.description}</p>
         <p><strong>Author:</strong> ${packageData.author}</p>
         <br>
-        <p><strong>Advanced Features:</strong></p>
+        <p><strong>Advanced Modules & Features:</strong></p>
         <ul>
-            <li>📚 Book Module - Multi-chapter publishing with HTML/PDF export</li>
-            <li>🎪 Presentation Mode - 28 Beamer-style themes for slideshows</li>
-            <li>🔢 Real-time Math Rendering (KaTeX & MathJax)</li>
-            <li>📊 Advanced Diagram Support (Mermaid, TikZ, GraphViz)</li>
-            <li>🗺️ Mind Mapping (Markmap Integration)</li>
-            <li>💻 Professional Code Highlighting (180+ languages)</li>
-            <li>🔍 Search & Replace with Modal Interface</li>
-            <li>📑 Tab-based Multi-file Editing</li>
-            <li>💾 Autosave with 30s Interval</li>
-            <li>📤 Export to HTML & PDF</li>
-            <li>🎨 Multiple Theme Support</li>
-            <li>🔄 Live Preview with Scroll Sync</li>
-            <li>🔌 Plugin System Integration</li>
-            <li>📈 Vega-Lite Data Visualization</li>
-            <li>🎵 ABC Music Notation Rendering</li>
-            <li>🧠 KityMinder Mind Mapping Editor</li>
+            <li>📚 Book Publishing Engine - Multi-chapter authoring with HTML & PDF export</li>
+            <li>🎪 Presentation Mode - 30 Beamer-style themes for slideshows & live speaker view</li>
+            <li>👔 CV & Resume Studio - Professional curriculum vitae builder & PDF compiler</li>
+            <li>🔢 Real-time Math Rendering - Dual KaTeX & MathJax integration with formula protection</li>
+            <li>📊 Advanced Diagramming - Mermaid, GraphViz (@aduh95/viz.js), TikZ & CircuiTikZ</li>
+            <li>🗺️ Interactive Mind Mapping - Markmap & KityMinder visual tree editor</li>
+            <li>💻 Code Highlighting - Highlight.js covering 180+ programming languages</li>
+            <li>📈 Data Visualization - Vega & Vega-Lite statistical graphics suite</li>
+            <li>🎵 Music Notation - ABCJS sheet music and tablature renderer</li>
+            <li>📑 Tabbed Workspace - Multi-document editing with autosave and session restore</li>
+            <li>📤 Multi-Format Export - Native HTML, High-DPI PDF, and PowerPoint (PPTX)</li>
         </ul>
-        <h3>Loaded Libraries (${libs.length})</h3>
-        <table class="about-libs-table"><thead><tr><th>Library</th><th>Version</th></tr></thead><tbody>`;
+        <h3>Loaded Libraries & Modules (${libs.length})</h3>
+        <table class="about-libs-table"><thead><tr><th>Library / Module</th><th>Version</th></tr></thead><tbody>`;
         libs.forEach(lib => {
             html += `<tr><td>${lib.name}</td><td>${lib.version}</td></tr>`;
         });
@@ -9191,12 +9188,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = '2.0.0';
+            versionElement.textContent = '2.1.0';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = '2.0.0';
+                versionElement.textContent = '2.1.0';
             }
         }
     }

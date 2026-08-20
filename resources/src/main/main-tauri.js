@@ -122,7 +122,7 @@ try {
     packageData = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
 } catch (e) {
     // Fallback: version must always match package.json — update both together
-    packageData = { name: "markdd-editor", version: "2.0.0" };
+    packageData = { name: "markdd-editor", version: "2.1.0" };
 }
 
 const PORT = 3001;

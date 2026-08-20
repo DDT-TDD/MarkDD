@@ -5,9 +5,11 @@ const { execSync } = require('child_process');
 const archiver = require('archiver');
 
 const workspaceRoot = path.join(__dirname, '..');
+const pkg = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8'));
+const version = pkg.version || '2.1.0';
 const portableParent = path.join(workspaceRoot, 'src-tauri/target/release/bundle/portable');
-const portableFolder = path.join(portableParent, 'MarkDD-Editor-v2.0.0-Portable');
-const zipPath = path.join(portableParent, 'markdd-editor_2.0.0_portable_x64.zip');
+const portableFolder = path.join(portableParent, `MarkDD-Editor-v${version}-Portable`);
+const zipPath = path.join(portableParent, `markdd-editor_${version}_portable_x64.zip`);
 
 console.log('[pack-portable] Starting portable packaging...');
 console.log('[pack-portable] Source folder:', portableFolder);

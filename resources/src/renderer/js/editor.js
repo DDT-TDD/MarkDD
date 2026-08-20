@@ -1613,8 +1613,8 @@ Press [[Ctrl+S]] to save, [[Ctrl+O]] to open, and [[Ctrl+N]] to create a new fil
 
 *This showcase demonstrates the comprehensive capabilities of MarkDD Editor. Every feature shown here is fully functional and ready to use!*
 
-**Version**: 2.0.0  
-**Last Updated**: September 12, 2025  
+**Version**: 2.1.0  
+**Last Updated**: 2026-08-20  
 **License**: MIT`;
     }
 

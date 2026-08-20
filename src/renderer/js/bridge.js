@@ -619,7 +619,7 @@
 
             } catch (err) {
                 console.error(`[Bridge] IPC channel '${channel}' failed:`, err);
-                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.0.0', description: '', author: 'MarkDD Team' } };
+                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.1.0', description: '', author: 'MarkDD Team' } };
                 return { success: false, error: err.message };
             }
         },

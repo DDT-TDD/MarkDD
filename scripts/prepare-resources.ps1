@@ -18,8 +18,15 @@ Write-Host "[prepare-resources] Resources dir  : $resourcesDir"
 
 # ── Clean previous build ──────────────────────────────────────────────────────
 if (Test-Path $resourcesDir) {
-    Write-Host "[prepare-resources] Removing old resources directory..."
-    Remove-Item $resourcesDir -Recurse -Force
+    Write-Host "[prepare-resources] Cleaning old resources directory..."
+    try {
+        Remove-Item "$resourcesDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+    } catch {}
+    if (Test-Path $resourcesDir) {
+        try {
+            cmd.exe /c "rmdir /s /q `"$resourcesDir`"" 2>$null
+        } catch {}
+    }
 }
 New-Item -ItemType Directory -Path $resourcesDir -Force | Out-Null
 
