@@ -41,6 +41,13 @@ class NodeTikZIntegration {
             console.log('[NodeTikZIntegration] Initializing STRICT LOCAL ONLY mode...');
 
             // Check if running in Electron or Tauri (via bridge shim) environment
+            if (typeof window !== 'undefined' && window.MarkDDBridge) {
+                this.ipcRenderer = window.MarkDDBridge.ipcRenderer;
+                console.log('[NodeTikZIntegration] IPC available via MarkDDBridge');
+                this.isInitialized = true;
+                console.log('[NodeTikZIntegration] Initialization successful');
+                return;
+            }
             if (typeof window !== 'undefined' && window.require) {
                 const { ipcRenderer } = window.require('electron');
                 this.ipcRenderer = ipcRenderer;

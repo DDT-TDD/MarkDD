@@ -6,7 +6,7 @@ const archiver = require('archiver');
 
 const workspaceRoot = path.join(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8'));
-const version = pkg.version || '2.1.0';
+const version = pkg.version || '2.2.0';
 const portableParent = path.join(workspaceRoot, 'src-tauri/target/release/bundle/portable');
 const portableFolder = path.join(portableParent, `MarkDD-Editor-v${version}-Portable`);
 const zipPath = path.join(portableParent, `markdd-editor_${version}_portable_x64.zip`);

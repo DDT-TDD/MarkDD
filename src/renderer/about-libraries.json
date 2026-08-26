@@ -1,5 +1,5 @@
 [
-  { "name": "Application Shell (Tauri 2.0 / Electron)", "version": "2.1.0" },
+  { "name": "Application Shell (Tauri 2.0 / Electron)", "version": "2.2.0" },
   { "name": "Marked (Markdown Core)", "version": "16.3.0" },
   { "name": "KaTeX (Fast Math Engine)", "version": "0.16.22" },
   { "name": "MathJax (Advanced TeX/AMS)", "version": "4.0.0" },
@@ -20,8 +20,8 @@
   { "name": "PlantUML Encoder", "version": "1.4.0" },
   { "name": "PptxGenJS (PowerPoint Exporter)", "version": "4.0.1" },
   { "name": "Puppeteer (High-DPI PDF Generation)", "version": "24.19.0" },
-  { "name": "Book Publishing Engine", "version": "2.1.0" },
-  { "name": "Presentation Mode (30 Beamer Themes)", "version": "2.1.0" },
-  { "name": "CV & Resume Studio", "version": "2.1.0" },
+  { "name": "Book Publishing Engine", "version": "2.2.0" },
+  { "name": "Presentation Mode (30 Beamer Themes)", "version": "2.2.0" },
+  { "name": "CV & Resume Studio", "version": "2.2.0" },
   { "name": "Markdown-It (Book Pipeline)", "version": "13.0.1" }
 ]

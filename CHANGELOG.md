@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.2.0] - 2026-08-26
+
+### Fixed & Cross-Platform Parity
+- **Tauri Save Feature & Dialog Parity**:
+  - Fixed core `save()` method in `editor.js` which was bypassing `MarkDDBridge` and throwing runtime exceptions in Tauri mode.
+  - Full support for `Ctrl+S`, toolbar **Save** button, and **Save As** across Tauri, Electron, and Web environments.
+- **File Browser Operations in Tauri**:
+  - Restored **Open File Dialog** (`Ctrl+O` / menu `File > Open`) to route through native Tauri dialogs.
+  - Restored **Create New File** (`Ctrl+N`) and **Create New Folder** in sidebar file tree.
+  - Restored **Open Folder** in sidebar file tree.
+  - Restored clicking files in file tree to open them in editor tabs.
+  - Restored **Recent Files** click-to-open functionality without entry deletion.
+  - Restored **Bookmarks** click-to-open and management in Tauri mode.
+- **Export & Preview Features in Tauri**:
+  - Restored **Export HTML** and **Export PDF** in Preview Panel and Book Publishing Engine to use `MarkDDBridge`.
+  - Fixed preview external link clicks (`http://` and `https://`) to launch default system browser seamlessly via Tauri shell / Electron shell / browser window.
+- **Window Title Synchronization**:
+  - Fixed `document.title` and window title updates on document modification across all application shells.
+
+---
 ## [2.1.0] - 2026-08-20
 
 ### Security & Hardening

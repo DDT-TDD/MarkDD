@@ -595,20 +595,33 @@ Hello LaTeX!
 
     async save() {
         try {
-            const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('save-file', {
-                filePath: this.currentFile,
-                content: this.content
-            });
+            const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('save-file', {
+                    filePath: this.currentFile,
+                    content: this.content
+                });
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('save-file', {
+                    filePath: this.currentFile,
+                    content: this.content
+                });
+            }
             
-            if (result.success) {
+            if (result && result.success) {
                 this.currentFile = result.filePath;
                 this.setModified(false);
                 this.updateStatus();
                 this.clearAutosaveTimer(); // Clear autosave timer since file is saved
                 return true;
             } else {
-                console.error('Save failed:', result.error);
+                if (result && result.canceled) {
+                    console.log('Save canceled by user');
+                } else {
+                    console.error('Save failed:', result ? result.error : 'Unknown error');
+                }
                 return false;
             }
         } catch (error) {
@@ -771,22 +784,22 @@ Hello LaTeX!
     setModified(modified) {
         this.isModified = modified;
         
-        // Update window title
+        // Update window / document title
+        const title = this.currentFile ? 
+            `${this.currentFile.split(/[/\\]/).pop()}${modified ? ' •' : ''} - MarkDD Editor` :
+            `Untitled${modified ? ' •' : ''} - MarkDD Editor`;
+        
+        if (typeof document !== 'undefined') {
+            document.title = title;
+        }
+
         if (typeof require !== 'undefined') {
-            const title = this.currentFile ? 
-                `${this.currentFile.split(/[/\\]/).pop()}${modified ? ' \u2022' : ''} - MarkDD Editor` :
-                `Untitled${modified ? ' \u2022' : ''} - MarkDD Editor`;
-            // Electron: use remote.getCurrentWindow().setTitle()
             try {
                 const { remote } = require('electron');
                 if (remote && remote.getCurrentWindow) {
                     remote.getCurrentWindow().setTitle(title);
                 }
             } catch (e) { /* not in Electron — no-op */ }
-            // Tauri / browser: update document title directly
-            if (typeof document !== 'undefined') {
-                document.title = title;
-            }
         }
         
         // Handle autosave scheduling
@@ -1613,8 +1626,8 @@ Press [[Ctrl+S]] to save, [[Ctrl+O]] to open, and [[Ctrl+N]] to create a new fil
 
 *This showcase demonstrates the comprehensive capabilities of MarkDD Editor. Every feature shown here is fully functional and ready to use!*
 
-**Version**: 2.1.0  
-**Last Updated**: 2026-08-20  
+**Version**: 2.2.0  
+**Last Updated**: 2026-08-26  
 **License**: MIT`;
     }
 

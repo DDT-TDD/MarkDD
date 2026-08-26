@@ -9038,7 +9038,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.1.0', // Fallback, will be replaced by main process
+            version: '2.2.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9075,11 +9075,11 @@ A passionate junior software engineer with solid foundations in computer science
         libs = libs.map(lib => {
             if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.1.0' };
+                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.2.0' };
                 } else if (isElectron) {
-                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.1.0' };
+                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.2.0' };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.1.0' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.2.0' };
                 }
             }
             return lib;
@@ -9188,12 +9188,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = '2.1.0';
+            versionElement.textContent = '2.2.0';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = '2.1.0';
+                versionElement.textContent = '2.2.0';
             }
         }
     }

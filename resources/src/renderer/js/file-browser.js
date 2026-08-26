@@ -1,22 +1,25 @@
 class FileBrowser {
     // Open file dialog for menu/toolbar integration
     async openFileDialog() {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                // Ask main process to open file dialog and return file path/content
-                const result = await ipcRenderer.invoke('open-file-dialog');
-                if (result && result.filePath && result.content) {
-                    // Open file in app (creates tab with filename)
-                    if (window.markddApp) {
-                        window.markddApp.openFile(result.filePath, result.content);
-                    }
-                }
-                return result; // Return result for proper promise handling
-            } catch (error) {
-                console.error('Failed to open file:', error);
-                throw error; // Re-throw for proper error handling
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('open-file-dialog');
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('open-file-dialog');
             }
+            if (result && result.filePath && result.content) {
+                // Open file in app (creates tab with filename)
+                if (window.markddApp) {
+                    window.markddApp.openFile(result.filePath, result.content);
+                }
+            }
+            return result; // Return result for proper promise handling
+        } catch (error) {
+            console.error('Failed to open file:', error);
+            throw error; // Re-throw for proper error handling
         }
     }
     
@@ -418,23 +421,31 @@ class FileBrowser {
 
     // File operations
     async createNewFile() {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('create-new-file');
-                if (result && result.success) {
-                    // Open the new file in editor
-                    const editor = window.markddApp?.getEditor();
-                    if (editor) {
-                        editor.openFile(result.filePath, '# New Document\n\nStart writing here...');
-                    }
-                    this.refreshFileTree();
-                }
-            } catch (error) {
-                console.error('Failed to create new file:', error);
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('create-new-file');
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('create-new-file');
             }
-        } else {
-            // Fallback for browser mode
+            if (result && result.success) {
+                // Open the new file in editor
+                const editor = window.markddApp?.getEditor();
+                if (editor) {
+                    editor.openFile(result.filePath, '# New Document\n\nStart writing here...');
+                }
+                this.refreshFileTree();
+            } else {
+                // Fallback for browser mode
+                const editor = window.markddApp?.getEditor();
+                if (editor) {
+                    editor.createNewFile();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to create new file:', error);
             const editor = window.markddApp?.getEditor();
             if (editor) {
                 editor.createNewFile();
@@ -443,16 +454,20 @@ class FileBrowser {
     }
 
     async createNewFolder() {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('create-new-folder');
-                if (result && result.success) {
-                    this.refreshFileTree();
-                }
-            } catch (error) {
-                console.error('Failed to create new folder:', error);
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('create-new-folder');
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('create-new-folder');
             }
+            if (result && result.success) {
+                this.refreshFileTree();
+            }
+        } catch (error) {
+            console.error('Failed to create new folder:', error);
         }
     }
 
@@ -463,18 +478,23 @@ class FileBrowser {
     }
 
     async openFolder() {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('open-folder-dialog');
-                if (result && result.folderPath) {
-                    this.currentPath = result.folderPath;
-                    localStorage.setItem('last-opened-folder', this.currentPath);
-                    this.loadFileTree();
-                }
-            } catch (error) {
-                console.error('Failed to open folder:', error);
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('open-folder-dialog');
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('open-folder-dialog');
             }
+            const folderPath = (result && result.folderPath) ? result.folderPath : (result && result.path ? result.path : (result && Array.isArray(result.filePaths) ? result.filePaths[0] : null));
+            if (folderPath) {
+                this.currentPath = folderPath;
+                localStorage.setItem('last-opened-folder', this.currentPath);
+                this.loadFileTree();
+            }
+        } catch (error) {
+            console.error('Failed to open folder:', error);
         }
     }
 
@@ -491,31 +511,37 @@ class FileBrowser {
     async openFile(fileItem) {
         const filePath = fileItem.getAttribute('data-path') || fileItem.getAttribute('data-file-path');
         const fileName = fileItem.textContent.trim();
+        if (!filePath) {
+            console.log('Opening file without path:', fileName);
+            return;
+        }
         
-        if (typeof require !== 'undefined' && filePath) {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('read-file', filePath);
-                const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
-
-                if (typeof content === 'string') {
-                    if (window.markddApp && typeof window.markddApp.openFile === 'function') {
-                        await window.markddApp.openFile(filePath, content);
-                    } else {
-                        const editor = window.markddApp?.getEditor();
-                        if (editor) {
-                            editor.openFile(filePath, content);
-                        }
-                        this.addToRecentFiles(filePath, fileName);
-                    }
-                } else {
-                    throw new Error('Unable to read file content');
-                }
-            } catch (error) {
-                console.error('Failed to open file:', error);
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('read-file', filePath);
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('read-file', filePath);
             }
-        } else {
-            console.log('Opening file:', fileName);
+            const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+
+            if (typeof content === 'string') {
+                if (window.markddApp && typeof window.markddApp.openFile === 'function') {
+                    await window.markddApp.openFile(filePath, content);
+                } else {
+                    const editor = window.markddApp?.getEditor();
+                    if (editor) {
+                        editor.openFile(filePath, content);
+                    }
+                    this.addToRecentFiles(filePath, fileName);
+                }
+            } else {
+                throw new Error('Unable to read file content');
+            }
+        } catch (error) {
+            console.error('Failed to open file:', error);
         }
     }
 
@@ -693,15 +719,20 @@ class FileBrowser {
 
     async openRecentFile(filePath) {
         console.log('[FileBrowser] openRecentFile called with:', filePath);
-        if (typeof require === 'undefined' || !filePath) {
-            console.log('[FileBrowser] openRecentFile: require unavailable or no path');
+        if (!filePath) {
+            console.log('[FileBrowser] openRecentFile: no path provided');
             return;
         }
 
-        const { ipcRenderer } = require('electron');
-
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
         try {
-            const result = await ipcRenderer.invoke('read-file', filePath);
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('read-file', filePath);
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('read-file', filePath);
+            }
             const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
 
             if (typeof content === 'string') {
@@ -796,29 +827,23 @@ class FileBrowser {
         const fileTree = document.getElementById('file-tree');
         if (!fileTree || !this.currentPath) return;
         
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('read-directory', this.currentPath);
-                if (result && result.success) {
-                    this.renderFileTree(result.files);
-                } else {
-                    fileTree.innerHTML = '<p class="file-placeholder">Failed to load folder contents</p>';
-                }
-            } catch (error) {
-                console.error('Failed to load folder contents:', error);
-                fileTree.innerHTML = '<p class="file-placeholder">Error loading folder</p>';
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('read-directory', this.currentPath);
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('read-directory', this.currentPath);
             }
-        } else {
-            // Fallback for browser mode
-            fileTree.innerHTML = `
-                <div class="file-tree-section">
-                    <h4>Recent Files</h4>
-                    <div id="recent-files" class="recent-files"></div>
-                </div>
-                <p class="file-placeholder">File system access not available in browser mode</p>
-            `;
-            this.loadRecentFiles();
+            if (result && result.success) {
+                this.renderFileTree(result.files);
+            } else {
+                fileTree.innerHTML = '<p class="file-placeholder">Failed to load folder contents</p>';
+            }
+        } catch (error) {
+            console.error('Failed to load folder contents:', error);
+            fileTree.innerHTML = '<p class="file-placeholder">Error loading folder</p>';
         }
     }
 
@@ -1290,7 +1315,7 @@ class FileBrowser {
         } catch (e) {
             console.warn('[FileBrowser] updateAppVersion failed:', e);
         }
-        versionElement.textContent = 'v2.1.0';
+        versionElement.textContent = 'v2.2.0';
     }
 
     // Bookmark Management
@@ -1380,25 +1405,31 @@ class FileBrowser {
     }
 
     async openBookmarkedFile(filePath) {
-        if (typeof require !== 'undefined') {
-            const { ipcRenderer } = require('electron');
-            try {
-                const result = await ipcRenderer.invoke('read-file', filePath);
-                if (result && result.success) {
-                    const editor = window.markddApp?.getEditor();
-                    if (editor) {
-                        editor.openFile(filePath, result.content);
-                    }
-                } else {
-                    // File might have been moved/deleted, remove from bookmarks
-                    this.removeBookmark(filePath);
-                    this.showToast('File not found, bookmark removed', 'warning');
-                }
-            } catch (error) {
-                console.error('Failed to open bookmarked file:', error);
-                this.removeBookmark(filePath);
-                this.showToast('Failed to open file, bookmark removed', 'error');
+        if (!filePath) return;
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        try {
+            let result = null;
+            if (bridge) {
+                result = await bridge.invoke('read-file', filePath);
+            } else if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                result = await ipcRenderer.invoke('read-file', filePath);
             }
+            const content = typeof result === 'string' ? result : (result && result.content ? result.content : null);
+            if (typeof content === 'string') {
+                const editor = window.markddApp?.getEditor();
+                if (editor) {
+                    editor.openFile(filePath, content);
+                }
+            } else {
+                // File might have been moved/deleted, remove from bookmarks
+                this.removeBookmark(filePath);
+                this.showToast('File not found, bookmark removed', 'warning');
+            }
+        } catch (error) {
+            console.error('Failed to open bookmarked file:', error);
+            this.removeBookmark(filePath);
+            this.showToast('Failed to open file, bookmark removed', 'error');
         }
     }
 

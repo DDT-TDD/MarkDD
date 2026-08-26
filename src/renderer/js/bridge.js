@@ -619,7 +619,7 @@
 
             } catch (err) {
                 console.error(`[Bridge] IPC channel '${channel}' failed:`, err);
-                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.1.0', description: '', author: 'MarkDD Team' } };
+                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.2.0', description: '', author: 'MarkDD Team' } };
                 return { success: false, error: err.message };
             }
         },
@@ -659,8 +659,8 @@
     // ─── Global require() shim for Tauri / Web context ───────────────────────
     // Only installed when the native Node require is absent (i.e. in Tauri/WebView).
     // Electron already has a real require, so we must not override it there.
-    if (!isElectron && typeof window.require === 'undefined') {
-        window.require = (moduleName) => {
+    if (!isElectron) {
+        const shimRequire = (moduleName) => {
             switch (moduleName) {
                 case 'electron':
                     return {
@@ -697,5 +697,12 @@
                     return window[moduleName] || null;
             }
         };
+
+        if (typeof window.require === 'undefined') {
+            window.require = shimRequire;
+        }
+        if (typeof globalThis !== 'undefined' && typeof globalThis.require === 'undefined') {
+            globalThis.require = shimRequire;
+        }
     }
 })();

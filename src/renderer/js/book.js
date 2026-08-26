@@ -742,16 +742,26 @@ class BookManager {
     }
 
     getIpc() {
-        if (this.ipcRenderer || typeof require === 'undefined') {
+        if (this.ipcRenderer) {
             return this.ipcRenderer;
         }
-        try {
-            const electron = require('electron');
-            this.ipcRenderer = electron.ipcRenderer;
-            this.shell = electron.shell;
-        } catch (error) {
-            console.warn('[BookManager] ipcRenderer unavailable:', error.message || error);
-            this.ipcRenderer = null;
+        if (typeof window !== 'undefined' && window.MarkDDBridge) {
+            this.ipcRenderer = window.MarkDDBridge.ipcRenderer;
+            this.shell = {
+                openExternal: (url) => window.MarkDDBridge.invoke('open-external', url)
+            };
+            return this.ipcRenderer;
+        }
+        if (typeof require !== 'undefined') {
+            try {
+                const electron = require('electron');
+                this.ipcRenderer = electron.ipcRenderer;
+                this.shell = electron.shell;
+                return this.ipcRenderer;
+            } catch (error) {
+                console.warn('[BookManager] ipcRenderer unavailable:', error.message || error);
+                this.ipcRenderer = null;
+            }
         }
         return this.ipcRenderer;
     }
@@ -1154,17 +1164,26 @@ class BookManager {
         const documentHtml = this.composeDocument(book);
         const sanitized = this.sanitize(documentHtml);
 
-        if (typeof require === 'undefined') {
-            return sanitized;
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        const fileName = this.makeFileName(book.metadata.title || context.displayName || 'book', 'html');
+        if (bridge) {
+            const result = await bridge.invoke('export-html', {
+                html: sanitized,
+                fileName
+            });
+            return result && result.success ? result.filePath : result;
         }
 
-        const { ipcRenderer } = require('electron');
-        const fileName = this.makeFileName(book.metadata.title || context.displayName || 'book', 'html');
-        const result = await ipcRenderer.invoke('export-html', {
-            html: sanitized,
-            fileName
-        });
-        return result && result.success ? result.filePath : result;
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('export-html', {
+                html: sanitized,
+                fileName
+            });
+            return result && result.success ? result.filePath : result;
+        }
+
+        return sanitized;
     }
 
     async exportPDF({ markdown, context = {}, renderOptions = {} }) {
@@ -1172,17 +1191,26 @@ class BookManager {
         const documentHtml = this.composeDocument(book, { pdf: true });
         const sanitized = this.sanitize(documentHtml);
 
-        if (typeof require === 'undefined') {
-            return sanitized;
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        const fileName = this.makeFileName(book.metadata.title || context.displayName || 'book', 'pdf');
+        if (bridge) {
+            const result = await bridge.invoke('export-pdf', {
+                html: sanitized,
+                fileName
+            });
+            return result && result.success ? result.filePath : result;
         }
 
-        const { ipcRenderer } = require('electron');
-        const fileName = this.makeFileName(book.metadata.title || context.displayName || 'book', 'pdf');
-        const result = await ipcRenderer.invoke('export-pdf', {
-            html: sanitized,
-            fileName
-        });
-        return result && result.success ? result.filePath : result;
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('export-pdf', {
+                html: sanitized,
+                fileName
+            });
+            return result && result.success ? result.filePath : result;
+        }
+
+        return sanitized;
     }
 
     async compileBook({ markdown, context = {}, renderOptions = {} }) {

@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, TikZ/CircuiTikZ rendering, Beamer-style presentations, and complete book publishing system",
   "main": "src/main/main.js",
   "homepage": "./",

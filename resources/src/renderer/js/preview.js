@@ -846,7 +846,10 @@ class Preview {
         // Handle external links
         if (href.startsWith('http://') || href.startsWith('https://')) {
             e.preventDefault();
-            if (typeof require !== 'undefined') {
+            const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+            if (bridge) {
+                bridge.invoke('open-external', href);
+            } else if (typeof require !== 'undefined') {
                 const { ipcRenderer } = require('electron');
                 ipcRenderer.invoke('open-external', href);
             } else {
@@ -1529,7 +1532,17 @@ class Preview {
 
         // Sanitize final doc to remove any remaining currentColor references
         const sanitizedDoc = this._sanitizeExportHtmlString(doc);
-        if (typeof require !== 'undefined') {
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        if (bridge) {
+            const result = await bridge.invoke('export-html', {
+                html: sanitizedDoc,
+                fileName: title.replace(/\.md$/, '.html')
+            });
+            if (result && result.success) {
+                console.log('HTML exported successfully:', result.filePath);
+                return result.filePath;
+            }
+        } else if (typeof require !== 'undefined') {
             const { ipcRenderer } = require('electron');
             const result = await ipcRenderer.invoke('export-html', {
                 html: sanitizedDoc,
@@ -1612,7 +1625,19 @@ class Preview {
 
         // Sanitize final doc to remove any remaining currentColor references
         const sanitizedDoc = this._sanitizeExportHtmlString(doc);
-        if (typeof require !== 'undefined') {
+        const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
+        if (bridge) {
+            const result = await bridge.invoke('export-pdf', {
+                html: sanitizedDoc,
+                fileName: title.replace(/\.md$/, '.pdf')
+            });
+            if (result && result.success) {
+                console.log('PDF exported successfully:', result.filePath);
+                return result.filePath;
+            } else if (result && result.error) {
+                throw new Error(result.error);
+            }
+        } else if (typeof require !== 'undefined') {
             const { ipcRenderer } = require('electron');
             const result = await ipcRenderer.invoke('export-pdf', {
                 html: sanitizedDoc,
