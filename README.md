@@ -40,7 +40,7 @@ What this repository includes
 
 A fully-featured Markdown editor with advanced capabilities, combining the best features from MarkText, VS Code Markdown Preview Enhanced, Markmap, and obsidian-tikzjax.
 
-![Version](https://img.shields.io/badge/Version-2.2.0-blue)
+![Version](https://img.shields.io/badge/Version-2.3.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0.0-blue)
 ![Electron](https://img.shields.io/badge/Electron-38.0.0-blue)
@@ -62,12 +62,17 @@ A fully-featured Markdown editor with advanced capabilities, combining the best 
 - **Robust HTML entity handling** for complex equations
 - **Math/LaTeX code blocks** for complex equations
 
-### Diagram Support
-- **Mermaid diagrams** for flowcharts, sequence diagrams, and more
-- **TikZ and CircuiTikZ** for precise technical diagrams
-- **Markmap** for mind mapping visualization
-- **GraphViz** support (placeholder for future implementation)
-- **PlantUML** support (placeholder for future implementation)
+### Diagram Support & Universal Export (NEW in v2.3.0)
+- **Universal PNG & SVG Export** for all diagrams with header buttons and right-click context menu
+- **PlantUML diagrams** with SVG/PNG endpoints and canvas rasterization
+- **Mermaid diagrams** for flowcharts, sequence diagrams, gantt charts, and state diagrams
+- **TikZ and CircuiTikZ** for precise technical and electrical diagrams via node-tikzjax
+- **GraphViz** DOT graph visualization
+- **Vega & Vega-Lite** declarative interactive statistical charts
+- **WaveDrom** digital timing waveforms rendered via standalone SVG engine
+- **Markmap** interactive collapsible mindmaps
+- **KityMinder** structured mind maps
+- **ABC Music** notation and tablature rendering
 
 ### Presentation System (NEW in v1.2.0)
 - **Beamer-style presentations** - Create PowerPoint/LaTeX Beamer-style slides in Markdown

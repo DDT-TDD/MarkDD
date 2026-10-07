@@ -2399,9 +2399,17 @@ body {
     background: var(--bg-secondary);
 }
 
-/* PlantUML Diagrams */
+/* Universal Diagram Containers & Headers */
 .plantuml-container,
-.plantuml-diagram {
+.plantuml-diagram,
+.mermaid-diagram,
+.graphviz-diagram,
+.tikz-diagram,
+.vega-lite-diagram,
+.wavedrom-diagram,
+.markmap-diagram,
+.kityminder-diagram,
+.abc-diagram {
     margin: 16px 0;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -2409,36 +2417,62 @@ body {
     background: var(--bg-primary);
 }
 
-.plantuml-diagram .diagram-header {
+.diagram-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     font-size: 12px;
 }
 
-.plantuml-diagram .diagram-type {
+.diagram-type {
     font-weight: 600;
-    color: var(--success-color);
+    color: var(--success-color, #1a7f37);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.plantuml-diagram .diagram-toggle {
-    background: transparent;
+.diagram-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.diagram-btn,
+.diagram-toggle {
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
-    border-radius: 3px;
-    padding: 2px 6px;
+    border-radius: 4px;
+    padding: 3px 8px;
     font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
     color: var(--text-secondary);
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
-.plantuml-diagram .diagram-toggle:hover {
+.diagram-btn:hover,
+.diagram-toggle:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--accent-color, #0969da);
 }
 
-.plantuml-diagram .diagram-source {
+.diagram-export-svg-btn {
+    color: #0969da;
+}
+
+.diagram-export-png-btn {
+    color: #1a7f37;
+}
+
+.diagram-source {
     background: var(--bg-secondary);
     padding: 12px;
     border-top: 1px solid var(--border-color);
@@ -2448,19 +2482,56 @@ body {
     overflow-x: auto;
 }
 
-.plantuml-diagram .diagram-source.hidden {
+.diagram-source.hidden {
     display: none;
 }
 
-.plantuml-diagram .diagram-content {
+.diagram-content {
     padding: 16px;
     text-align: center;
+    overflow-x: auto;
 }
 
-.plantuml-diagram img {
+.diagram-content svg,
+.diagram-content img {
     max-width: 100%;
     height: auto;
     border-radius: 4px;
+}
+
+/* Floating Diagram Context Menu */
+.diagram-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--bg-secondary, #ffffff);
+    border: 1px solid var(--border-color, #d0d7de);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 4px 0;
+    min-width: 180px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+}
+
+.diagram-context-menu-item {
+    padding: 6px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary, #24292f);
+    transition: background 0.1s ease;
+}
+
+.diagram-context-menu-item:hover {
+    background: var(--bg-hover, #f3f4f6);
+    color: var(--accent-color, #0969da);
+}
+
+.diagram-context-menu-divider {
+    height: 1px;
+    background: var(--border-color, #e1e4e8);
+    margin: 4px 0;
 }
 
 .plantuml-loading,

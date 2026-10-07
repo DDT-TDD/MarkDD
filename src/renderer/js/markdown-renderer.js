@@ -99,10 +99,14 @@ class MarkdownRenderer {
                             <div class="kityminder-diagram" id="${id}" data-mindmap-json="${encodeURIComponent(code)}">
                                 <div class="diagram-header">
                                     <span class="diagram-type">KityMinder Mind Map</span>
-                                    <button class="diagram-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">Source</button>
-                                    <pre class="diagram-source hidden"><code>${code.substring(0, 500)}${code.length > 500 ? '...' : ''}</code></pre>
-                                    <button class="diagram-view-json-btn" onclick="window.markdownRenderer.viewKityMinderJSON('${id}')" style="margin-left: 8px; padding: 4px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ View JSON</button>
-                                    <button class="diagram-edit-btn" onclick="window.markdownRenderer.editKityMinder('${id}')" style="margin-left: 8px; padding: 4px 12px; background: #0969da; color: white; border: none; border-radius: 4px; cursor: pointer;">✏️ Edit</button>
+                                    <div class="diagram-actions">
+                                        <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                        <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                        <button class="diagram-btn diagram-view-json-btn" onclick="window.markdownRenderer.viewKityMinderJSON('${id}')">JSON</button>
+                                        <button class="diagram-btn diagram-edit-btn" onclick="window.markdownRenderer.editKityMinder('${id}')">Edit</button>
+                                        <button class="diagram-btn diagram-toggle" onclick="this.closest('.kityminder-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                                    </div>
+                                    <pre class="diagram-source hidden"><code>${this.escapeHtml(code.substring(0, 500))}${code.length > 500 ? '...' : ''}</code></pre>
                                 </div>
                                 <div class="diagram-content" id="${id}-mindmap" style="width: 100%; height: 400px; border: 1px solid #e1e5e9;"></div>
                             </div>
@@ -345,6 +349,9 @@ class MarkdownRenderer {
         return result;
     }
     constructor() {
+        if (typeof window !== 'undefined') {
+            window.markdownRenderer = this;
+        }
         this.marked = null;
         this.markedParse = null; // unified parse function reference
         this.hljs = null;
@@ -1212,12 +1219,13 @@ class MarkdownRenderer {
         this.mermaid.initialize({
             startOnLoad: false,
             theme: 'default',
+            securityLevel: 'loose',
             themeVariables: {
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             },
             flowchart: {
                 useMaxWidth: true,
-                htmlLabels: true,
+                htmlLabels: false,
                 curve: 'basis'
             },
             sequence: {
@@ -1678,9 +1686,7 @@ class MarkdownRenderer {
         }
         
         // Protect math IMMEDIATELY before ANY processing
-        console.error('🔥🔥🔥 RENDER DEBUG: About to call protectLaTeXEnvironments 🔥🔥🔥');
         const { protectedContent: earlyProtectedMarkdown, latexPlaceholders: earlyLatexPlaceholders } = this.protectLaTeXEnvironments(markdown);
-        console.error('🔥🔥🔥 RENDER DEBUG: protectLaTeXEnvironments completed 🔥🔥🔥');
         let processedMarkdown = earlyProtectedMarkdown;
 
         // --- MPE-STYLE PLUGIN PREPROCESSING ---
@@ -1942,9 +1948,6 @@ class MarkdownRenderer {
     }
 
     renderTikZ(code, lang) {
-        // CRITICAL DEBUG: Log language parameter immediately
-        console.error('🔥🔥🔥 [CRITICAL] renderTikZ() CALLED with lang =', lang, '🔥🔥🔥');
-        
         // Check for NodeTikZIntegration first, then fallback to other integrations
         const nodeTikzIntegration = this.nodeTikzIntegration || (window.NodeTikZIntegration ? new window.NodeTikZIntegration() : null);
         const tikzIntegration = nodeTikzIntegration || this.obsidianTikZJax || this.tikzIntegration;
@@ -2234,11 +2237,6 @@ class MarkdownRenderer {
     }
 
     protectLaTeXEnvironments(content) {
-        console.error('🔥🔥🔥 CRITICAL DEBUG: protectLaTeXEnvironments EXECUTING 🔥🔥🔥');
-        console.log('===== FOCUSED FIX DEBUG: protectLaTeXEnvironments called =====');
-        console.log('[MarkdownRenderer] Protecting LaTeX environments before Marked processing');
-        console.log('[MarkdownRenderer] Input content sample:', content.substring(0, 500));
-
         const placeholders = new Map();
         let placeholderIndex = 0;
 
@@ -3366,21 +3364,23 @@ class MarkdownRenderer {
 
         // Process diagrams with timeout protection and defensive programming
         const diagramProcessors = [
-            { name: 'Mermaid', method: 'processMermaidDiagrams' },
-            { name: 'Markmap', method: 'processInlineMarkmaps' },
-            { name: 'GraphViz', method: 'processGraphvizDiagrams' },
-            { name: 'PlantUML', method: 'processPlantUMLDiagrams' },
-            { name: 'ABC Music', method: 'processAbcMusic' },
-            { name: 'VegaLite', method: 'processVegaLiteDiagrams' },
-            { name: 'TikZ', method: 'processTikZDiagrams' },
-            { name: 'KityMinder', method: 'processKityMinderDiagrams' },
-            { name: 'Wavedrom', method: 'processWavedromDiagrams' }
+            { name: 'Mermaid', method: 'processMermaidDiagrams', selector: '.mermaid-container:not(.mermaid-rendered)' },
+            { name: 'Markmap', method: 'processInlineMarkmaps', selector: '.markmap-inline-container:not(.markmap-rendered)' },
+            { name: 'GraphViz', method: 'processGraphvizDiagrams', selector: '.graphviz-container:not(.graphviz-rendered)' },
+            { name: 'PlantUML', method: 'processPlantUMLDiagrams', selector: '.plantuml-container:not(.plantuml-rendered)' },
+            { name: 'ABC Music', method: 'processAbcMusic', selector: '.abc-container:not(.abc-rendered)' },
+            { name: 'VegaLite', method: 'processVegaLiteDiagrams', selector: '.vega-lite-container:not(.vega-rendered)' },
+            { name: 'TikZ', method: 'processTikZDiagrams', selector: '.tikz-container:not(.tikz-rendered)' },
+            { name: 'KityMinder', method: 'processKityMinderDiagrams', selector: '.kityminder-container:not(.kityminder-rendered)' },
+            { name: 'Wavedrom', method: 'processWavedromDiagrams', selector: '.wavedrom-container:not(.wavedrom-rendered)' }
         ];
 
         for (const processor of diagramProcessors) {
             try {
                 if (typeof this[processor.method] === 'function') {
-                    console.log(`[MarkdownRenderer] Processing ${processor.name} diagrams...`);
+                    if (processor.selector && !container.querySelector(processor.selector)) {
+                        continue;
+                    }
                     const timeoutPromise = new Promise((_, reject) => 
                         setTimeout(() => reject(new Error(`${processor.name} processing timeout`)), 10000)
                     );
@@ -3388,9 +3388,6 @@ class MarkdownRenderer {
                         this[processor.method](container),
                         timeoutPromise
                     ]);
-                    console.log(`[MarkdownRenderer] ${processor.name} diagrams processed successfully`);
-                } else {
-                    console.warn(`[MarkdownRenderer] ${processor.method} method not available, skipping ${processor.name}`);
                 }
             } catch (error) {
                 console.warn(`[MarkdownRenderer] ${processor.name} processing error:`, error);
@@ -3402,29 +3399,49 @@ class MarkdownRenderer {
         try {
             if (typeof this.processMultimediaEmbeds === 'function') {
                 this.processMultimediaEmbeds(container);
-                console.log('[MarkdownRenderer] Multimedia embeds processed');
             }
         } catch (error) {
             console.warn('[MarkdownRenderer] Multimedia processing error:', error);
         }
 
-        console.log('[MarkdownRenderer] PostProcess completed successfully with full diagram support');
+        // Ensure all rendered diagrams have interactive action headers (SVG / PNG export)
+        try {
+            this.ensureDiagramHeaders(container);
+        } catch (hdrError) {
+            console.warn('[MarkdownRenderer] Failed to ensure diagram headers:', hdrError);
+        }
+
         return container.innerHTML;
     }
 
     async processMermaidDiagrams(container) {
-        const mermaidElements = container.querySelectorAll('.mermaid-container');
+        const mermaidElements = container.querySelectorAll('.mermaid-container:not(.mermaid-rendered)');
         
         for (const element of mermaidElements) {
             const id = element.getAttribute('data-mermaid-id');
             const code = decodeURIComponent(element.getAttribute('data-mermaid-code'));
             try {
-                const { svg } = await this.mermaid.render(id, code);
-                element.innerHTML = svg;
+                const renderId = `mermaid-svg-${id}-${Math.random().toString(36).substring(2, 7)}`;
+                const { svg } = await this.mermaid.render(renderId, code);
+                element.innerHTML = `
+                    <div class="mermaid-diagram" id="${id}">
+                        <div class="diagram-header">
+                            <span class="diagram-type">Mermaid Diagram</span>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.mermaid-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
+                        </div>
+                        <div class="diagram-content">
+                            ${svg}
+                        </div>
+                    </div>`;
                 element.classList.add('mermaid-rendered');
             } catch (error) {
-                element.innerHTML = `<div class="mermaid-error"><b>Mermaid Diagram Error</b><br>${error.message}<br><small>Check your diagram syntax or see <a href='https://mermaid-js.github.io/mermaid/#/syntax' target='_blank'>Mermaid Syntax Guide</a>.</small><details><summary>Show code</summary><pre><code>${code}</code></pre></details></div>`;
-                element.classList.add('mermaid-error');
+                element.innerHTML = `<div class="mermaid-error"><b>Mermaid Diagram Error</b><br>${this.escapeHtml(error.message)}<br><small>Check your diagram syntax or see <a href='https://mermaid-js.github.io/mermaid/#/syntax' target='_blank'>Mermaid Syntax Guide</a>.</small><details><summary>Show code</summary><pre><code>${this.escapeHtml(code)}</code></pre></details></div>`;
+                element.classList.add('mermaid-error', 'mermaid-rendered');
             }
         }
     }
@@ -3445,7 +3462,21 @@ class MarkdownRenderer {
                 }
                 
                 // Fallback to direct window.markmap if enhanced integration not available
-                element.innerHTML = `<svg id="${id}" width="400" height="300"></svg>`;
+                element.innerHTML = `
+                    <div class="markmap-diagram" id="${id}-wrapper">
+                        <div class="diagram-header">
+                            <span class="diagram-type">Markmap Mind Map</span>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.markmap-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
+                        </div>
+                        <div class="diagram-content">
+                            <svg id="${id}" width="100%" height="320"></svg>
+                        </div>
+                    </div>`;
                 if (window.markmap && typeof window.markmap.transform === 'function' && typeof window.markmap.Markmap === 'function') {
                     const { root } = window.markmap.transform(code);
                     const svg = d3.select(`#${id}`);
@@ -3460,7 +3491,7 @@ class MarkdownRenderer {
                 element.classList.add('markmap-rendered');
             } catch (error) {
                 console.error('[MarkdownRenderer] Markmap error:', error);
-                element.innerHTML = `<div class="markmap-error"><b>Markmap Mindmap Error</b><br>${error.message}<br><small>Check your markdown structure or see <a href='https://markmap.js.org/' target='_blank'>Markmap Docs</a>.</small><details><summary>Show code</summary><pre><code>${code}</code></pre></details></div>`;
+                element.innerHTML = `<div class="markmap-error"><b>Markmap Mindmap Error</b><br>${this.escapeHtml(error.message)}<br><small>Check your markdown structure or see <a href='https://markmap.js.org/' target='_blank'>Markmap Docs</a>.</small><details><summary>Show code</summary><pre><code>${this.escapeHtml(code)}</code></pre></details></div>`;
                 element.classList.add('markmap-error');
             }
         }
@@ -3615,10 +3646,14 @@ class MarkdownRenderer {
                     <div class="graphviz-diagram" id="${id}">
                         <div class="diagram-header">
                             <span class="diagram-type">GraphViz (${engine}) Diagram</span>
-                            <button class="diagram-toggle" onclick="toggleGraphvizSource(this)">Show Source</button>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.graphviz-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
                         </div>
                         <div class="diagram-content"></div>
-                        <pre class="diagram-source hidden"><code>${code}</code></pre>
                     </div>
                 `;
                 
@@ -3730,14 +3765,22 @@ class MarkdownRenderer {
                 // CRITICAL FIX: Create export-friendly HTML with embedded SVG
                 const svgUrl = `${server}${encoded}`;
                 
+                const pngUrl = `${server.replace('/svg/', '/png/')}${encoded}`;
+                
                 element.innerHTML = `<div class="plantuml-diagram" id="${id}">
                     <div class="diagram-header">
                         <span class="diagram-type">PlantUML Diagram</span>
-                        <button class="diagram-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">Source</button>
-                        <pre class="diagram-source hidden"><code>${code}</code></pre>
+                        <div class="diagram-actions">
+                            <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                            <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                            <button class="diagram-btn diagram-toggle" onclick="this.closest('.plantuml-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                        </div>
+                        <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
                     </div>
                     <div class="diagram-content">
                         <img src="${svgUrl}" alt="PlantUML Diagram" 
+                             data-plantuml-svg-url="${svgUrl}"
+                             data-plantuml-png-url="${pngUrl}"
                              style="max-width: 100%; height: auto; display: block;" 
                              onload="this.style.display='block'; this.parentElement.classList.add('diagram-loaded');" 
                              onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=&quot;diagram-error&quot;>Failed to render PlantUML diagram from server</div>'">
@@ -3783,8 +3826,12 @@ class MarkdownRenderer {
                     <div class="vega-lite-diagram" id="${id}">
                         <div class="diagram-header">
                             <span class="diagram-type">Vega-Lite Visualization</span>
-                            <button class="diagram-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">Show Spec</button>
-                            <pre class="diagram-source hidden"><code>${JSON.stringify(spec, null, 2)}</code></pre>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.vega-lite-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Show Spec</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${this.escapeHtml(JSON.stringify(spec, null, 2))}</code></pre>
                         </div>
                         <div class="diagram-content" id="${id}-chart"></div>
                         <!-- EXPORT ENHANCEMENT: Static representation for export -->
@@ -3865,10 +3912,20 @@ class MarkdownRenderer {
             
             try {
                 if (window.ABCJS) {
-                    const renderDiv = document.createElement('div');
-                    renderDiv.id = id;
-                    element.innerHTML = '';
-                    element.appendChild(renderDiv);
+                    element.innerHTML = `
+                        <div class="abc-diagram" id="${id}-wrapper">
+                            <div class="diagram-header">
+                                <span class="diagram-type">ABC Music Notation</span>
+                                <div class="diagram-actions">
+                                    <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                    <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                    <button class="diagram-btn diagram-toggle" onclick="this.closest('.abc-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                                </div>
+                                <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
+                            </div>
+                            <div class="diagram-content" id="${id}"></div>
+                        </div>`;
+                    const renderDiv = element.querySelector(`#${id}`);
                     
                     window.ABCJS.renderAbc(renderDiv, code, {
                         responsive: 'resize',
@@ -3883,7 +3940,7 @@ class MarkdownRenderer {
                 }
             } catch (error) {
                 console.error('[MarkdownRenderer] ABC Music error:', error);
-                element.innerHTML = `<div class="diagram-error">ABC Music Error: ${error.message}</div>`;
+                element.innerHTML = `<div class="diagram-error">ABC Music Error: ${this.escapeHtml(error.message)}</div>`;
                 element.classList.add('abc-error');
             }
         }
@@ -3897,16 +3954,35 @@ class MarkdownRenderer {
             const code = decodeURIComponent(element.getAttribute('data-wavedrom-code'));
             
             try {
-                // For now, show placeholder since Wavedrom requires additional setup
-                element.innerHTML = `<div class="wavedrom-placeholder">
-                    <h4>Wavedrom Timing Diagram</h4>
-                    <pre><code>${code}</code></pre>
-                    <p><em>Wavedrom rendering would appear here with proper library integration</em></p>
-                </div>`;
-                element.classList.add('wavedrom-placeholder');
+                let svgMarkup = '';
+                if (window.WaveDrom && typeof window.WaveDrom.RenderWaveForm === 'function') {
+                    const temp = document.createElement('div');
+                    window.WaveDrom.RenderWaveForm(0, JSON.parse(code), temp);
+                    svgMarkup = temp.innerHTML;
+                } else {
+                    // Render using standalone WaveDrom SVG timing engine
+                    svgMarkup = this.renderWaveDromToSVG(code);
+                }
+
+                element.innerHTML = `
+                    <div class="wavedrom-diagram" id="${id}">
+                        <div class="diagram-header">
+                            <span class="diagram-type">WaveDrom Timing Diagram</span>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.wavedrom-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${this.escapeHtml(code)}</code></pre>
+                        </div>
+                        <div class="diagram-content" style="overflow-x: auto; padding: 12px; text-align: center;">
+                            ${svgMarkup}
+                        </div>
+                    </div>`;
+                element.classList.add('wavedrom-rendered');
             } catch (error) {
                 console.error('[MarkdownRenderer] Wavedrom error:', error);
-                element.innerHTML = `<div class="diagram-error">Wavedrom Error: ${error.message}</div>`;
+                element.innerHTML = `<div class="diagram-error">Wavedrom Error: ${this.escapeHtml(error.message)}<details><summary>Source Code</summary><pre><code>${this.escapeHtml(code)}</code></pre></details></div>`;
                 element.classList.add('wavedrom-error');
             }
         }
@@ -5009,6 +5085,619 @@ class MarkdownRenderer {
         });
         
         return result;
+    }
+
+    /**
+     * Escape HTML special characters for safe attribute and DOM insertion
+     */
+    escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Standalone WaveDrom Timing Diagram to SVG generator
+     */
+    renderWaveDromToSVG(sourceCode) {
+        let spec;
+        try {
+            spec = JSON.parse(sourceCode);
+        } catch (e) {
+            try {
+                spec = Function('"use strict"; return (' + sourceCode + ')')();
+            } catch (e2) {
+                throw new Error('Invalid WaveDrom JSON specification: ' + e.message);
+            }
+        }
+
+        if (!spec || !spec.signal || !Array.isArray(spec.signal)) {
+            throw new Error('WaveDrom spec must contain a "signal" array.');
+        }
+
+        const signals = spec.signal;
+        const stepWidth = 32;
+        const rowHeight = 32;
+        const textWidth = 80;
+        const padding = 16;
+
+        let maxSteps = 1;
+        for (const sig of signals) {
+            if (sig.wave && typeof sig.wave === 'string') {
+                maxSteps = Math.max(maxSteps, sig.wave.length);
+            }
+        }
+
+        const totalWidth = padding * 2 + textWidth + maxSteps * stepWidth;
+        const totalHeight = padding * 2 + signals.length * rowHeight;
+
+        let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}" style="background:#ffffff; font-family:system-ui,-apple-system,sans-serif; font-size:12px;">\n`;
+        svg += `<defs>
+            <pattern id="wavedrom-grid" width="${stepWidth}" height="${rowHeight}" patternUnits="userSpaceOnUse">
+                <line x1="${stepWidth}" y1="0" x2="${stepWidth}" y2="${rowHeight}" stroke="#f0f0f0" stroke-width="1"/>
+            </pattern>
+        </defs>\n`;
+
+        svg += `<rect x="${padding + textWidth}" y="${padding}" width="${maxSteps * stepWidth}" height="${signals.length * rowHeight}" fill="url(#wavedrom-grid)" />\n`;
+
+        signals.forEach((sig, rowIndex) => {
+            const yTop = padding + rowIndex * rowHeight + 6;
+            const yBottom = yTop + 20;
+            const yMid = yTop + 10;
+            const name = sig.name || '';
+            const wave = sig.wave || '';
+            const dataArr = sig.data ? [...sig.data] : [];
+
+            svg += `<text x="${padding}" y="${yMid + 4}" fill="#333333" font-weight="600">${this.escapeHtml(name)}</text>\n`;
+
+            let currentX = padding + textWidth;
+            let lastLevel = null;
+            let pathD = '';
+
+            for (let i = 0; i < wave.length; i++) {
+                const ch = wave[i];
+                const nextX = currentX + stepWidth;
+
+                if (ch === 'p' || ch === 'P') {
+                    pathD += ` M ${currentX} ${yBottom} L ${currentX} ${yTop} L ${currentX + stepWidth / 2} ${yTop} L ${currentX + stepWidth / 2} ${yBottom} L ${nextX} ${yBottom}`;
+                    lastLevel = '0';
+                } else if (ch === 'n' || ch === 'N') {
+                    pathD += ` M ${currentX} ${yTop} L ${currentX} ${yBottom} L ${currentX + stepWidth / 2} ${yBottom} L ${currentX + stepWidth / 2} ${yTop} L ${nextX} ${yTop}`;
+                    lastLevel = '1';
+                } else if (ch === '1') {
+                    if (lastLevel === '0' || lastLevel === null) {
+                        pathD += ` M ${currentX} ${yBottom} L ${currentX} ${yTop} L ${nextX} ${yTop}`;
+                    } else {
+                        pathD += ` L ${nextX} ${yTop}`;
+                    }
+                    lastLevel = '1';
+                } else if (ch === '0') {
+                    if (lastLevel === '1' || lastLevel === null) {
+                        pathD += ` M ${currentX} ${yTop} L ${currentX} ${yBottom} L ${nextX} ${yBottom}`;
+                    } else {
+                        pathD += ` L ${nextX} ${yBottom}`;
+                    }
+                    lastLevel = '0';
+                } else if (ch === '.') {
+                    const y = (lastLevel === '1') ? yTop : (lastLevel === '0') ? yBottom : yMid;
+                    pathD += ` L ${nextX} ${y}`;
+                } else if (ch === 'z' || ch === 'Z') {
+                    pathD += ` M ${currentX} ${yMid} L ${nextX} ${yMid}`;
+                    lastLevel = 'z';
+                } else if (ch === 'x' || ch === 'X' || (ch >= '2' && ch <= '9') || ch === '=') {
+                    const textVal = dataArr.shift() || '';
+                    const fillCol = (ch >= '2' && ch <= '9') ? '#e8f4fd' : '#f5f5f5';
+                    const strokeCol = '#0066cc';
+                    svg += `<polygon points="${currentX + 3},${yMid} ${currentX + 6},${yTop} ${nextX - 6},${yTop} ${nextX - 3},${yMid} ${nextX - 6},${yBottom} ${currentX + 6},${yBottom}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="1.5" />\n`;
+                    if (textVal) {
+                        svg += `<text x="${currentX + stepWidth / 2}" y="${yMid + 4}" fill="#003366" font-size="10" text-anchor="middle">${this.escapeHtml(textVal)}</text>\n`;
+                    }
+                    lastLevel = 'bus';
+                }
+
+                currentX = nextX;
+            }
+
+            if (pathD) {
+                svg += `<path d="${pathD}" fill="none" stroke="#0066cc" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />\n`;
+            }
+        });
+
+        svg += '</svg>';
+        return svg;
+    }
+
+    /**
+     * Ensure every rendered diagram has a uniform toolbar header with SVG and PNG export buttons
+     */
+    ensureDiagramHeaders(container) {
+        if (!container || typeof container.querySelectorAll !== 'function') return;
+
+        const diagrams = container.querySelectorAll(
+            '.plantuml-diagram, .mermaid-diagram, .graphviz-diagram, .tikz-diagram, .vega-lite-diagram, .wavedrom-diagram, .markmap-diagram, .kityminder-diagram, .abc-diagram, ' +
+            '.plantuml-container, .mermaid-container, .graphviz-container, .tikz-container, .vega-lite-container, .wavedrom-container, .markmap-inline-container, .kityminder-container, .abc-container'
+        );
+
+        for (const d of diagrams) {
+            let header = d.querySelector('.diagram-header');
+            const id = d.id || d.getAttribute('data-plantuml-id') || d.getAttribute('data-mermaid-id') || d.getAttribute('data-graphviz-id') || d.getAttribute('data-tikz-id') || d.getAttribute('data-vega-id') || d.getAttribute('data-wavedrom-id') || d.getAttribute('data-markmap-id') || d.getAttribute('data-kityminder-id') || d.getAttribute('data-abc-id') || `diag-${Math.random().toString(36).substr(2, 9)}`;
+            
+            if (!d.id) d.id = id;
+
+            if (!header) {
+                header = document.createElement('div');
+                header.className = 'diagram-header';
+                
+                let typeName = 'Diagram';
+                if (d.classList.contains('mermaid-rendered') || d.classList.contains('mermaid-container')) typeName = 'Mermaid Diagram';
+                else if (d.classList.contains('plantuml-rendered') || d.classList.contains('plantuml-container')) typeName = 'PlantUML Diagram';
+                else if (d.classList.contains('graphviz-rendered') || d.classList.contains('graphviz-container')) typeName = 'GraphViz Diagram';
+                else if (d.classList.contains('tikz-rendered') || d.classList.contains('tikz-container')) typeName = 'TikZ Diagram';
+                else if (d.classList.contains('vega-rendered') || d.classList.contains('vega-lite-container')) typeName = 'Vega-Lite Visualization';
+                else if (d.classList.contains('wavedrom-rendered') || d.classList.contains('wavedrom-container')) typeName = 'WaveDrom Timing Diagram';
+                else if (d.classList.contains('markmap-rendered') || d.classList.contains('markmap-inline-container')) typeName = 'Markmap Mind Map';
+                else if (d.classList.contains('kityminder-rendered') || d.classList.contains('kityminder-container')) typeName = 'KityMinder Mind Map';
+                else if (d.classList.contains('abc-rendered') || d.classList.contains('abc-container')) typeName = 'ABC Music Notation';
+
+                header.innerHTML = `
+                    <span class="diagram-type">${typeName}</span>
+                    <div class="diagram-actions">
+                        <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                        <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                    </div>
+                `;
+                d.insertBefore(header, d.firstChild);
+            } else {
+                let actions = header.querySelector('.diagram-actions');
+                if (!actions) {
+                    actions = document.createElement('div');
+                    actions.className = 'diagram-actions';
+                    const toggleBtn = header.querySelector('.diagram-toggle');
+                    actions.innerHTML = `
+                        <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                        <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                    `;
+                    if (toggleBtn) {
+                        toggleBtn.className = 'diagram-btn diagram-toggle';
+                        actions.appendChild(toggleBtn);
+                    }
+                    header.appendChild(actions);
+                } else {
+                    if (!actions.querySelector('.diagram-export-svg-btn')) {
+                        const svgBtn = document.createElement('button');
+                        svgBtn.className = 'diagram-btn diagram-export-svg-btn';
+                        svgBtn.title = 'Export as SVG';
+                        svgBtn.textContent = 'SVG';
+                        svgBtn.onclick = () => window.markdownRenderer.exportDiagram(id, 'svg');
+                        actions.insertBefore(svgBtn, actions.firstChild);
+                    }
+                    if (!actions.querySelector('.diagram-export-png-btn')) {
+                        const pngBtn = document.createElement('button');
+                        pngBtn.className = 'diagram-btn diagram-export-png-btn';
+                        pngBtn.title = 'Export as PNG';
+                        pngBtn.textContent = 'PNG';
+                        pngBtn.onclick = () => window.markdownRenderer.exportDiagram(id, 'png');
+                        const svgBtn = actions.querySelector('.diagram-export-svg-btn');
+                        if (svgBtn && svgBtn.nextSibling) {
+                            actions.insertBefore(pngBtn, svgBtn.nextSibling);
+                        } else {
+                            actions.appendChild(pngBtn);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Serialize an SVG DOM node to XML text with namespaces and viewBox
+     */
+    serializeSvgNode(svg) {
+        const clone = svg.cloneNode(true);
+        if (!clone.getAttribute('xmlns')) {
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        }
+        if (!clone.getAttribute('xmlns:xlink')) {
+            clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        }
+
+        let w = 0;
+        let h = 0;
+
+        // 1. Check viewBox first (most reliable for scalable diagrams like Mermaid / GraphViz)
+        if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
+            w = svg.viewBox.baseVal.width;
+            h = svg.viewBox.baseVal.height;
+        } else if (clone.getAttribute('viewBox')) {
+            const vb = clone.getAttribute('viewBox').trim().split(/[\s,]+/);
+            if (vb.length === 4) {
+                w = parseFloat(vb[2]);
+                h = parseFloat(vb[3]);
+            }
+        }
+
+        // 2. Check explicit non-percentage attributes
+        if (!w || !h) {
+            const rawW = clone.getAttribute('width');
+            const rawH = clone.getAttribute('height');
+            if (rawW && !rawW.includes('%')) w = parseFloat(rawW);
+            if (rawH && !rawH.includes('%')) h = parseFloat(rawH);
+        }
+
+        // 3. Check bounding client rect
+        if (!w || !h) {
+            try {
+                const rect = svg.getBoundingClientRect();
+                if (rect.width > 0) w = rect.width;
+                if (rect.height > 0) h = rect.height;
+            } catch (_) {}
+        }
+
+        if (!w || isNaN(w) || w <= 0) w = 800;
+        if (!h || isNaN(h) || h <= 0) h = 600;
+
+        w = Math.round(w);
+        h = Math.round(h);
+
+        clone.setAttribute('width', w);
+        clone.setAttribute('height', h);
+        if (!clone.getAttribute('viewBox')) {
+            clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        }
+
+        return new XMLSerializer().serializeToString(clone);
+    }
+
+    /**
+     * Rasterize an SVG string into a high-DPI PNG data URL via HTML5 Canvas
+     */
+    svgToPngDataUrl(svgString, scale = 2) {
+        return new Promise((resolve, reject) => {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(svgString, 'image/svg+xml');
+                const svgEl = doc.documentElement;
+
+                let width = 0;
+                let height = 0;
+
+                if (svgEl.viewBox && svgEl.viewBox.baseVal && svgEl.viewBox.baseVal.width > 0) {
+                    width = svgEl.viewBox.baseVal.width;
+                    height = svgEl.viewBox.baseVal.height;
+                } else if (svgEl.getAttribute('viewBox')) {
+                    const vb = svgEl.getAttribute('viewBox').trim().split(/[\s,]+/);
+                    if (vb.length === 4) {
+                        width = parseFloat(vb[2]);
+                        height = parseFloat(vb[3]);
+                    }
+                }
+
+                if (!width || !height) {
+                    const rawW = svgEl.getAttribute('width');
+                    const rawH = svgEl.getAttribute('height');
+                    if (rawW && !rawW.includes('%')) width = parseFloat(rawW);
+                    if (rawH && !rawH.includes('%')) height = parseFloat(rawH);
+                }
+
+                if (!width || isNaN(width) || width <= 0) width = 800;
+                if (!height || isNaN(height) || height <= 0) height = 600;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(width * scale);
+                canvas.height = Math.round(height * scale);
+                const ctx = canvas.getContext('2d');
+
+                const img = new Image();
+                let timer = null;
+                const cleanup = (url) => {
+                    if (timer) clearTimeout(timer);
+                    if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
+                };
+
+                timer = setTimeout(() => {
+                    cleanup(img.src);
+                    reject(new Error('Rasterization timed out'));
+                }, 4000);
+
+                img.onload = () => {
+                    try {
+                        ctx.fillStyle = '#ffffff'; // White background for clean presentation
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const dataUrl = canvas.toDataURL('image/png');
+                        cleanup(img.src);
+                        resolve(dataUrl);
+                    } catch (drawErr) {
+                        cleanup(img.src);
+                        reject(drawErr);
+                    }
+                };
+
+                img.onerror = (e) => {
+                    cleanup(img.src);
+                    reject(new Error('Failed to rasterize SVG into PNG image'));
+                };
+
+                // Use data URL with encodeURIComponent to prevent blob URL CORS/origin issues
+                img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Universal Diagram Exporter: Export any generated diagram as PNG or SVG
+     * @param {string|HTMLElement} target - Diagram ID or element
+     * @param {'svg'|'png'} format - Target format
+     */
+    async exportDiagram(target, format = 'png') {
+        try {
+            let el = typeof target === 'string' ? document.getElementById(target) : target;
+            if (!el && typeof target === 'string') {
+                el = document.querySelector(`[data-plantuml-id="${target}"], [data-mermaid-id="${target}"], [data-graphviz-id="${target}"], [data-tikz-id="${target}"], [data-vega-id="${target}"], [data-wavedrom-id="${target}"], [data-markmap-id="${target}"], [data-kityminder-id="${target}"], [data-abc-id="${target}"]`);
+            }
+            if (!el) {
+                console.error('[MarkdownRenderer] Diagram target not found:', target);
+                return false;
+            }
+
+            const container = el.closest(
+                '.plantuml-diagram, .mermaid-diagram, .graphviz-diagram, .tikz-diagram, .vega-lite-diagram, .wavedrom-diagram, .markmap-diagram, .kityminder-diagram, .abc-diagram, ' +
+                '.plantuml-container, .mermaid-container, .graphviz-container, .tikz-container, .vega-lite-container, .wavedrom-container, .markmap-inline-container, .kityminder-container, .abc-container'
+            ) || el;
+
+            let diagramType = 'diagram';
+            if (container.classList.contains('plantuml-diagram') || container.classList.contains('plantuml-container')) diagramType = 'plantuml';
+            else if (container.classList.contains('mermaid-diagram') || container.classList.contains('mermaid-container')) diagramType = 'mermaid';
+            else if (container.classList.contains('graphviz-diagram') || container.classList.contains('graphviz-container')) diagramType = 'graphviz';
+            else if (container.classList.contains('tikz-diagram') || container.classList.contains('tikz-container')) diagramType = 'tikz';
+            else if (container.classList.contains('vega-lite-diagram') || container.classList.contains('vega-lite-container')) diagramType = 'vega';
+            else if (container.classList.contains('wavedrom-diagram') || container.classList.contains('wavedrom-container')) diagramType = 'wavedrom';
+            else if (container.classList.contains('markmap-diagram') || container.classList.contains('markmap-inline-container')) diagramType = 'markmap';
+            else if (container.classList.contains('kityminder-diagram') || container.classList.contains('kityminder-container')) diagramType = 'kityminder';
+            else if (container.classList.contains('abc-diagram') || container.classList.contains('abc-container')) diagramType = 'abc';
+
+            const filename = `${diagramType}-${Date.now()}.${format}`;
+
+            // Case A: PlantUML diagram with <img>
+            const img = container.querySelector('img');
+            if (diagramType === 'plantuml' && img && img.src) {
+                if (format === 'svg') {
+                    try {
+                        const resp = await fetch(img.src);
+                        const svgText = await resp.text();
+                        return await this.saveDiagramFile(filename, svgText, 'svg', false);
+                    } catch (fetchErr) {
+                        console.warn('[MarkdownRenderer] Direct fetch failed for PlantUML SVG:', fetchErr);
+                    }
+                } else if (format === 'png') {
+                    const pngUrl = img.getAttribute('data-plantuml-png-url') || img.src.replace('/svg/', '/png/');
+                    try {
+                        const resp = await fetch(pngUrl);
+                        const blob = await resp.blob();
+                        const reader = new FileReader();
+                        const dataUrl = await new Promise((res, rej) => {
+                            reader.onload = () => res(reader.result);
+                            reader.onerror = rej;
+                            reader.readAsDataURL(blob);
+                        });
+                        return await this.saveDiagramFile(filename, dataUrl, 'png', true);
+                    } catch (pngErr) {
+                        console.warn('[MarkdownRenderer] Direct fetch failed for PlantUML PNG, rasterizing via canvas:', pngErr);
+                    }
+                }
+            }
+
+            // Case B: SVG Element inside container
+            let svg = container.querySelector('svg');
+            if (!svg && container.tagName && container.tagName.toLowerCase() === 'svg') {
+                svg = container;
+            }
+
+            if (svg) {
+                const svgString = this.serializeSvgNode(svg);
+                if (format === 'svg') {
+                    return await this.saveDiagramFile(filename, svgString, 'svg', false);
+                } else {
+                    let pngDataUrl = null;
+                    try {
+                        pngDataUrl = await this.svgToPngDataUrl(svgString, 2);
+                    } catch (rasterErr) {
+                        console.warn('[MarkdownRenderer] Canvas PNG rasterization failed, falling back to backend rasterizer:', rasterErr);
+                    }
+
+                    if (pngDataUrl) {
+                        return await this.saveDiagramFile(filename, pngDataUrl, 'png', true);
+                    } else {
+                        // Fallback to backend rasterization by passing svgString
+                        return await this.saveDiagramFile(filename, null, 'png', false, svgString);
+                    }
+                }
+            }
+
+            // Case C: Canvas element inside container
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                const pngDataUrl = canvas.toDataURL('image/png');
+                if (format === 'png') {
+                    return await this.saveDiagramFile(filename, pngDataUrl, 'png', true);
+                } else {
+                    const svgWrap = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}"><image href="${pngDataUrl}" width="${canvas.width}" height="${canvas.height}"/></svg>`;
+                    return await this.saveDiagramFile(filename, svgWrap, 'svg', false);
+                }
+            }
+
+            // Fallback for image
+            if (img && img.src) {
+                if (format === 'png') {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || img.width || 800;
+                    canvas.height = img.naturalHeight || img.height || 600;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    return await this.saveDiagramFile(filename, canvas.toDataURL('image/png'), 'png', true);
+                }
+            }
+
+            console.error('[MarkdownRenderer] No SVG, IMG, or Canvas found in diagram container');
+            return false;
+        } catch (error) {
+            console.error('[MarkdownRenderer] exportDiagram error:', error);
+            if (window.markddApp && typeof window.markddApp.showMessage === 'function') {
+                window.markddApp.showMessage(`Diagram export error: ${error.message}`);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Save diagram file via desktop native dialog or browser download fallback
+     */
+    async saveDiagramFile(defaultFilename, content, format, isBase64 = false, svgContent = null) {
+        if (window.MarkDDBridge && typeof window.MarkDDBridge.invoke === 'function') {
+            try {
+                const cleanContent = (isBase64 && content) ? content.replace(/^data:image\/[^;]+;base64,/, '') : content;
+                const res = await window.MarkDDBridge.invoke('save-diagram-file', {
+                    defaultName: defaultFilename,
+                    content: cleanContent,
+                    encoding: isBase64 ? 'base64' : 'utf-8',
+                    format: format,
+                    svgContent: svgContent
+                });
+                if (res && res.success) {
+                    console.log('[MarkdownRenderer] Diagram successfully saved to:', res.filePath);
+                    if (window.markddApp && typeof window.markddApp.showMessage === 'function') {
+                        window.markddApp.showMessage(`Diagram saved: ${res.filePath}`);
+                    }
+                    return true;
+                }
+                if (res && res.canceled) {
+                    return false;
+                }
+            } catch (bridgeErr) {
+                console.warn('[MarkdownRenderer] Bridge save-diagram-file failed, using download fallback:', bridgeErr);
+            }
+        }
+
+        try {
+            const link = document.createElement('a');
+            if (isBase64 && content) {
+                link.href = content.startsWith('data:') ? content : `data:image/${format};base64,${content}`;
+            } else if (content) {
+                const mime = format === 'svg' ? 'image/svg+xml;charset=utf-8' : 'image/png';
+                const blob = new Blob([content], { type: mime });
+                link.href = URL.createObjectURL(blob);
+            } else if (svgContent) {
+                const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+                link.href = URL.createObjectURL(blob);
+            }
+            link.download = defaultFilename;
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                if (link.href && link.href.startsWith('blob:')) {
+                    URL.revokeObjectURL(link.href);
+                }
+                link.remove();
+            }, 500);
+            return true;
+        } catch (downloadErr) {
+            console.error('[MarkdownRenderer] Failed to download diagram file:', downloadErr);
+            return false;
+        }
+    }
+
+    /**
+     * Copy diagram to clipboard as PNG image
+     */
+    async copyDiagramImage(target) {
+        try {
+            let el = typeof target === 'string' ? document.getElementById(target) : target;
+            if (!el) return false;
+            const container = el.closest(
+                '.plantuml-diagram, .mermaid-diagram, .graphviz-diagram, .tikz-diagram, .vega-lite-diagram, .wavedrom-diagram, .markmap-diagram, .kityminder-diagram, .abc-diagram, ' +
+                '.plantuml-container, .mermaid-container, .graphviz-container, .tikz-container, .vega-lite-container, .wavedrom-container, .markmap-inline-container, .kityminder-container, .abc-container'
+            ) || el;
+            
+            let svg = container.querySelector('svg') || (container.tagName && container.tagName.toLowerCase() === 'svg' ? container : null);
+            if (!svg) {
+                const img = container.querySelector('img');
+                if (img) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || img.width || 800;
+                    canvas.height = img.naturalHeight || img.height || 600;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob(async (blob) => {
+                        if (blob && navigator.clipboard && navigator.clipboard.write) {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            if (window.markddApp) window.markddApp.showMessage('Diagram copied to clipboard as PNG');
+                        }
+                    });
+                    return true;
+                }
+                return false;
+            }
+
+            const svgString = this.serializeSvgNode(svg);
+            const pngDataUrl = await this.svgToPngDataUrl(svgString, 2);
+            const blob = await fetch(pngDataUrl).then(r => r.blob());
+            if (navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                if (window.markddApp) window.markddApp.showMessage('Diagram copied to clipboard as PNG');
+                return true;
+            }
+        } catch (err) {
+            console.error('[MarkdownRenderer] copyDiagramImage failed:', err);
+        }
+        return false;
+    }
+
+    /**
+     * Copy diagram SVG markup to clipboard
+     */
+    async copyDiagramSVG(target) {
+        try {
+            let el = typeof target === 'string' ? document.getElementById(target) : target;
+            if (!el) return false;
+            const container = el.closest(
+                '.plantuml-diagram, .mermaid-diagram, .graphviz-diagram, .tikz-diagram, .vega-lite-diagram, .wavedrom-diagram, .markmap-diagram, .kityminder-diagram, .abc-diagram, ' +
+                '.plantuml-container, .mermaid-container, .graphviz-container, .tikz-container, .vega-lite-container, .wavedrom-container, .markmap-inline-container, .kityminder-container, .abc-container'
+            ) || el;
+            
+            let svg = container.querySelector('svg') || (container.tagName && container.tagName.toLowerCase() === 'svg' ? container : null);
+            if (svg) {
+                const svgString = this.serializeSvgNode(svg);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(svgString);
+                    if (window.markddApp) window.markddApp.showMessage('SVG markup copied to clipboard');
+                    return true;
+                }
+            } else {
+                const img = container.querySelector('img');
+                if (img && img.src) {
+                    const resp = await fetch(img.src);
+                    const svgText = await resp.text();
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(svgText);
+                        if (window.markddApp) window.markddApp.showMessage('SVG markup copied to clipboard');
+                        return true;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[MarkdownRenderer] copyDiagramSVG failed:', err);
+        }
+        return false;
     }
 
     getWordCount(markdown) {

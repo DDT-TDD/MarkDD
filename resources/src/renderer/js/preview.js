@@ -52,6 +52,114 @@ class Preview {
                 this.updateScrollSync();
             }
         }, true);
+
+        // Right-click context menu on diagrams for PNG/SVG export and clipboard actions
+        this.element.addEventListener('contextmenu', (e) => {
+            this.handleDiagramContextMenu(e);
+        });
+    }
+
+    handleDiagramContextMenu(e) {
+        // Remove existing context menu if present
+        const existingMenu = document.querySelector('.diagram-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
+        // Find diagram target container
+        const target = e.target;
+        const diagramContainer = target.closest(
+            '.diagram-container, .plantuml-container, .plantuml-diagram, .mermaid-diagram, ' +
+            '.mermaid, .graphviz-diagram, .graphviz, .tikz-diagram, .tikz, .vegalite-diagram, ' +
+            '.wavedrom-diagram, .markmap-diagram, .kityminder-diagram, .abc-diagram'
+        ) || (target.tagName && target.tagName.toLowerCase() === 'svg' ? target : null)
+          || (target.tagName && target.tagName.toLowerCase() === 'img' && target.classList.contains('plantuml-img') ? target : null);
+
+        if (!diagramContainer) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const menu = document.createElement('div');
+        menu.className = 'diagram-context-menu';
+
+        const createItem = (icon, text, onClick) => {
+            const item = document.createElement('div');
+            item.className = 'diagram-context-menu-item';
+            item.innerHTML = `<span>${icon}</span> <span>${text}</span>`;
+            item.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                menu.remove();
+                onClick();
+            });
+            return item;
+        };
+
+        const createDivider = () => {
+            const div = document.createElement('div');
+            div.className = 'diagram-context-menu-divider';
+            return div;
+        };
+
+        const renderer = window.markdownRenderer;
+        if (!renderer) return;
+
+        menu.appendChild(createItem('💾', 'Export as PNG...', () => {
+            renderer.exportDiagram(diagramContainer, 'png');
+        }));
+        menu.appendChild(createItem('🖼️', 'Export as SVG...', () => {
+            renderer.exportDiagram(diagramContainer, 'svg');
+        }));
+        menu.appendChild(createDivider());
+        menu.appendChild(createItem('📋', 'Copy PNG to Clipboard', () => {
+            renderer.copyDiagramImage(diagramContainer);
+        }));
+        menu.appendChild(createItem('📄', 'Copy SVG Markup', () => {
+            renderer.copyDiagramSVG(diagramContainer);
+        }));
+
+        document.body.appendChild(menu);
+
+        // Position menu safely within viewport
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+        const menuRect = menu.getBoundingClientRect();
+        let left = mouseX;
+        let top = mouseY;
+
+        if (left + menuRect.width > window.innerWidth) {
+            left = window.innerWidth - menuRect.width - 8;
+        }
+        if (top + menuRect.height > window.innerHeight) {
+            top = window.innerHeight - menuRect.height - 8;
+        }
+
+        menu.style.left = `${Math.max(8, left)}px`;
+        menu.style.top = `${Math.max(8, top)}px`;
+
+        // Dismiss on click outside or escape key
+        const dismissHandler = (event) => {
+            if (!menu.contains(event.target)) {
+                menu.remove();
+                cleanup();
+            }
+        };
+        const keyHandler = (event) => {
+            if (event.key === 'Escape') {
+                menu.remove();
+                cleanup();
+            }
+        };
+        const cleanup = () => {
+            document.removeEventListener('click', dismissHandler);
+            document.removeEventListener('contextmenu', dismissHandler);
+            document.removeEventListener('keydown', keyHandler);
+        };
+        setTimeout(() => {
+            document.addEventListener('click', dismissHandler);
+            document.addEventListener('contextmenu', dismissHandler);
+            document.addEventListener('keydown', keyHandler);
+        }, 10);
     }
 
     initializeScrollSync() {
@@ -157,18 +265,13 @@ class Preview {
     }
 
     debounceUpdate(content) {
-        // --- FIX: Always check if content has actually changed ---
-        if (this.lastProcessedContent === content) {
-            console.log('[Preview] Content unchanged, skipping update');
+        // Check if content has actually changed
+        if (this.lastProcessedContent === content && !this.queuedContent) {
             return;
         }
         
-        // Store the content we're about to process
-        this.lastProcessedContent = content;
-        
         // Prevent multiple rapid updates
         if (this.isUpdating) {
-            console.log('[Preview] Update in progress, queuing new content');
             this.queuedContent = content;
             return;
         }
@@ -178,36 +281,31 @@ class Preview {
             clearTimeout(this.debounceTimeout);
         }
 
-        // Set new timeout - increased delay for stability
+        // Set new timeout - dynamic delay based on document size
+        const delay = content.length > 20000 ? 250 : this.debounceDelay;
         this.debounceTimeout = setTimeout(() => {
             if (!this.isUpdating) {
-                console.log('[Preview] Debounced update triggered for content length:', content.length);
                 this.updatePreview(content);
             } else {
-                console.log('[Preview] Still updating, queueing content');
                 this.queuedContent = content;
             }
-        }, this.debounceDelay);
+        }, delay);
     }
 
     async updatePreview(content) {
         try {
             // Prevent concurrent updates - CRITICAL FIX
             if (this.isUpdating) {
-                console.log('[Preview] Update already in progress, skipping...');
+                this.queuedContent = content;
                 return;
             }
             
             this.isUpdating = true;
-            console.log('[Preview] updatePreview called with content length:', content.length);
-            console.log('🔍🔍🔍 [Preview] Content preview (first 300 chars):', content.substring(0, 300));
-            console.log('🔍🔍🔍 [Preview] Content includes "Math Rendering Test":', content.includes('Math Rendering Test'));
-            console.log('🔍🔍🔍 [Preview] Content includes "MarkDD Editor - Complete Feature Showcase":', content.includes('MarkDD Editor - Complete Feature Showcase'));
+            this.lastProcessedContent = content;
             
             // Show loading state for long operations
-            const isLongContent = content.length > 10000;
+            const isLongContent = content.length > 25000;
             if (isLongContent) {
-                console.log('[Preview] Long content detected, showing loading...');
                 this.showLoading();
             }
 
@@ -327,22 +425,35 @@ class Preview {
     }
 
     async renderMath() {
-        if (window.renderMathInElement) {
-            // KaTeX auto-render
-            window.renderMathInElement(this.element, {
-                delimiters: [
-                    { left: '$$', right: '$$', display: true },
-                    { left: '$', right: '$', display: false },
-                    { left: '\\[', right: '\\]', display: true },
-                    { left: '\\(', right: '\\)', display: false }
-                ],
-                throwOnError: false,
-                errorColor: '#cc0000'
-            });
+        // KaTeX math rendering is already performed inside MarkdownRenderer.render().
+        // Only run KaTeX auto-render here if raw math markers still exist outside of code/pre
+        if (window.renderMathInElement && this.element.textContent && (this.element.textContent.includes('$') || this.element.textContent.includes('\\(') || this.element.textContent.includes('\\['))) {
+            const hasRawMath = this.element.querySelector('.raw-math, [data-latex-env], [data-math-raw]');
+            if (hasRawMath) {
+                window.renderMathInElement(this.element, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\[', right: '\\]', display: true },
+                        { left: '\\(', right: '\\)', display: false }
+                    ],
+                    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'annotation', 'annotation-xml'],
+                    throwOnError: false,
+                    errorColor: '#cc0000'
+                });
+            }
         }
     }
 
     async processDiagrams() {
+        // Fast-path: Only run processors if unrendered diagram containers actually exist
+        const hasUnrendered = this.element.querySelector(
+            '.mermaid-container:not(.mermaid-rendered), .tikz-container:not(.tikz-rendered), .markmap-inline-container:not(.markmap-rendered), ' +
+            '.plantuml-container:not(.plantuml-rendered), .vega-lite-container:not(.vega-rendered), .graphviz-container:not(.graphviz-rendered), ' +
+            '.abc-container:not(.abc-rendered), .latex-document-container:not(.latex-rendered)'
+        );
+        if (!hasUnrendered) return;
+
         // Process any diagrams that weren't handled during initial render
         await this.processMermaidDiagrams();
         await this.processTikZDiagrams();
@@ -356,20 +467,42 @@ class Preview {
 
     async processMermaidDiagrams() {
         const mermaidElements = this.element.querySelectorAll('.mermaid-container:not(.mermaid-rendered)');
-        
+        if (mermaidElements.length === 0) return;
+
+        // Delegate to markdownRenderer to preserve diagram action header and export buttons
+        if (this.renderer && typeof this.renderer.processMermaidDiagrams === 'function') {
+            await this.renderer.processMermaidDiagrams(this.element);
+            return;
+        }
+
         for (const element of mermaidElements) {
             const code = decodeURIComponent(element.getAttribute('data-mermaid-code'));
             const id = element.getAttribute('data-mermaid-id');
             
             try {
                 if (window.mermaid) {
-                    const { svg } = await window.mermaid.render(id, code);
-                    element.innerHTML = svg;
+                    const renderId = `mermaid-svg-${id}-${Math.random().toString(36).substring(2, 7)}`;
+                    const { svg } = await window.mermaid.render(renderId, code);
+                    element.innerHTML = `
+                        <div class="mermaid-diagram" id="${id}">
+                            <div class="diagram-header">
+                                <span class="diagram-type">Mermaid Diagram</span>
+                                <div class="diagram-actions">
+                                    <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                    <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                    <button class="diagram-btn diagram-toggle" onclick="this.closest('.mermaid-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                                </div>
+                                <pre class="diagram-source hidden"><code>${code}</code></pre>
+                            </div>
+                            <div class="diagram-content">
+                                ${svg}
+                            </div>
+                        </div>`;
                     element.classList.add('mermaid-rendered');
                 }
             } catch (error) {
                 element.innerHTML = `<div class="diagram-error">Mermaid Error: ${error.message}</div>`;
-                element.classList.add('mermaid-error');
+                element.classList.add('mermaid-error', 'mermaid-rendered');
             }
         }
     }

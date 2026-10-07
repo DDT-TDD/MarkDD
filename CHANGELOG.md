@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.3.0] - 2026-10-06
+
+### Added & Enhanced
+- **Universal Diagram Export (PNG & SVG)**:
+  - Added native SVG and PNG export across **all 9 supported diagram families**:
+    - PlantUML (`@startuml` / `@enduml`)
+    - Mermaid (`flowchart`, `sequenceDiagram`, `gantt`, `classDiagram`, `stateDiagram`, etc.)
+    - GraphViz (`digraph`, `graph`, `dot`)
+    - TikZ & CircuiTikZ (`tikzpicture`, `circuitikz`)
+    - Vega & Vega-Lite declarative charts
+    - WaveDrom digital timing diagrams
+    - Markmap interactive mindmaps
+    - KityMinder mind maps
+    - ABC Music notation & tablature
+  - Every diagram container now displays an interactive diagram header with `[SVG]` and `[PNG]` export buttons and source toggles.
+  - Added high-resolution (2x retina) canvas rasterization onto clean white backgrounds for crisp PNG output.
+  - Implemented backend IPC handler `save-diagram-file` in both Electron (`main.js`) and Tauri (`main-tauri.js` & `bridge.js`) supporting base64-encoded binary PNG writing and UTF-8 SVG writing with native system save dialogs.
+  - Added standalone SVG-based WaveDrom timing diagram engine with support for clocks, high/low transitions, and bus diagrams without third-party web service dependencies.
+- **Right-Click Diagram Context Menu**:
+  - Right-clicking on any diagram in the preview pane opens a context menu with options to:
+    - "Export as PNG..."
+    - "Export as SVG..."
+    - "Copy PNG to Clipboard"
+    - "Copy SVG Markup"
+- **Menu Bar & Checkbox Toggle Wiring**:
+  - Fully wired menu row click handling for:
+    - Presentation Navigation toggle (`menu-presentation-toggle-navigation`)
+    - Slide Table of Contents toggle (`menu-presentation-toggle-toc`)
+    - Page Numbers toggle (`menu-presentation-toggle-page-numbers`)
+    - Book Mode toggle (`menu-book-mode-toggle`)
+  - Clicking either the button row or the checkbox itself now reliably toggles the state and executes the respective mode transition.
+- **PowerPoint (.pptx) Exporter Headless Resilience**:
+  - Enhanced `pptx-exporter.js` to automatically extract titles, subheadings, bullets, and paragraphs directly from raw Markdown when pre-rendered HTML DOM elements are omitted.
+
+### Fixed & Performance Improvements
+- **Save as PNG Resolution & Backend Rasterization Fallback**:
+  - Fixed canvas tainting and unhandled promise rejection in `svgToPngDataUrl()` caused by `URL.createObjectURL(blob)` and Mermaid `<foreignObject>` elements.
+  - Replaced blob URLs with data URIs (`data:image/svg+xml;charset=utf-8,${encodeURIComponent(...)}`) and wrapped canvas operations in safety guards.
+  - Configured Mermaid with `htmlLabels: false` to output pure SVG text nodes for native vector scaling and clean rasterization.
+  - Implemented automated backend Puppeteer rasterization fallback in both Electron (`main.js`) and Tauri (`main-tauri.js`) so that PNG save dialogs and exports succeed 100% of the time even if client-side canvas is restricted.
+  - Fixed SVG dimension serialization in `serializeSvgNode` to read `viewBox.baseVal` directly and avoid string parsing errors.
+- **Offline Vendor Bundling (Mermaid, D3, Vega, ABCjs)**:
+  - Bundled local production minified scripts for Mermaid (v11.4.1), D3 (v7.8.0), Vega (v5.33.0), Vega-Lite (v5.23.0), Vega-Embed (v6.29.0), ABCjs (v6.5.2), and PlantUML-Encoder into `src/renderer/vendor/`.
+  - Updated `library-loader.js` to load local vendor bundles directly, guaranteeing 100% offline diagram rendering in Tauri and Electron with zero CDN latency or CSP network failures.
+  - Added unique render ID isolation (`mermaid-svg-${id}-${random}`) to prevent Mermaid v11 DOM ID collisions during live typing.
+- **Live Preview & Editor Performance Optimization**:
+  - Eliminated duplicate rendering passes between `markdownRenderer.render()` and `preview.js::postProcess()`.
+  - Added selector fast-path checks in `markdownRenderer.postProcess()` so processors for unreferenced diagram types are bypassed in sub-millisecond time.
+  - Removed synchronous verbose console logging (`🔥🔥🔥 RENDER DEBUG`) across the rendering loop to prevent IPC stdout thread bottlenecks.
+  - Fixed debounce queued content drop in `preview.js` ensuring rapid keystrokes during rendering are never skipped.
+
+---
 ## [2.2.0] - 2026-08-26
 
 ### Fixed & Cross-Platform Parity

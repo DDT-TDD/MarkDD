@@ -179,11 +179,25 @@ function parseSlideHtml(slideHtml, rawMarkdown, slideType) {
         const h2m = /<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(processed);
         if (h2m) result.title = stripHtml(h2m[1]).replace(/\n+/g,' ').trim();
     }
+    if (!result.title && rawMarkdown) {
+        const mdH1 = /^#\s+(.+)$/m.exec(rawMarkdown);
+        const mdH2 = /^##\s+(.+)$/m.exec(rawMarkdown);
+        if (mdH1) {
+            result.title = mdH1[1].trim();
+        } else if (mdH2) {
+            result.title = mdH2[1].trim();
+        }
+    }
 
     // 2. Sub-headings (h3 and below, excluding h1/h2 title)
     matchAll(processed, /<h([3-6])[^>]*>([\s\S]*?)<\/h[3-6]>/gi).forEach(m => {
         result.subheadings.push({ level: parseInt(m[1]), text: stripHtml(m[2]).replace(/\n+/g,' ').trim() });
     });
+    if (!result.subheadings.length && rawMarkdown) {
+        matchAll(rawMarkdown, /^###\s+(.+)$/gm).forEach(m => {
+            result.subheadings.push({ level: 3, text: m[1].trim() });
+        });
+    }
 
     // 3. Multi-column — match all div.column directly
     const colMatches = matchAll(processed, /<div[^>]*class="[^"]*\bcol(?:umn)?\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi);
@@ -264,6 +278,18 @@ function parseSlideHtml(slideHtml, rawMarkdown, slideType) {
     matchAll(bodyForLists, /<ol[^>]*>([\s\S]*?)<\/ol>/gi).forEach(m => {
         if (!result.bullets.some(b => b.ordered)) extractBullets(m[1], 0, true);
     });
+    if (!result.bullets.length && rawMarkdown) {
+        matchAll(rawMarkdown, /^([ \t]*)[-*+]\s+(.+)$/gm).forEach(m => {
+            const indent = m[1].length;
+            const level = Math.floor(indent / 2);
+            result.bullets.push({ text: m[2].trim(), level, ordered: false });
+        });
+        matchAll(rawMarkdown, /^([ \t]*)\d+\.\s+(.+)$/gm).forEach(m => {
+            const indent = m[1].length;
+            const level = Math.floor(indent / 2);
+            result.bullets.push({ text: m[2].trim(), level, ordered: true });
+        });
+    }
 
     // 9. Blockquotes — extract first, then strip from body to avoid duplication
     matchAll(processed, /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi).forEach(m => {
@@ -457,13 +483,19 @@ class PPTXExporter {
 
         for (let idx = 0; idx < slides.length; idx++) {
             const slide = slides[idx];
-            const renderedHtml = (renderedSlides && renderedSlides[idx])
+            let renderedHtml = (renderedSlides && renderedSlides[idx])
                 ? (renderedSlides[idx].html || renderedSlides[idx] || '')
                 : '';
 
             let slideTheme = globalTheme;
-            const themeM = renderedHtml.match(/data-theme="([^"]+)"/i);
-            if (themeM && themeM[1]) slideTheme = themeM[1].toLowerCase();
+            if (renderedHtml) {
+                const themeM = renderedHtml.match(/data-theme="([^"]+)"/i);
+                if (themeM && themeM[1]) slideTheme = themeM[1].toLowerCase();
+            } else if (typeof window !== 'undefined' && window.markddApp && window.markddApp.presentationManager) {
+                try {
+                    renderedHtml = window.markddApp.presentationManager.generateSlideHTML(slide, idx, slideTheme);
+                } catch(e) {}
+            }
 
             const colors = getThemeColors(slideTheme, metadata.colors);
 

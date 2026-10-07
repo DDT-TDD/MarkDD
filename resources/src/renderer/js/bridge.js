@@ -301,6 +301,8 @@
     window.MarkDDBridge = {
         isElectron,
         isTauri,
+        fs: isElectron ? require('fs') : fsMock,
+        path: isElectron ? require('path') : pathMock,
 
         /**
          * Convert an absolute local file path to a URL that the webview can load.
@@ -470,6 +472,24 @@
                     if (!file) return { success: false, canceled: true };
                     payload.filePath = file;
                 }
+                if (channel === 'save-diagram-file') {
+                    if (!payload.filePath) {
+                        const ext = payload.format === 'svg' ? 'svg' : 'png';
+                        const filterName = payload.format === 'svg' ? 'SVG Image' : 'PNG Image';
+                        let file = await tauriSaveDialog({
+                            defaultPath: payload.defaultName || `diagram.${ext}`,
+                            filters: [
+                                { name: filterName, extensions: [ext] },
+                                { name: 'All Files', extensions: ['*'] }
+                            ]
+                        });
+                        if (!file) return { success: false, canceled: true };
+                        if (!file.toLowerCase().endsWith('.' + ext)) {
+                            file += '.' + ext;
+                        }
+                        payload.filePath = file;
+                    }
+                }
 
 
                 // ── Window-open status checks ─────────────────────────────────
@@ -619,7 +639,7 @@
 
             } catch (err) {
                 console.error(`[Bridge] IPC channel '${channel}' failed:`, err);
-                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.2.0', description: '', author: 'MarkDD Team' } };
+                if (channel === 'get-package-data') return { success: false, data: { name: 'MarkDD Editor', version: '2.3.0', description: '', author: 'MarkDD Team' } };
                 return { success: false, error: err.message };
             }
         },

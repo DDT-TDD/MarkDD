@@ -441,13 +441,13 @@ class LibraryLoader {
             },
             {
                 name: 'Mermaid',
-                localUrl: '../../node_modules/mermaid/dist/mermaid.min.js',
+                localUrl: 'vendor/mermaid.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js',
                 check: () => typeof window.mermaid === 'object' && window.mermaid !== null && typeof window.mermaid.initialize === 'function'
             },
             {
                 name: 'D3',
-                localUrl: '../../node_modules/d3/dist/d3.min.js',
+                localUrl: 'vendor/d3.min.js',
                 cdnUrl: 'https://d3js.org/d3.v7.min.js',
                 check: () => typeof window.d3 === 'object' && window.d3 !== null && typeof window.d3.select === 'function'
             },
@@ -477,31 +477,31 @@ class LibraryLoader {
             },
             {
                 name: 'Vega',
-                localUrl: '../../node_modules/vega/build/vega.min.js',
+                localUrl: 'vendor/vega.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/vega@5.33.0/build/vega.min.js',
                 check: () => typeof window.vega === 'object' && window.vega !== null && typeof window.vega.parse === 'function'
             },
             {
                 name: 'VegaLite',
-                localUrl: '../../node_modules/vega-lite/build/vega-lite.min.js',
+                localUrl: 'vendor/vega-lite.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js',
                 check: () => typeof window.vegaLite === 'object' && window.vegaLite !== null && typeof window.vegaLite.compile === 'function'
             },
             {
                 name: 'VegaEmbed',
-                localUrl: '../../node_modules/vega-embed/build/vega-embed.min.js',
+                localUrl: 'vendor/vega-embed.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js',
                 check: () => typeof window.vegaEmbed === 'function'
             },
             {
                 name: 'ABCJS',
-                localUrl: '../../node_modules/abcjs/dist/abcjs-basic-min.js',
+                localUrl: 'vendor/abcjs-basic-min.js',
                 cdnUrl: 'https://paulrosen.github.io/abcjs/dist/abcjs-basic-min.js',
                 check: () => typeof window.ABCJS === 'object' && window.ABCJS !== null
             },
             {
                 name: 'PlantUMLEncoder',
-                localUrl: '../../node_modules/plantuml-encoder/dist/plantuml-encoder.min.js',
+                localUrl: 'vendor/plantuml-encoder.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/plantuml-encoder.min.js',
                 check: () => {
                     // For PlantUML encoder, we'll check after loading since it may take time to initialize

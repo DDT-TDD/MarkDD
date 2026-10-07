@@ -125,7 +125,23 @@ class NodeTikZIntegration {
 
             if (result.success) {
                 console.error('[DEBUG] NodeTikZIntegration STRICT LOCAL rendering successful for:', id);
-                container.innerHTML = result.svg;
+                const title = isCircuit ? 'CircuiTikZ Diagram' : 'TikZ Diagram';
+                const safeCode = decodedTikzCode ? decodedTikzCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+                container.innerHTML = `
+                    <div class="tikz-diagram" id="${id}">
+                        <div class="diagram-header">
+                            <span class="diagram-type">${title}</span>
+                            <div class="diagram-actions">
+                                <button class="diagram-btn diagram-export-svg-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'svg')" title="Export as SVG">SVG</button>
+                                <button class="diagram-btn diagram-export-png-btn" onclick="window.markdownRenderer.exportDiagram('${id}', 'png')" title="Export as PNG">PNG</button>
+                                <button class="diagram-btn diagram-toggle" onclick="this.closest('.tikz-diagram').querySelector('.diagram-source').classList.toggle('hidden')">Source</button>
+                            </div>
+                            <pre class="diagram-source hidden"><code>${safeCode}</code></pre>
+                        </div>
+                        <div class="diagram-content">
+                            ${result.svg}
+                        </div>
+                    </div>`;
                 container.classList.add('tikz-rendered');
                 return true;
             } else {

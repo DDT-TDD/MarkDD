@@ -590,8 +590,39 @@ async function handleIpc(channel, payload) {
             }
         }
 
+        case 'save-diagram-file':
+            if (payload.format === 'png' && (!payload.content || payload.content.length === 0) && payload.svgContent) {
+                try {
+                    const puppeteer = require('puppeteer');
+                    const browser = await puppeteer.launch({
+                        headless: true,
+                        args: ['--no-sandbox', '--disable-setuid-sandbox']
+                    });
+                    const page = await browser.newPage();
+                    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#ffffff;">${payload.svgContent}</body></html>`;
+                    await page.setContent(html, { waitUntil: 'load' });
+                    const el = await page.waitForSelector('svg', { timeout: 5000 });
+                    const buf = await el.screenshot({ type: 'png' });
+                    await browser.close();
+                    fs.writeFileSync(payload.filePath, buf);
+                    return { success: true, filePath: payload.filePath };
+                } catch (pErr) {
+                    console.error('[Tauri Backend] save-diagram-file rasterization error:', pErr);
+                }
+            }
+            if (payload.encoding === 'base64') {
+                fs.writeFileSync(payload.filePath, Buffer.from(payload.content, 'base64'));
+            } else {
+                fs.writeFileSync(payload.filePath, payload.content, 'utf-8');
+            }
+            return { success: true, filePath: payload.filePath };
+
         case 'save-file':
-            fs.writeFileSync(payload.filePath, payload.content, 'utf-8');
+            if (payload.encoding === 'base64') {
+                fs.writeFileSync(payload.filePath, Buffer.from(payload.content, 'base64'));
+            } else {
+                fs.writeFileSync(payload.filePath, payload.content, 'utf-8');
+            }
             return { success: true, filePath: payload.filePath };
 
         case 'export-html':

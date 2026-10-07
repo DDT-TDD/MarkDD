@@ -9,8 +9,28 @@ let mainWindow;
 let currentFile = null;
 const bookEngine = new BookEngine(console);
 let activeBookServe = null;
+let fileToOpen = null;
 
 const isDev = process.argv.includes('--dev');
+
+function extractFilePath(rawArg, baseDir = null) {
+  if (!rawArg || typeof rawArg !== 'string') return null;
+  const clean = rawArg.trim().replace(/^["']|["']$/g, '');
+  if (!clean || clean === '.' || clean === '..' || clean.startsWith('--') || clean.toLowerCase().endsWith('.exe')) {
+    return null;
+  }
+  try {
+    const resolved = path.isAbsolute(clean)
+      ? clean
+      : (baseDir ? path.resolve(baseDir, clean) : path.resolve(clean));
+    if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+      return resolved;
+    }
+  } catch (err) {
+    console.log('[Main] extractFilePath error:', err.message);
+  }
+  return null;
+}
 
 // ============================================================================
 // SINGLE INSTANCE LOCK
@@ -37,22 +57,15 @@ if (!gotTheLock) {
       
       // Check if a file was passed in the command line
       for (let i = 1; i < commandLine.length; i++) {
-        const arg = commandLine[i];
-        if (!arg.startsWith('--') && !arg.endsWith('.exe')) {
-          if (arg.endsWith('.md') || arg.endsWith('.markdown')) {
-            try {
-              if (fs.existsSync(arg)) {
-                console.log('[Main] Opening file from second instance:', arg);
-                // Send to renderer to open in a new tab
-                if (mainWindow.webContents) {
-                  mainWindow.webContents.send('open-file-from-system', arg);
-                }
-                break;
-              }
-            } catch (err) {
-              console.log('[Main] Error checking file from second instance:', err.message);
-            }
+        const resolved = extractFilePath(commandLine[i], workingDirectory);
+        if (resolved) {
+          console.log('[Main] Opening file from second instance:', resolved);
+          fileToOpen = resolved;
+          // Send to renderer to open in a new tab
+          if (mainWindow.webContents) {
+            mainWindow.webContents.send('open-file-from-system', resolved);
           }
+          break;
         }
       }
     }
@@ -175,6 +188,14 @@ function createWindow() {
 
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    logInfo('Main', 'Renderer finished loading');
+    if (fileToOpen) {
+      logInfo('Main', `did-finish-load sending fileToOpen: ${fileToOpen}`);
+      mainWindow.webContents.send('open-file-from-system', fileToOpen);
+    }
+  });
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -368,26 +389,22 @@ Chromium ${process.versions.chrome}
   });
 }
 
-// Store file to open on startup
-let fileToOpen = null;
-
 // Handle file opening from command line or file association
 function handleFileOpen(filePath) {
   console.log('[Main] handleFileOpen called with:', filePath);
-  if (!filePath || typeof filePath !== 'string') return;
-  const cleanPath = filePath.trim().replace(/^["']|["']$/g, '');
-  if (fs.existsSync(cleanPath)) {
-    console.log('[Main] Valid file detected, storing for startup:', cleanPath);
-    fileToOpen = cleanPath;
+  const resolved = extractFilePath(filePath);
+  if (resolved) {
+    console.log('[Main] Valid file detected, storing for startup:', resolved);
+    fileToOpen = resolved;
     
     if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
       console.log('[Main] Window ready, sending file to renderer');
-      mainWindow.webContents.send('open-file-from-system', cleanPath);
+      mainWindow.webContents.send('open-file-from-system', resolved);
     } else {
       console.log('[Main] Window not ready yet, file will be loaded on startup');
     }
   } else {
-    console.log('[Main] File does not exist:', cleanPath);
+    console.log('[Main] File does not exist or invalid:', filePath);
   }
 }
 
@@ -441,20 +458,11 @@ app.whenReady().then(() => {
     
     // Check all arguments (skip the first one which is the executable)
     for (let i = 1; i < process.argv.length; i++) {
-      const arg = process.argv[i];
-      console.log(`[Main] Checking argument ${i}:`, arg);
-      
-      // Skip flags and the executable itself
-      if (!arg.startsWith('--') && !arg.endsWith('.exe')) {
-        try {
-          if (fs.existsSync(arg)) {
-            console.log('[Main] Found existing file in arguments:', arg);
-            handleFileOpen(arg);
-            break; // Only open the first file found
-          }
-        } catch (err) {
-          console.log('[Main] Error checking file existence:', err.message);
-        }
+      const resolved = extractFilePath(process.argv[i]);
+      if (resolved) {
+        console.log('[Main] Found existing file in arguments:', resolved);
+        handleFileOpen(resolved);
+        break; // Only open the first file found
       }
     }
   }
@@ -893,6 +901,56 @@ ipcMain.handle('save-file', async (event, { filePath, content }) => {
       }
     }
     return { success: false };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('save-diagram-file', async (event, { filePath, content, encoding, format, defaultName, svgContent }) => {
+  try {
+    if (!filePath) {
+      const ext = format === 'svg' ? 'svg' : 'png';
+      const filterName = format === 'svg' ? 'SVG Image' : 'PNG Image';
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: defaultName || `diagram.${ext}`,
+        filters: [
+          { name: filterName, extensions: [ext] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+      filePath = result.filePath;
+    }
+
+    if (format === 'png' && (!content || content.length === 0) && svgContent) {
+      try {
+        const puppeteer = require('puppeteer');
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#ffffff;">${svgContent}</body></html>`;
+        await page.setContent(html, { waitUntil: 'load' });
+        const el = await page.waitForSelector('svg', { timeout: 5000 });
+        const buf = await el.screenshot({ type: 'png' });
+        await browser.close();
+        fs.writeFileSync(filePath, buf);
+        return { success: true, filePath };
+      } catch (pErr) {
+        logError('save-diagram-file', 'Puppeteer PNG rasterization failed: ' + pErr.message);
+      }
+    }
+
+    if (encoding === 'base64') {
+      fs.writeFileSync(filePath, Buffer.from(content, 'base64'));
+    } else {
+      fs.writeFileSync(filePath, content, 'utf-8');
+    }
+    return { success: true, filePath };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -1376,10 +1434,38 @@ ipcMain.handle('get-directory-children', async (event, dirPath) => {
   }
 });
 
-ipcMain.handle('read-file', async (event, filePath) => {
+ipcMain.handle('read-file', async (event, payload) => {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    return content;
+    let targetPath = null;
+    if (typeof payload === 'string') {
+      targetPath = payload;
+    } else if (payload && typeof payload === 'object') {
+      targetPath = payload.filePath || payload.path || payload.file;
+    }
+    if (!targetPath) {
+      return { success: false, error: 'No file path provided to read-file' };
+    }
+    const cleanPath = targetPath.trim().replace(/^["']|["']$/g, '');
+    const content = fs.readFileSync(cleanPath, 'utf8');
+    return { success: true, content, filePath: cleanPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('fs-read-file', async (event, payload) => {
+  try {
+    let targetPath = null;
+    if (typeof payload === 'string') {
+      targetPath = payload;
+    } else if (payload && typeof payload === 'object') {
+      targetPath = payload.filePath || payload.path || payload.file;
+    }
+    if (!targetPath) {
+      throw new Error('No file path provided to fs-read-file');
+    }
+    const cleanPath = targetPath.trim().replace(/^["']|["']$/g, '');
+    return fs.readFileSync(cleanPath, 'utf8');
   } catch (error) {
     throw new Error(`Failed to read file: ${error.message}`);
   }

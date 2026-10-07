@@ -166,8 +166,16 @@ class MarkDDApp {
                 bridge.ipcRenderer.on('open-file-from-system', async (event, filePath) => {
                     console.log('[App] open-file-from-system event received:', filePath);
                     try {
-                        const content = bridge.fs ? bridge.fs.readFileSync(filePath, 'utf-8') : await bridge.invoke('fs-read-file', { filePath });
-                        await this.openFile(filePath, content, true);
+                        let content = null;
+                        if (bridge.fs && typeof bridge.fs.readFileSync === 'function') {
+                            content = bridge.fs.readFileSync(filePath, 'utf-8');
+                        } else {
+                            const res = await bridge.invoke('read-file', { filePath });
+                            content = typeof res === 'string' ? res : (res && res.content ? res.content : null);
+                        }
+                        if (typeof content === 'string') {
+                            await this.openFile(filePath, content, true);
+                        }
                     } catch (error) {
                         console.error('[App] Error reading file from system event:', error);
                         this.showError('Failed to open file: ' + error.message);
@@ -187,8 +195,13 @@ class MarkDDApp {
             if (result && result.success && result.filePath) {
                 console.log('[App] checkStartupFile: Opening startup file:', result.filePath);
                 try {
-                    const readRes = await bridge.invoke('read-file', { filePath: result.filePath });
-                    const content = (readRes && typeof readRes.content === 'string') ? readRes.content : (bridge.fs ? bridge.fs.readFileSync(result.filePath, 'utf-8') : null);
+                    let content = null;
+                    if (bridge.fs && typeof bridge.fs.readFileSync === 'function') {
+                        content = bridge.fs.readFileSync(result.filePath, 'utf-8');
+                    } else {
+                        const readRes = await bridge.invoke('read-file', { filePath: result.filePath });
+                        content = typeof readRes === 'string' ? readRes : (readRes && readRes.content ? readRes.content : null);
+                    }
                     if (typeof content === 'string') {
                         await this.openFile(result.filePath, content, true);
                     }
@@ -207,8 +220,13 @@ class MarkDDApp {
                         const res = await bridge.invoke('get-startup-file');
                         if (res && res.success && res.filePath) {
                             console.log('[App] Received startup file via single-instance event:', res.filePath);
-                            const readRes = await bridge.invoke('read-file', { filePath: res.filePath });
-                            const content = (readRes && typeof readRes.content === 'string') ? readRes.content : (bridge.fs ? bridge.fs.readFileSync(res.filePath, 'utf-8') : null);
+                            let content = null;
+                            if (bridge.fs && typeof bridge.fs.readFileSync === 'function') {
+                                content = bridge.fs.readFileSync(res.filePath, 'utf-8');
+                            } else {
+                                const readRes = await bridge.invoke('read-file', { filePath: res.filePath });
+                                content = typeof readRes === 'string' ? readRes : (readRes && readRes.content ? readRes.content : null);
+                            }
                             if (typeof content === 'string') {
                                 await this.openFile(res.filePath, content, true);
                             }
@@ -4098,11 +4116,21 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-book-search', () => this.showBookSearch());
 
         // Book Mode toggle
+        const bookModeBtn = document.getElementById('menu-book-mode-toggle');
         const bookModeToggle = document.getElementById('menu-book-mode-enabled');
         if (bookModeToggle) {
             bookModeToggle.addEventListener('change', (e) => {
                 e.stopPropagation();
                 this.toggleBookMode(e.target.checked);
+            });
+        }
+        if (bookModeBtn && bookModeToggle) {
+            bookModeBtn.addEventListener('click', (e) => {
+                if (e.target !== bookModeToggle) {
+                    e.stopPropagation();
+                    bookModeToggle.checked = !bookModeToggle.checked;
+                    this.toggleBookMode(bookModeToggle.checked);
+                }
             });
         }
 
@@ -4125,11 +4153,21 @@ A: Verify files exist and contain matching text.
         this.setupBookModeUI();
         
         // Navigation toggle handler
+        const navToggleBtn = document.getElementById('menu-presentation-toggle-navigation');
         const navigationToggleCheckbox = document.getElementById('navigation-toggle-checkbox');
         if (navigationToggleCheckbox) {
             navigationToggleCheckbox.addEventListener('change', (e) => {
                 e.stopPropagation();
                 this.togglePresentationNavigation(e.target.checked);
+            });
+        }
+        if (navToggleBtn && navigationToggleCheckbox) {
+            navToggleBtn.addEventListener('click', (e) => {
+                if (e.target !== navigationToggleCheckbox) {
+                    e.stopPropagation();
+                    navigationToggleCheckbox.checked = !navigationToggleCheckbox.checked;
+                    this.togglePresentationNavigation(navigationToggleCheckbox.checked);
+                }
             });
         }
         
@@ -4139,11 +4177,21 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-navigation-none', () => this.setNavigationPosition('none'));
         
         // TOC toggle handler
+        const tocToggleBtn = document.getElementById('menu-presentation-toggle-toc');
         const tocToggleCheckbox = document.getElementById('toc-toggle-checkbox');
         if (tocToggleCheckbox) {
             tocToggleCheckbox.addEventListener('change', (e) => {
                 e.stopPropagation();
                 this.togglePresentationTOC(e.target.checked);
+            });
+        }
+        if (tocToggleBtn && tocToggleCheckbox) {
+            tocToggleBtn.addEventListener('click', (e) => {
+                if (e.target !== tocToggleCheckbox) {
+                    e.stopPropagation();
+                    tocToggleCheckbox.checked = !tocToggleCheckbox.checked;
+                    this.togglePresentationTOC(tocToggleCheckbox.checked);
+                }
             });
         }
         
@@ -4161,11 +4209,21 @@ A: Verify files exist and contain matching text.
         this.bindButton('menu-presentation-insert-slide', () => this.insertSlideSeparator());
         
         // Page numbers toggle handler
+        const pageNumbersToggleBtn = document.getElementById('menu-presentation-toggle-page-numbers');
         const pageNumbersToggleCheckbox = document.getElementById('page-numbers-toggle-checkbox');
         if (pageNumbersToggleCheckbox) {
             pageNumbersToggleCheckbox.addEventListener('change', (e) => {
                 e.stopPropagation();
                 this.togglePageNumbers(e.target.checked);
+            });
+        }
+        if (pageNumbersToggleBtn && pageNumbersToggleCheckbox) {
+            pageNumbersToggleBtn.addEventListener('click', (e) => {
+                if (e.target !== pageNumbersToggleCheckbox) {
+                    e.stopPropagation();
+                    pageNumbersToggleCheckbox.checked = !pageNumbersToggleCheckbox.checked;
+                    this.togglePageNumbers(pageNumbersToggleCheckbox.checked);
+                }
             });
         }
         
@@ -9038,7 +9096,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.2.0', // Fallback, will be replaced by main process
+            version: '2.3.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9075,11 +9133,11 @@ A passionate junior software engineer with solid foundations in computer science
         libs = libs.map(lib => {
             if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.2.0' };
+                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.3.0' };
                 } else if (isElectron) {
-                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.2.0' };
+                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.3.0' };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.2.0' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.3.0' };
                 }
             }
             return lib;
@@ -9188,12 +9246,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = '2.2.0';
+            versionElement.textContent = '2.3.0';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = '2.2.0';
+                versionElement.textContent = '2.3.0';
             }
         }
     }
