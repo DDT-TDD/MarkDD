@@ -122,31 +122,55 @@ try {
     packageData = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
 } catch (e) {
     // Fallback: version must always match package.json — update both together
-    packageData = { name: "markdd-editor", version: "2.2.0" };
+    packageData = { name: "MarkDD Editor", version: "2.4.0", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
 }
 
 const PORT = 3001;
 
 // Simple custom percent-decoder
 function percentDecode(s) {
+    if (!s || typeof s !== 'string') return '';
+    if (s.includes('\0') || s.includes('%00')) return '';
     let result = '';
     try {
         result = decodeURIComponent(s);
     } catch (e) {
         result = s;
     }
+    if (result.includes('\0')) return '';
     return result;
 }
 
 const server = http.createServer(async (req, res) => {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Restrict CORS to trusted local origins (Tauri app / loopback)
+    const reqOrigin = req.headers.origin;
+    const isAllowedOrigin = !reqOrigin || 
+        reqOrigin === 'null' || 
+        reqOrigin.startsWith('tauri://') || 
+        reqOrigin.startsWith('asset://') || 
+        /^https?:\/\/(?:[a-z0-9-]+\.)?localhost(?::\d+)?$/i.test(reqOrigin) || 
+        /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(reqOrigin);
+
+    if (reqOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
     if (req.method === 'OPTIONS') {
         res.statusCode = 200;
         res.end();
+        return;
+    }
+
+    if (!isAllowedOrigin) {
+        console.warn('[Main-Tauri] Blocked untrusted cross-origin request from:', reqOrigin);
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('Forbidden: Cross-origin access denied');
         return;
     }
 
@@ -839,7 +863,7 @@ async function handleIpc(channel, payload) {
             return { success: true, path: exPath };
 
         case 'get-package-data':
-            return { success: true, data: packageData };
+            return { success: true, data: { name: 'MarkDD Editor', version: '2.4.0', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
 
         case 'read-license':
             const lic = fs.readFileSync(path.join(__dirname, '../../LICENSE'), 'utf-8');
@@ -849,11 +873,36 @@ async function handleIpc(channel, payload) {
             const tp = fs.readFileSync(path.join(__dirname, '../../THIRD-PARTY-LICENSES.md'), 'utf-8');
             return { success: true, content: tp };
 
-        case 'open-external':
-            const exec = require('child_process').exec;
-            const startCmd = process.platform === 'win32' ? 'start' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-            exec(`${startCmd} "${payload}"`);
-            return { success: true };
+        case 'open-external': {
+            try {
+                if (typeof payload !== 'string' || !payload.trim()) {
+                    return { success: false, error: 'Invalid URL payload' };
+                }
+                const parsedUrl = new URL(payload.trim());
+                if (!['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+                    return { success: false, error: 'Protocol not allowed' };
+                }
+                // Check for NUL byte truncation (CVE-2026-105482) or fullwidth host bypass (CVE-2026-105483)
+                if (parsedUrl.hostname.includes('\0') || /[\uFF01-\uFF5E]/.test(parsedUrl.hostname)) {
+                    return { success: false, error: 'Malformed or dangerous hostname' };
+                }
+                const { spawn, execFile } = require('child_process');
+                if (process.platform === 'win32') {
+                    spawn('cmd.exe', ['/c', 'start', '""', parsedUrl.href], {
+                        windowsHide: true,
+                        detached: true,
+                        stdio: 'ignore'
+                    }).unref();
+                } else if (process.platform === 'darwin') {
+                    execFile('open', [parsedUrl.href]);
+                } else {
+                    execFile('xdg-open', [parsedUrl.href]);
+                }
+                return { success: true };
+            } catch (err) {
+                return { success: false, error: err.message };
+            }
+        }
 
         case 'get-startup-file': {
             const fileToReturn = startupFilePath;
@@ -925,6 +974,6 @@ server.on('error', (err) => {
     }
 });
 
-server.listen(PORT, () => {
-    console.log(`[Headless Backend] Listening on http://localhost:${PORT}`);
+server.listen(PORT, '127.0.0.1', () => {
+    console.log(`[Headless Backend] Listening on http://127.0.0.1:${PORT}`);
 });

@@ -1387,8 +1387,12 @@ All source implementations are available in the \`References/\` directory:
 
     async createShowcaseFile() {
         try {
-            const fs = require('fs');
-            const path = require('path');
+            const fs = window.MarkDDBridge?.fs || (typeof require !== 'undefined' ? require('fs') : null);
+            const path = window.MarkDDBridge?.path || (typeof require !== 'undefined' ? require('path') : null);
+            if (!fs || !path) {
+                this.setContent(this.getCleanComprehensiveExample());
+                return;
+            }
             const showcaseContent = this.getCleanComprehensiveExample();
             const showcaseFilePath = path.join(process.cwd(), 'COMPREHENSIVE-FEATURES-SHOWCASE.md');
             
@@ -1626,8 +1630,8 @@ Press [[Ctrl+S]] to save, [[Ctrl+O]] to open, and [[Ctrl+N]] to create a new fil
 
 *This showcase demonstrates the comprehensive capabilities of MarkDD Editor. Every feature shown here is fully functional and ready to use!*
 
-**Version**: 2.3.0  
-**Last Updated**: 2026-10-06  
+**Version**: 2.4.0  
+**Last Updated**: 2026-10-26  
 **License**: MIT`;
     }
 

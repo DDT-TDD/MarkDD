@@ -1300,10 +1300,13 @@ class FileBrowser {
     async updateAppVersion() {
         const versionElement = document.getElementById('app-version');
         if (!versionElement) return;
-        // Wait for the Node.js backend to be ready before querying version
+        // Wait briefly for the Node.js backend to be ready with safety timeout
         try {
             if (window.MarkDDBackendReady) {
-                await window.MarkDDBackendReady;
+                await Promise.race([
+                    window.MarkDDBackendReady,
+                    new Promise(r => setTimeout(r, 800))
+                ]);
             }
         } catch (_) {}
         try {
@@ -1315,7 +1318,7 @@ class FileBrowser {
         } catch (e) {
             console.warn('[FileBrowser] updateAppVersion failed:', e);
         }
-        versionElement.textContent = 'v2.3.0';
+        versionElement.textContent = 'v2.4.0';
     }
 
     // Bookmark Management

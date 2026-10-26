@@ -1,6 +1,6 @@
 [package]
 name = "markdd-editor"
-version = "2.3.0"
+version = "2.4.0"
 description = "MarkDD Editor"
 authors = ["MarkDD"]
 license = "MIT"

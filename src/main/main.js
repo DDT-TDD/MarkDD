@@ -15,6 +15,7 @@ const isDev = process.argv.includes('--dev');
 
 function extractFilePath(rawArg, baseDir = null) {
   if (!rawArg || typeof rawArg !== 'string') return null;
+  if (rawArg.includes('\0') || rawArg.includes('%00')) return null; // Prevent NUL truncation (CVE-2026-105482)
   const clean = rawArg.trim().replace(/^["']|["']$/g, '');
   if (!clean || clean === '.' || clean === '..' || clean.startsWith('--') || clean.toLowerCase().endsWith('.exe')) {
     return null;
@@ -1333,8 +1334,24 @@ ipcMain.handle('render-tikz-server-side', async (event, { tikzCode, isCircuit = 
   }
 });
 
-ipcMain.handle('open-external', async (event, url) => {
-  shell.openExternal(url);
+ipcMain.handle('open-external', async (event, urlToOpen) => {
+  try {
+    if (typeof urlToOpen !== 'string' || !urlToOpen.trim()) {
+      return { success: false, error: 'Invalid URL payload' };
+    }
+    const parsed = new URL(urlToOpen.trim());
+    if (['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      // Check for NUL byte truncation (CVE-2026-105482) or fullwidth host bypass (CVE-2026-105483)
+      if (parsed.hostname && (parsed.hostname.includes('\0') || /[\uFF01-\uFF5E]/.test(parsed.hostname))) {
+        return { success: false, error: 'Malformed or dangerous hostname' };
+      }
+      await shell.openExternal(urlToOpen.trim());
+      return { success: true };
+    }
+    return { success: false, error: 'Protocol not allowed' };
+  } catch (err) {
+    return { success: false, error: 'Invalid URL' };
+  }
 });
 
 // IPC handler for open-file-dialog (renderer invokes this to open a file)
@@ -1639,7 +1656,7 @@ ipcMain.handle('get-package-data', async () => {
     return {
       success: true,
       data: {
-        name: packageData.name,
+        name: 'MarkDD Editor',
         version: packageData.version,
         description: packageData.description,
         author: packageData.author
@@ -1799,13 +1816,22 @@ ipcMain.handle('get-available-plugins', async () => {
   }
 });
 
+const NPM_PKG_REGEX = /^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/i;
+
 ipcMain.handle('install-plugin', async (event, pluginName) => {
-  const { exec } = require('child_process');
+  const { execFile } = require('child_process');
   
   return new Promise((resolve) => {
-    logInfo('Plugin Install', `Installing ${pluginName}...`);
+    if (!pluginName || typeof pluginName !== 'string' || !NPM_PKG_REGEX.test(pluginName.trim())) {
+      logError('Plugin Install', `Invalid plugin package name: ${pluginName}`);
+      resolve({ success: false, error: 'Invalid plugin package name format' });
+      return;
+    }
+    const safeName = pluginName.trim();
+    logInfo('Plugin Install', `Installing ${safeName}...`);
     
-    exec(`npm install ${pluginName}`, { cwd: process.cwd() }, (error, stdout, stderr) => {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    execFile(npmCmd, ['install', safeName], { cwd: process.cwd() }, (error, stdout, stderr) => {
       if (error) {
         logError('Plugin Install', error);
         resolve({
@@ -1814,7 +1840,7 @@ ipcMain.handle('install-plugin', async (event, pluginName) => {
           stderr: stderr
         });
       } else {
-        logInfo('Plugin Install', `Successfully installed ${pluginName}`);
+        logInfo('Plugin Install', `Successfully installed ${safeName}`);
         resolve({
           success: true,
           stdout: stdout
@@ -1825,12 +1851,19 @@ ipcMain.handle('install-plugin', async (event, pluginName) => {
 });
 
 ipcMain.handle('uninstall-plugin', async (event, pluginName) => {
-  const { exec } = require('child_process');
+  const { execFile } = require('child_process');
   
   return new Promise((resolve) => {
-    logInfo('Plugin Uninstall', `Uninstalling ${pluginName}...`);
+    if (!pluginName || typeof pluginName !== 'string' || !NPM_PKG_REGEX.test(pluginName.trim())) {
+      logError('Plugin Uninstall', `Invalid plugin package name: ${pluginName}`);
+      resolve({ success: false, error: 'Invalid plugin package name format' });
+      return;
+    }
+    const safeName = pluginName.trim();
+    logInfo('Plugin Uninstall', `Uninstalling ${safeName}...`);
     
-    exec(`npm uninstall ${pluginName}`, { cwd: process.cwd() }, (error, stdout, stderr) => {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    execFile(npmCmd, ['uninstall', safeName], { cwd: process.cwd() }, (error, stdout, stderr) => {
       if (error) {
         logError('Plugin Uninstall', error);
         resolve({
@@ -1839,7 +1872,7 @@ ipcMain.handle('uninstall-plugin', async (event, pluginName) => {
           stderr: stderr
         });
       } else {
-        logInfo('Plugin Uninstall', `Successfully uninstalled ${pluginName}`);
+        logInfo('Plugin Uninstall', `Successfully uninstalled ${safeName}`);
         resolve({
           success: true,
           stdout: stdout

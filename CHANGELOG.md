@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+---
+## [2.4.0] - 2026-10-26
+
+### Security & Hardening
+- **Node.js October 2026 Security Release Alignment**:
+  - Aligned with Node.js v24.22.1 / v26.12.1 / v22.23.4 security patches.
+  - Implemented defenses against NUL byte truncation attacks (CVE-2026-105482) across file argument parsing and URL percent-decoding.
+  - Hardened external URL opening against fullwidth character hostname bypasses (CVE-2026-105483 / CVE-2026-106069).
+- **Backend & IPC Hardening**:
+  - Bound Tauri headless Node backend exclusively to loopback interface `127.0.0.1` instead of `0.0.0.0`.
+  - Implemented strict CORS origin allowlisting (`tauri://localhost`, loopback) rejecting untrusted cross-origin requests.
+  - Replaced raw shell string execution in `open-external` with parameterized `spawn`/`execFile` calls and protocol whitelisting (`http:`, `https:`, `mailto:`).
+  - Secured plugin installation and uninstallation IPC handlers with strict npm package name regex validation.
+- **Dependency Vulnerability Upgrades**:
+  - Cleaned all production runtime vulnerabilities (`npm audit --omit=dev` reports 0 vulnerabilities).
+  - Upgraded `dompurify` to 3.4.17 (resolving critical XSS advisories).
+  - Overrode `tar` to 7.5.22 (resolving critical path traversal advisories).
+  - Upgraded `katex` to 0.19.1, `puppeteer` to 25.16.0, `basic-ftp` to 6.2.3, `markdown-it` to 14.1.0, and the Vega stack (`vega@6.4.0`, `vega-lite@6.5.0`, `vega-embed@7.3.0`).
+
 ## [2.3.0] - 2026-10-06
 
 ### Added & Enhanced

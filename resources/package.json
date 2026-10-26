@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, TikZ/CircuiTikZ rendering, Beamer-style presentations, and complete book publishing system",
   "main": "src/main/main.js",
   "homepage": "./",
@@ -128,7 +128,7 @@
     "@tauri-apps/cli": "^2.1.0",
     "archiver": "^5.3.2",
     "electron": "^38.0.0",
-    "electron-builder": "^24.13.3",
+    "electron-builder": "^26.18.0",
     "jsdom": "^27.0.0"
   },
   "dependencies": {
@@ -138,18 +138,18 @@
     "chokidar": "^3.5.3",
     "codemirror": "^5.65.2",
     "d3": "^7.8.0",
-    "dompurify": "^3.2.6",
+    "dompurify": "^3.4.17",
     "electron-store": "^8.0.1",
     "electron-window-state": "^5.0.3",
     "fs-extra": "^11.0.0",
     "highlight.js": "^11.11.1",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.2",
     "jszip": "^3.10.1",
-    "katex": "^0.16.22",
+    "katex": "^0.19.1",
     "latex.js": "^0.12.6",
     "lunr": "^2.3.9",
     "marked": "^16.3.0",
-    "markdown-it": "^13.0.1",
+    "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^8.6.7",
     "markdown-it-attrs": "^4.3.1",
     "markdown-it-texmath": "^1.0.0",
@@ -161,10 +161,10 @@
     "node-tikzjax": "github:prinsss/node-tikzjax",
     "plantuml-encoder": "^1.4.0",
     "pptxgenjs": "^4.0.1",
-    "puppeteer": "^24.19.0",
-    "vega": "^5.33.0",
-    "vega-embed": "^6.29.0",
-    "vega-lite": "^5.23.0"
+    "puppeteer": "^25.16.0",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.3.0",
+    "vega-lite": "^6.5.0"
   },
   "keywords": [
     "markdown",
@@ -178,5 +178,20 @@
     "circuitikz"
   ],
   "author": "MarkDD Team",
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "tar": "^7.5.22",
+    "dompurify": "^3.4.17",
+    "basic-ftp": "^6.2.3",
+    "source-map-js": "^1.2.2",
+    "svgo": "^4.1.0",
+    "fast-uri": "^4.2.3",
+    "image-size": "^2.0.4",
+    "http-cache-semantics": "^4.3.0",
+    "ip-address": "^10.7.5",
+    "devalue": "^6.0.3",
+    "zod": "^4.6.7",
+    "@xmldom/xmldom": "^0.9.12",
+    "katex": "^0.19.1"
+  }
 }
