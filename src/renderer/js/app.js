@@ -9097,7 +9097,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.4.0', // Fallback, will be replaced by main process
+            version: '2.4.1', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9134,18 +9134,18 @@ A passionate junior software engineer with solid foundations in computer science
         libs = libs.map(lib => {
             if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.4.0' };
+                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.4.1' };
                 } else if (isElectron) {
-                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.4.0' };
+                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.4.1' };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.0' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.1' };
                 }
             }
             return lib;
         });
 
         const appTitle = (packageData.name === 'markdd-editor' || !packageData.name) ? 'MarkDD Editor' : packageData.name;
-        const appVer = packageData.version || '2.4.0';
+        const appVer = packageData.version || '2.4.1';
         let html = `<h2>${appTitle} v${appVer}</h2>
         <p>${packageData.description}</p>
         <p><strong>Author:</strong> ${packageData.author}</p>
@@ -9249,12 +9249,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = 'v2.4.0';
+            versionElement.textContent = 'v2.4.1';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = 'v2.4.0';
+                versionElement.textContent = 'v2.4.1';
             }
         }
     }

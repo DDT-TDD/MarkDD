@@ -57,8 +57,9 @@ Aligned codebase against the October 21, 2026 Node.js security releases (Node.js
 ---
 
 ## 📦 Build Artifacts
-- **Tauri 2.0 Native NSIS Installer**: `src-tauri/target/release/bundle/nsis/MarkDD Editor_2.4.0_x64-setup.exe`
-- **Tauri 2.0 Native Executable**: `src-tauri/target/release/markdd-editor.exe`
-- **Tauri 2.0 Portable Zip Archive**: `src-tauri/target/release/bundle/portable/markdd-editor_2.4.0_portable_x64.zip`
-- **Electron Native NSIS Installer**: `dist-final/MarkDD Editor Setup 2.4.0.exe`
-- **Electron Portable Unpacked Zip**: `dist-final/MarkDD Editor 2.4.0 portable_unpacked.zip`
+
+## 📦 Build Artifacts
+- **Tauri 2.0 Native NSIS Installer**: `MarkDD Editor_2.4.0_x64-setup.exe`
+- **Tauri 2.0 Portable Zip Archive**: `markdd-editor_2.4.0_portable_x64.zip`
+- **Electron Native NSIS Installer**: `MarkDD Editor Setup 2.4.0.exe`
+- **Electron Portable Unpacked Zip**: `MarkDD Editor 2.4.0 portable_unpacked.zip`

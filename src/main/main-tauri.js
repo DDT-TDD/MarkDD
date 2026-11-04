@@ -122,7 +122,7 @@ try {
     packageData = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
 } catch (e) {
     // Fallback: version must always match package.json — update both together
-    packageData = { name: "MarkDD Editor", version: "2.4.0", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
+    packageData = { name: "MarkDD Editor", version: "2.4.1", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
 }
 
 const PORT = 3001;
@@ -863,7 +863,7 @@ async function handleIpc(channel, payload) {
             return { success: true, path: exPath };
 
         case 'get-package-data':
-            return { success: true, data: { name: 'MarkDD Editor', version: '2.4.0', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
+            return { success: true, data: { name: 'MarkDD Editor', version: packageData.version || '2.4.1', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
 
         case 'read-license':
             const lic = fs.readFileSync(path.join(__dirname, '../../LICENSE'), 'utf-8');

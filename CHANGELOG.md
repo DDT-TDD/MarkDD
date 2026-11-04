@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 ---
+## [2.4.1] - 2026-11-04
+
+### Fixed & Hardened (Zero-Regression Math Engine Audit)
+- **Inline LaTeX Math Subscript & Formatting Fix**:
+  - Fixed false-positive markdown formatting exclusion in `protectLaTeXEnvironments` that previously rejected any inline math formula containing subscripts (`_`), asterisks (`*`), or tildes (`~`) (e.g. `$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+ and `$\int_{a}^{b} f(x)dx# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+).
+  - Allowed mathematical function expressions (`$f(x)# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+, `$g(x,y)# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+, `$P(A|B)# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+, `$O(n^2)# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+) by restricting `isFunctionCall` to dot-property programming calls only.
+  - Added minus sign (`-`) and expanded mathematical operators/Greek symbols to `hasMathIndicators`.
+  - Prevented `marked` from erroneously converting multiple subscripts in inline formulas into `<em>` italic HTML tags.
+- **Code Block Math Isolation**:
+  - Added pre-masking of non-TikZ fenced code blocks (``` or ~~~) and inline code spans before scanning for LaTeX math, eliminating `<span class="math-placeholder"...>` placeholder leakage and warnings inside code examples.
+- **Chemistry & Inequality Preservation**:
+  - Replaced indiscriminate HTML tag stripping regexes (`/<[^>]*>/g`) with strict HTML element tag matchers (`/</?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g`), ensuring chemical reversible reaction arrows (`\ce{N2 + 3H2 <=> 2NH3}`) and mathematical inequalities (`$a < b \text{ and } c > d# CHANGELOG - MarkDD Editor
+
+All notable changes to MarkDD Editor are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+---
+) are never corrupted.
+- **Marked Extension Child Token Support**:
+  - Fixed alert and custom container (`:::info`, `:::warning`) tokenizers to tokenize child tokens via `this.lexer.inline` so updated `marked` parses inner markdown cleanly without throwing `Token with "undefined" type` errors.
+- **Duplicate Method Clean-Up & Startup Optimization**:
+  - Removed duplicate stub implementation of `renderMathBlock` and `generateLineNumbers` that was overwriting the full MathJax/KaTeX-aware method.
+  - Cached synchronous MathJax readiness in `isMathJaxReadySync()` to avoid repetitive SVG generation and console logging on every placeholder.
+  - Synchronously bundled and loaded `vendor/marked.min.js`, `vendor/katex.min.js`, and `vendor/mhchem.min.js` in `index.html` for instant zero-CDN startup in both Electron and Tauri.
+- **Version & About Modal Consistency**:
+  - Synchronized version `2.4.1` across all manifests (`package.json`, `tauri.conf.json`, `Cargo.toml`, `src/version.js`), UI badges, settings indicators, and `about-libraries.json`.
+  - Dynamic resolution of package version in Tauri backend IPC (`get-package-data`).
+- **Comprehensive Automated Verification**:
+  - Rewrote `test/test_math_rendering_audit.js` to validate the entire `examples/COMPREHENSIVE-FEATURES-SHOWCASE.md` and built-in editor showcase with zero leaked placeholders, zero unrendered math nodes, and zero KaTeX/math errors.
+
 ## [2.4.0] - 2026-10-26
 
 ### Security & Hardening

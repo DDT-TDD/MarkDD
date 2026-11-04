@@ -1,7 +1,7 @@
 [
   {
     "name": "Application Shell (Tauri 2.0 / Electron)",
-    "version": "2.4.0"
+    "version": "2.4.1"
   },
   {
     "name": "Marked (Markdown Core)",
@@ -85,15 +85,15 @@
   },
   {
     "name": "Book Publishing Engine",
-    "version": "2.4.0"
+    "version": "2.4.1"
   },
   {
     "name": "Presentation Mode (30 Beamer Themes)",
-    "version": "2.4.0"
+    "version": "2.4.1"
   },
   {
     "name": "CV & Resume Studio",
-    "version": "2.4.0"
+    "version": "2.4.1"
   },
   {
     "name": "Markdown-It (Book Pipeline)",

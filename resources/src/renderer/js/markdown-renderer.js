@@ -839,12 +839,17 @@ class MarkdownRenderer {
                     const rule = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n([\s\S]*?)(?=\n\n|\n\[!|$)/i;
                     const match = rule.exec(src);
                     if (match) {
-                        return {
+                        const token = {
                             type: 'alert',
                             raw: match[0],
                             alertType: match[1].toLowerCase(),
-                            text: match[2].trim()
+                            text: match[2].trim(),
+                            tokens: []
                         };
+                        if (this.lexer && this.lexer.inline) {
+                            this.lexer.inline(token.text, token.tokens);
+                        }
+                        return token;
                     }
                 },
                 renderer(token) {
@@ -864,12 +869,15 @@ class MarkdownRenderer {
                     };
                     const icon = icons[token.alertType] || '📘';
                     const color = colors[token.alertType] || '#0969da';
+                    const content = token.tokens && token.tokens.length > 0
+                        ? this.parser.parseInline(token.tokens)
+                        : (token.text || '');
                     return `<div class="markdown-alert markdown-alert-${token.alertType}" style="border-left: 4px solid ${color}; background-color: ${color}10; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
                         <div style="display: flex; align-items: center; margin-bottom: 8px;">
                             <span style="font-size: 20px; margin-right: 8px;">${icon}</span>
                             <strong style="text-transform: uppercase; color: ${color};">${token.alertType}</strong>
                         </div>
-                        <div>${this.parser.parseInline(token.text)}</div>
+                        <div>${content}</div>
                     </div>`;
                 }
             }, {
@@ -884,13 +892,18 @@ class MarkdownRenderer {
                     const rule = /^:::(info|warning|error|success|tip|danger)(?:\s+(.*?))?\n([\s\S]*?)^:::$/im;
                     const match = rule.exec(src);
                     if (match) {
-                        return {
+                        const token = {
                             type: 'container',
                             raw: match[0],
                             containerType: match[1].toLowerCase(),
                             title: match[2] ? match[2].trim() : '',
-                            text: match[3].trim()
+                            text: match[3].trim(),
+                            tokens: []
                         };
+                        if (this.lexer && this.lexer.inline) {
+                            this.lexer.inline(token.text, token.tokens);
+                        }
+                        return token;
                     }
                 },
                 renderer(token) {
@@ -913,8 +926,10 @@ class MarkdownRenderer {
                     const icon = icons[token.containerType] || 'ℹ️';
                     const color = colors[token.containerType] || '#0969da';
                     
-                    // Parse the inner content as markdown using the parser's parseInline method
-                    const parsedContent = this.parser.parseInline(token.text);
+                    // Parse the inner content as markdown tokens
+                    const parsedContent = token.tokens && token.tokens.length > 0
+                        ? this.parser.parseInline(token.tokens)
+                        : (token.text || '');
                     
                     return `<div class="custom-container custom-container-${token.containerType}" style="border: 1px solid ${color}; border-left: 4px solid ${color}; background-color: ${color}08; padding: 16px; margin: 16px 0; border-radius: 6px;">
                         <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -1349,6 +1364,9 @@ class MarkdownRenderer {
 
     // Check if MathJax is fully ready and operational (synchronous version)
     isMathJaxReadySync() {
+        if (this._mathJaxSyncVerified && window.MathJax && typeof window.MathJax.tex2svg === 'function') {
+            return true;
+        }
         if (!window.MathJax) {
             console.log('[MarkdownRenderer] 🔍 MathJax readiness check: window.MathJax not found');
             return false;
@@ -1409,6 +1427,7 @@ class MarkdownRenderer {
                     console.warn('[MarkdownRenderer] ⚠️ Chemistry test failed - mhchem may not be loaded:', chemError.message);
                 }
                 
+                this._mathJaxSyncVerified = true;
                 return true;
             } else {
                 console.log('[MarkdownRenderer] ❌ MathJax test failed - no valid output');
@@ -1512,16 +1531,16 @@ class MarkdownRenderer {
     cleanLatexForKaTeX(content) {
         if (!content || typeof content !== 'string') return '';
         return content
+            // Fix line breaks and strip actual HTML tags BEFORE decoding &lt; and &gt;
+            // Use strict HTML tag regex so chemical arrows (<=>, <->) and math inequalities (< ... >) are NEVER deleted!
+            .replace(/<br\s*\/?>(?:\s*)/gi, ' \\\\ ')
+            .replace(/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g, '')
             .replace(/&amp;/g, '&')
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
             .replace(/&quot;/g, '"')
             .replace(/&#39;/g, "'")
             .replace(/&nbsp;/g, ' ')
-            // Replace HTML line breaks with LaTeX linebreaks
-            .replace(/<br\s*\/?>(?:\s*)/gi, ' \\\\ ')
-            // Remove any remaining tags
-            .replace(/<[^>]*>/g, '')
             // Collapse horizontal whitespace but preserve newlines
             .replace(/[ \t]+/g, ' ')
             .replace(/ \n/g, '\n')
@@ -1640,6 +1659,13 @@ class MarkdownRenderer {
     }
 
     async render(markdown, options = {}) {
+        // Always sync late-loaded math libraries from window before rendering
+        if (!this.katex && typeof window !== 'undefined' && window.katex) {
+            this.katex = window.katex;
+        }
+        if (!this.mathjax && typeof window !== 'undefined' && window.MathJax) {
+            this.mathjax = window.MathJax;
+        }
         // Reset state for TOC, Footnotes, and Bibliography
         this.tocHeadings = [];
         this.footnotes = [];
@@ -2057,14 +2083,14 @@ class MarkdownRenderer {
         // Clean content for math processing
         const cleanLatexContent = (content) => {
             return content
+                .replace(/<br\s*\/?>/gi, ' \\\\ ')
+                .replace(/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g, '')
                 .replace(/&amp;/g, '&')
                 .replace(/&lt;/g, '<')
                 .replace(/&gt;/g, '>')
                 .replace(/&quot;/g, '"')
                 .replace(/&#39;/g, "'")
                 .replace(/&nbsp;/g, ' ')
-                .replace(/<br\s*\/?>/gi, ' \\\\ ')
-                .replace(/<[^>]*>/g, '')
                 .replace(/[ \t]+/g, ' ')
                 .replace(/ \n/g, '\n')
                 .replace(/\n /g, '\n')
@@ -2167,31 +2193,44 @@ class MarkdownRenderer {
             'array', 'alignat', 'alignat*', 'flalign', 'flalign*'
         ];
 
-        let envProcessed = 0;
-        latexEnvironments.forEach(env => {
-            const escapedEnv = env.replace('*', '\\*');
-            const envPattern = new RegExp(`\\\\begin\\{${escapedEnv}\\}([\\s\\S]*?)\\\\end\\{${escapedEnv}\\}`, 'gi');
-            
-            // Find all matches first to avoid modifying DOM while iterating
-            const matches = [];
-            let match;
-            const textContent = container.textContent || container.innerText || '';
-            while ((match = envPattern.exec(textContent)) !== null) {
-                matches.push(match);
+        // Collect text content ONLY from unrendered text nodes (skip .katex, mjx-container, code, pre, annotation)
+        let unrenderedText = '';
+        if (typeof document !== 'undefined' && container) {
+            const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+            let tNode;
+            while ((tNode = walker.nextNode())) {
+                const p = tNode.parentElement || tNode.parentNode;
+                if (p && p.closest && p.closest('.katex, .katex-display, .math-environment, mjx-container, annotation, .math-placeholder, .math-inline, .math-display, code, pre, .code-pre, .code-block-container')) {
+                    continue;
+                }
+                unrenderedText += (tNode.nodeValue || '') + '\n';
             }
-            
-            // Process each match using DOM-based replacement
-            matches.forEach(match => {
-                envProcessed++;
-                const fullMathContent = match[0];
-                console.log(`[MarkdownRenderer] Processing remaining LaTeX environment ${env}`);
-                const rendered = renderMathExpression(fullMathContent, true);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'math-environment';
-                wrapper.innerHTML = rendered;
-                this.replacePlaceholderInDOM(container, fullMathContent, wrapper);
+        }
+
+        let envProcessed = 0;
+        if (unrenderedText.includes('\\begin{')) {
+            latexEnvironments.forEach(env => {
+                const escapedEnv = env.replace('*', '\\*');
+                const envPattern = new RegExp(`\\\\begin\\{${escapedEnv}\\}([\\s\\S]*?)\\\\end\\{${escapedEnv}\\}`, 'gi');
+                
+                const matches = [];
+                let match;
+                while ((match = envPattern.exec(unrenderedText)) !== null) {
+                    matches.push(match);
+                }
+                
+                matches.forEach(match => {
+                    envProcessed++;
+                    const fullMathContent = match[0];
+                    console.log(`[MarkdownRenderer] Processing remaining LaTeX environment ${env}`);
+                    const rendered = renderMathExpression(fullMathContent, true);
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'math-environment';
+                    wrapper.innerHTML = rendered;
+                    this.replacePlaceholderInDOM(container, fullMathContent, wrapper);
+                });
             });
-        });
+        }
 
         // Legacy processing is disabled - focused protection system handles all math rendering
         
@@ -2241,6 +2280,27 @@ class MarkdownRenderer {
         let placeholderIndex = 0;
 
         let protectedContent = content;
+
+        // CRITICAL FIX: Mask fenced code blocks (except tikz/circuitikz which use restoreMathInTikZCode)
+        // and inline code spans BEFORE scanning for math so $...$ and \begin{...} inside code examples
+        // are never replaced with math placeholders.
+        const maskedCodeBlocks = [];
+        // 1. Mask fenced code blocks (``` or ~~~)
+        protectedContent = protectedContent.replace(/(^|\r?\n)([ \t]*(`{3,}|~{3,})([^\r\n]*)\r?\n[\s\S]*?\r?\n[ \t]*\3[ \t]*(?=\r?\n|$))/g, (fullMatch, prefix, block, fence, infoString) => {
+            const lang = (infoString || '').trim().toLowerCase();
+            if (lang === 'tikz' || lang === 'circuitikz') {
+                return fullMatch; // Let restoreMathInTikZCode handle tikz blocks as before
+            }
+            const maskId = `@@MARKDD_CODE_MASK_${maskedCodeBlocks.length}@@`;
+            maskedCodeBlocks.push({ maskId, content: block });
+            return `${prefix}${maskId}`;
+        });
+        // 2. Mask inline code spans (`...` or ``...``)
+        protectedContent = protectedContent.replace(/(`+)([^\r\n`]+?)\1/g, (fullMatch) => {
+            const maskId = `@@MARKDD_CODE_MASK_${maskedCodeBlocks.length}@@`;
+            maskedCodeBlocks.push({ maskId, content: fullMatch });
+            return maskId;
+        });
 
         // CRITICAL FIX: Validate display math blocks before processing
         function validateDisplayMathBlocks(text) {
@@ -2491,14 +2551,21 @@ class MarkdownRenderer {
 
             // Improved validation for what constitutes actual math vs plain text / currency
             const isCurrencyOrNumber = /^[\d,.]+(?:\s*(?:to|-)\s*[\d,.]+)?$/.test(trimmed);
-            const containsCodeOrMarkdown = /[`*_~]/.test(innerContent) || fullMatch.includes('PLACEHOLDER_');
+            // Exclude only if contains backticks, code mask tokens, or already-protected placeholders.
+            // NEVER exclude '_', '*', or '~' because they are core LaTeX math characters (subscripts, multiplication/star, spacing)!
+            const containsCodeOrMarkdown = /`/.test(innerContent) ||
+                                           innerContent.includes('@@MARKDD_CODE_MASK_') ||
+                                           fullMatch.includes('PLACEHOLDER_') ||
+                                           fullMatch.includes('data-math-placeholder');
             const isUrl = innerContent.includes('http://') || innerContent.includes('https://');
             const isJustPunctuation = /^[\s.,!?;:()\-]+$/.test(trimmed);
-            const isFunctionCall = /^[a-zA-Z_][a-zA-Z0-9_.]*\s*\(.*\)$/.test(trimmed);
+            // Exclude only dot-property programming calls like console.log(x) or obj.method(), NOT math functions like f(x) or P(A|B)
+            const isFunctionCall = /^[a-zA-Z_]\w*\.[a-zA-Z_]\w*\s*\(.*\)$/.test(trimmed);
 
             // If it's multi-word text (contains spaces), it MUST contain LaTeX markers or math operators
             const hasMultipleWords = /\s+/.test(trimmed);
-            const hasMathIndicators = /[\\{}^_=<>+*\/]|\b(?:alpha|beta|gamma|delta|theta|pi|sigma|omega|sum|prod|int|sqrt|frac|times|div|pm|mp|le|ge|ne|approx|equiv)\b/i.test(trimmed);
+            // Include minus '-' and expanded Greek/LaTeX symbols, plus functions like f(x)
+            const hasMathIndicators = /[\\{}^_=<>+*\/\-]|(?:alpha|beta|gamma|delta|theta|pi|sigma|omega|sum|prod|int|lim|sqrt|frac|times|div|pm|mp|le|ge|leq|geq|ne|neq|approx|equiv|sin|cos|tan|log|ln|exp|ce|pu)\b/i.test(trimmed) || /^[a-zA-Z]\s*\([^)]+\)$/.test(trimmed);
 
             const isActualMath = (
                 trimmed.length > 0 &&
@@ -2531,6 +2598,12 @@ class MarkdownRenderer {
                 placeholderIndex++;
             }
         });
+
+        // Restore masked code blocks and inline code spans in reverse order
+        for (let i = maskedCodeBlocks.length - 1; i >= 0; i--) {
+            const { maskId, content } = maskedCodeBlocks[i];
+            protectedContent = protectedContent.split(maskId).join(content);
+        }
 
         console.log('[MarkdownRenderer] FOCUSED: Math protection completed');
         return { protectedContent, latexPlaceholders: placeholders };
@@ -2717,15 +2790,14 @@ class MarkdownRenderer {
                 // Minimal cleaning: decode common HTML entities and convert <br> to \\\\ while
                 // preserving original newlines and spacing inside the environment.
                 mathContent = String(mathContent)
+                    .replace(/<br\s*\/?>/gi, ' \\\\ ')
+                    .replace(/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g, '')
                     .replace(/&amp;/g, '&')
                     .replace(/&lt;/g, '<')
                     .replace(/&gt;/g, '>')
                     .replace(/&quot;/g, '"')
                     .replace(/&#39;/g, "'")
                     .replace(/&nbsp;/g, ' ')
-                    .replace(/<br\s*\/?>/gi, ' \\\\ ')
-                    // Remove any remaining HTML tags but keep line breaks
-                    .replace(/<[^>]*>/g, '')
                     .replace(/\r\n/g, '\n')
                     .replace(/\r/g, '\n')
                     .trim();
@@ -2765,7 +2837,7 @@ class MarkdownRenderer {
 
             // If the placeholder content looks like an HTML fragment, escaped HTML,
             // or already contains katex-error markers, avoid rendering it as LaTeX.
-            const containsHtmlLike = /<[^>]+>|&lt;[^&]+&gt;|<!--\s*MATH_|class=("|')?katex-error/.test(mathContent);
+            const containsHtmlLike = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>|&lt;\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^&]*)?&gt;|<!--\s*MATH_|class=("|')?katex-error/.test(mathContent);
             if (containsHtmlLike) {
                 const pre = document.createElement('pre');
                 pre.className = 'restored-html-placeholder';
@@ -4838,22 +4910,7 @@ class MarkdownRenderer {
         }
     }
 
-    renderMathBlock(code) {
-        try {
-            const rendered = this.katex.renderToString(code.trim(), {
-                ...this.katexOptions,
-                displayMode: true
-            });
-            return `<div class="math-block">${rendered}</div>`;
-        } catch (e) {
-            return `<div class="math-error">Math Error: ${e.message}</div>`;
-        }
-    }
-
-    generateLineNumbers(code) {
-        const lines = code.split('\n');
-        return lines.map((_, index) => `<span class="line-number">${index + 1}</span>`).join('');
-    }
+    // Note: renderMathBlock(code) and generateLineNumbers(code) are defined earlier in this class (around line 3222).
 
     processMarkdownContent(content) {
         // Process custom extensions and enhanced markdown features
