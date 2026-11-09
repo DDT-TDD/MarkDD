@@ -190,21 +190,21 @@ runTest('Static Audit: No unguarded require("electron") in renderer JS', () => {
         assert.strictEqual(linkRes.success, true);
     });
 
-    await runAsyncTest('Version Manifest Consistency \(2.4.1\)', async () => {
+    await runAsyncTest('Version Manifest Consistency \(2.4.2\)', async () => {
         const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-        assert.strictEqual(pkg.version, '2.4.1', 'package.json must be 2.4.1');
+        assert.strictEqual(pkg.version, '2.4.2', 'package.json must be 2.4.2');
 
         const resPkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'resources/package.json'), 'utf8'));
-        assert.strictEqual(resPkg.version, '2.4.1', 'resources/package.json must be 2.4.1');
+        assert.strictEqual(resPkg.version, '2.4.2', 'resources/package.json must be 2.4.2');
 
         const tauriConf = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src-tauri/tauri.conf.json'), 'utf8'));
-        assert.strictEqual(tauriConf.version, '2.4.1', 'tauri.conf.json must be 2.4.1');
+        assert.strictEqual(tauriConf.version, '2.4.2', 'tauri.conf.json must be 2.4.2');
 
         const cargoToml = fs.readFileSync(path.join(__dirname, '..', 'src-tauri/Cargo.toml'), 'utf8');
-        assert.ok(cargoToml.includes('version = "2.4.1"'), 'Cargo.toml must have version 2.4.1');
+        assert.ok(cargoToml.includes('version = "2.4.2"'), 'Cargo.toml must have version 2.4.2');
 
         const versionJs = fs.readFileSync(path.join(__dirname, '..', 'src/version.js'), 'utf8');
-        assert.ok(versionJs.includes("'2.4.1'"), 'src/version.js must have 2.4.1');
+        assert.ok(versionJs.includes("'2.4.2'"), 'src/version.js must have 2.4.2');
     });
 
     console.log('\n================================================================');

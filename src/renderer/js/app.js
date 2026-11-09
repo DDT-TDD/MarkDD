@@ -3799,14 +3799,23 @@ A: Verify files exist and contain matching text.
         if (!splitter || !editorPanel || !previewPanel) return;
         
         let isResizing = false;
-        
-        splitter.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-            e.preventDefault();
-        });
-        
+        this.splitRatio = parseFloat(localStorage.getItem('markdd-split-ratio')) || 50;
+
+        const applySplitRatio = (ratio) => {
+            const clamped = Math.max(15, Math.min(85, ratio));
+            this.splitRatio = clamped;
+            // Use proportional flex-grow with 0px basis so editorPanel + previewPanel
+            // share 100% of the space remaining after #sidebar and #splitter, never crushing #splitter!
+            editorPanel.style.flex = `${clamped} 1 0px`;
+            previewPanel.style.flex = `${100 - clamped} 1 0px`;
+            splitter.style.flex = '0 0 6px';
+        };
+
+        // Apply saved ratio if starting in split mode
+        if (this.viewMode === 'split' || !this.viewMode) {
+            applySplitRatio(this.splitRatio);
+        }
+
         const handleMouseMove = (e) => {
             if (!isResizing) return;
             
@@ -3814,19 +3823,52 @@ A: Verify files exist and contain matching text.
             if (!container || !editorPanel || !previewPanel) return;
             
             const containerRect = container.getBoundingClientRect();
-            const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+            const editorStartLeft = editorPanel.getBoundingClientRect().left;
+            const splitterWidth = splitter.offsetWidth || 6;
+            const availableWidth = Math.max(1, containerRect.right - editorStartLeft - splitterWidth);
+            const relativeX = e.clientX - editorStartLeft;
+            const newRatio = (relativeX / availableWidth) * 100;
             
-            if (newLeftWidth > 20 && newLeftWidth < 80) {
-                editorPanel.style.flex = `0 0 ${newLeftWidth}%`;
-                previewPanel.style.flex = `0 0 ${100 - newLeftWidth}%`;
-            }
+            applySplitRatio(newRatio);
         };
         
         const handleMouseUp = () => {
+            if (!isResizing) return;
             isResizing = false;
+            splitter.classList.remove('active');
+            document.body.classList.remove('is-resizing-split');
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mouseup', handleMouseUp);
+            try {
+                localStorage.setItem('markdd-split-ratio', String(this.splitRatio));
+            } catch (_) {}
+            if (this.preview && typeof this.preview.onLayoutResize === 'function') {
+                this.preview.onLayoutResize();
+            }
         };
+
+        splitter.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            isResizing = true;
+            splitter.classList.add('active');
+            document.body.classList.add('is-resizing-split');
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('mouseup', handleMouseUp);
+            e.preventDefault();
+        });
+
+        // Double-clicking the splitter resets to an even 50/50 split
+        splitter.addEventListener('dblclick', () => {
+            applySplitRatio(50);
+            try {
+                localStorage.setItem('markdd-split-ratio', '50');
+            } catch (_) {}
+            if (this.preview && typeof this.preview.onLayoutResize === 'function') {
+                this.preview.onLayoutResize();
+            }
+        });
     }
 
     setupThemeSystem() {
@@ -4917,13 +4959,16 @@ Bob -> Alice: Hi there
                 splitter.style.display = 'none';
                 break;
             case 'split':
-            default:
+            default: {
+                const ratio = this.splitRatio || 50;
                 editorPanel.style.display = 'flex';
                 previewPanel.style.display = 'flex';
                 splitter.style.display = 'block';
-                editorPanel.style.flex = '1';
-                previewPanel.style.flex = '1';
+                splitter.style.flex = '0 0 6px';
+                editorPanel.style.flex = `${ratio} 1 0px`;
+                previewPanel.style.flex = `${100 - ratio} 1 0px`;
                 break;
+            }
         }
         
         this.updateToolbarStates();
@@ -9097,7 +9142,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.4.1', // Fallback, will be replaced by main process
+            version: '2.4.2', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9134,18 +9179,18 @@ A passionate junior software engineer with solid foundations in computer science
         libs = libs.map(lib => {
             if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.4.1' };
+                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.4.2' };
                 } else if (isElectron) {
-                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.4.1' };
+                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.4.2' };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.1' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.2' };
                 }
             }
             return lib;
         });
 
         const appTitle = (packageData.name === 'markdd-editor' || !packageData.name) ? 'MarkDD Editor' : packageData.name;
-        const appVer = packageData.version || '2.4.1';
+        const appVer = packageData.version || '2.4.2';
         let html = `<h2>${appTitle} v${appVer}</h2>
         <p>${packageData.description}</p>
         <p><strong>Author:</strong> ${packageData.author}</p>
@@ -9249,12 +9294,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = 'v2.4.1';
+            versionElement.textContent = 'v2.4.2';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = 'v2.4.1';
+                versionElement.textContent = 'v2.4.2';
             }
         }
     }

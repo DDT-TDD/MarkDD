@@ -1925,16 +1925,111 @@ body {
     word-wrap: break-word;
 }
 
-/* Splitter */
+/* Splitter - Indestructible flex item that never collapses after resize */
 .splitter {
-    width: 4px;
+    width: 6px;
+    min-width: 6px;
+    max-width: 6px;
+    flex: 0 0 6px !important;
+    flex-shrink: 0 !important;
     background: var(--border-color);
-    cursor: ew-resize;
+    cursor: col-resize;
     position: relative;
+    z-index: 20;
+    user-select: none;
+    transition: background-color 0.15s ease;
 }
 
-.splitter:hover {
+.splitter::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+    cursor: col-resize;
+}
+
+.splitter:hover,
+.splitter.active,
+body.is-resizing-split .splitter {
     background: var(--accent-color);
+}
+
+body.is-resizing-split {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+body.is-resizing-split * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+/* Exact vertical top-alignment between #editor-container and #preview-container */
+.tab-bar {
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    box-sizing: border-box;
+}
+
+.editor-panel > .panel-header {
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    box-sizing: border-box;
+}
+
+.preview-panel > .panel-header {
+    height: 72px;
+    min-height: 72px;
+    max-height: 72px;
+    box-sizing: border-box;
+}
+
+/* When editor-panel is hidden (preview-only mode), preview header uses normal 36px height */
+.editor-panel[style*="display: none"] ~ .preview-panel > .panel-header {
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+}
+
+.editor-panel,
+.preview-panel {
+    min-width: 160px !important;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Remove extra top margin on first child in preview so Line 1 aligns at 20px padding on both sides */
+.preview > :first-child {
+    margin-top: 0 !important;
+}
+
+/* Active synchronized block highlight & WYSIWYG mode styles */
+.preview [data-line].preview-active-block {
+    border-left: 3px solid var(--accent-color, #0969da);
+    padding-left: 8px;
+    margin-left: -11px;
+    background-color: rgba(9, 105, 218, 0.04);
+    border-radius: 2px;
+    transition: background-color 0.15s ease;
+}
+
+.preview.wysiwyg-mode [contenteditable="true"] {
+    outline: none;
+    border-radius: 4px;
+    transition: box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.preview.wysiwyg-mode [contenteditable="true"]:hover {
+    box-shadow: 0 0 0 1px rgba(9, 105, 218, 0.25);
+}
+
+.preview.wysiwyg-mode [contenteditable="true"]:focus {
+    box-shadow: 0 0 0 2px var(--accent-color, #0969da);
+    background-color: rgba(9, 105, 218, 0.03);
 }
 
 /* Modal Styles */

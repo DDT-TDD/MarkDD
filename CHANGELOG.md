@@ -6,82 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [2.4.2] - 2026-11-06
+
+### Fixed & Enhanced (Splitter Durability, Editor/Preview Alignment & Live WYSIWYG)
+- **Indestructible Central Split-Panel Resizer**:
+  - Fixed Flexbox collapse where dragging the splitter assigned `flex: 0 0 X%` to panels, causing the flex basis to exceed container width with `#sidebar` and crushing `.splitter` (`flex-shrink: 1`) to `0px` width.
+  - Added `flex: 0 0 6px !important; flex-shrink: 0 !important; min-width: 6px;` to `.splitter` with a wide `::after` hover/grab target (`left: -4px; right: -4px`).
+  - Switched panels to proportional flex-grow with `0px` basis (`flex: ${ratio} 1 0px` / `flex: ${100 - ratio} 1 0px`) measured from `editorPanel.getBoundingClientRect().left`, ensuring unlimited smooth resizing without crushing the resizer.
+- **Precision Editor-to-Preview Vertical Alignment**:
+  - Eliminated the 32px physical header offset between `#editor-container` and `#preview-container` by standardizing split-mode header heights and resetting `.preview > :first-child` top margin.
+  - Replaced the flawed uniform line-division mapping (`totalLines / previewElements.length`) with deterministic AST source-block parsing (`parseMarkdownBlockAnchors`) and section-bounded mapping.
+  - Replaced asymmetric 1/3 viewport offsets with piecewise-linear anchor curve interpolation (`0px -> 0px` top alignment) for smooth, non-jumping bidirectional scrolling.
+- **Live WYSIWYG Mode in Preview**:
+  - Added `#wysiwygToggleBtn` (`✏️`) in the Preview panel header to toggle direct on-screen editing on text blocks (`h1`–`h6`, `p`, `li`, `blockquote`), automatically synchronizing modifications back to the exact source lines in `#editor`.
+  - Protected rendered math (KaTeX/MathJax) and diagrams (Mermaid, TikZ, PlantUML, etc.) against DOM corruption during WYSIWYG editing.
+
 ---
+
 ## [2.4.1] - 2026-11-04
 
 ### Fixed & Hardened (Zero-Regression Math Engine Audit)
 - **Inline LaTeX Math Subscript & Formatting Fix**:
-  - Fixed false-positive markdown formatting exclusion in `protectLaTeXEnvironments` that previously rejected any inline math formula containing subscripts (`_`), asterisks (`*`), or tildes (`~`) (e.g. `$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
- and `$\int_{a}^{b} f(x)dx# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-).
-  - Allowed mathematical function expressions (`$f(x)# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-, `$g(x,y)# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-, `$P(A|B)# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-, `$O(n^2)# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-) by restricting `isFunctionCall` to dot-property programming calls only.
+  - Fixed false-positive markdown formatting exclusion in `protectLaTeXEnvironments` that previously rejected any inline math formula containing subscripts (`_`), asterisks (`*`), or tildes (`~`) (e.g. `$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$` and `$\int_{a}^{b} f(x)dx$`).
+  - Allowed mathematical function expressions (`$f(x)$`, `$g(x,y)$`, `$P(A|B)$`, `$O(n^2)$`) by restricting `isFunctionCall` to dot-property programming calls only.
   - Added minus sign (`-`) and expanded mathematical operators/Greek symbols to `hasMathIndicators`.
   - Prevented `marked` from erroneously converting multiple subscripts in inline formulas into `<em>` italic HTML tags.
 - **Code Block Math Isolation**:
   - Added pre-masking of non-TikZ fenced code blocks (``` or ~~~) and inline code spans before scanning for LaTeX math, eliminating `<span class="math-placeholder"...>` placeholder leakage and warnings inside code examples.
 - **Chemistry & Inequality Preservation**:
-  - Replaced indiscriminate HTML tag stripping regexes (`/<[^>]*>/g`) with strict HTML element tag matchers (`/</?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g`), ensuring chemical reversible reaction arrows (`\ce{N2 + 3H2 <=> 2NH3}`) and mathematical inequalities (`$a < b \text{ and } c > d# CHANGELOG - MarkDD Editor
-
-All notable changes to MarkDD Editor are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
----
-) are never corrupted.
+  - Replaced indiscriminate HTML tag stripping regexes (`/<[^>]*>/g`) with strict HTML element tag matchers (`/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^>]*)?>/g`), ensuring chemical reversible reaction arrows (`\ce{N2 + 3H2 <=> 2NH3}`) and mathematical inequalities (`$a < b \text{ and } c > d$`) are never corrupted.
 - **Marked Extension Child Token Support**:
   - Fixed alert and custom container (`:::info`, `:::warning`) tokenizers to tokenize child tokens via `this.lexer.inline` so updated `marked` parses inner markdown cleanly without throwing `Token with "undefined" type` errors.
 - **Duplicate Method Clean-Up & Startup Optimization**:
@@ -93,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dynamic resolution of package version in Tauri backend IPC (`get-package-data`).
 - **Comprehensive Automated Verification**:
   - Rewrote `test/test_math_rendering_audit.js` to validate the entire `examples/COMPREHENSIVE-FEATURES-SHOWCASE.md` and built-in editor showcase with zero leaked placeholders, zero unrendered math nodes, and zero KaTeX/math errors.
+
+---
 
 ## [2.4.0] - 2026-10-26
 

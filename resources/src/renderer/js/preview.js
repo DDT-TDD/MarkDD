@@ -163,107 +163,95 @@ class Preview {
     }
 
     initializeScrollSync() {
-        // Setup scroll synchronization between editor and preview
         this.isScrolling = false;
+        this._ignorePreviewScrollUntil = 0;
+        this._ignoreEditorScrollUntil = 0;
         this.scrollRatio = 0;
-        this.lineElementMap = new Map(); // Cache for line to element mapping
+        this.lineElementMap = new Map();
+        this.blockAnchors = [];
+        this.linePixelOffsets = null;
         this.lastEditorLineCount = 0;
-        this.scrollSyncEnabled = true; // Add explicit flag
-        this.syncScroll = true; // Initialize syncScroll property for consistency
-        
-        // Add scroll sync debouncing properties with optimized delays
-        // CRITICAL FIX: Separate timeout variables for each direction to prevent cancellation
-        this.scrollSyncFromEditorTimeout = null;  // Editor → Preview timeout
-        this.scrollSyncToEditorTimeout = null;    // Preview → Editor timeout
-        this.scrollSyncDelay = 50; // Reduced to 50ms for more responsive sync
-        
-        // CRITICAL FIX: Separate throttle timestamps for each direction
-        this.lastEditorScrollTime = 0;   // Editor scroll events
-        this.lastPreviewScrollTime = 0;  // Preview scroll events
-        this.scrollThrottleDelay = 30; // Reduced throttle for better responsiveness
-        
-        // Preview to Editor sync - CRITICAL FIX: Use the actual scrollable container with throttling
-        const previewContainer = this.element.parentElement; // #preview-container
+        this.scrollSyncEnabled = true;
+        this.syncScroll = true;
+        this.wysiwygEnabled = false;
+        this.scrollSyncFromEditorTimeout = null;
+        this.scrollSyncToEditorTimeout = null;
+        this.scrollSyncDelay = 16;
+
+        const previewContainer = this.element ? this.element.parentElement : null;
         if (previewContainer && previewContainer.id === 'preview-container') {
             previewContainer.addEventListener('scroll', () => {
-                // PERFORMANCE FIX: Add throttling to prevent event flooding
-                // Use separate timestamp for preview to avoid blocking editor events
-                const now = Date.now();
-                if (now - this.lastPreviewScrollTime < this.scrollThrottleDelay) {
-                    return; // Skip this event if too soon after last one
-                }
-                this.lastPreviewScrollTime = now;
-                
-                // Reduce logging frequency - only log every 10th event or when scroll state changes
-                const shouldLog = this.lastLoggedScrollTime === undefined || 
-                                 now - this.lastLoggedScrollTime > 500 ||
-                                 this.isScrolling !== this.lastLoggedScrollState;
-                
-                if (shouldLog) {
-                    console.log('[Preview] Preview container scroll event detected - scrollSyncEnabled:', this.scrollSyncEnabled, 'isScrolling:', this.isScrolling);
-                    this.lastLoggedScrollTime = now;
-                    this.lastLoggedScrollState = this.isScrolling;
-                }
-                
-                if (this.scrollSyncEnabled && !this.isScrolling) {
-                    this.debouncedSyncScrollToEditor();
-                }
-            });
-            console.log('[Preview] Scroll event listener attached to preview container:', previewContainer.id);
-        } else {
-            console.error('[Preview] Could not find preview-container element for scroll sync');
+                if (!this.scrollSyncEnabled) return;
+                if (Date.now() < this._ignorePreviewScrollUntil) return;
+                this.debouncedSyncScrollToEditor();
+            }, { passive: true });
         }
 
-        // Editor to Preview sync with throttling
         const editorElement = document.getElementById('editor');
         if (editorElement) {
             editorElement.addEventListener('scroll', () => {
-                // PERFORMANCE FIX: Add throttling for editor scroll events too
-                // Use separate timestamp for editor to avoid blocking preview events
-                const now = Date.now();
-                if (now - this.lastEditorScrollTime < this.scrollThrottleDelay) {
-                    return;
-                }
-                this.lastEditorScrollTime = now;
-                
-                // Debug logging for editor scroll sync
-                const shouldLog = !this.lastEditorSyncLogTime || (now - this.lastEditorSyncLogTime > 1000);
-                if (shouldLog) {
-                    console.log('[Preview] Editor scroll event - scrollSyncEnabled:', this.scrollSyncEnabled, 'isScrolling:', this.isScrolling);
-                    this.lastEditorSyncLogTime = now;
-                }
-                
-                if (this.scrollSyncEnabled && !this.isScrolling) {
-                    this.debouncedSyncScrollFromEditor();
-                } else if (shouldLog) {
-                    console.log('[Preview] Editor scroll BLOCKED - scrollSyncEnabled:', this.scrollSyncEnabled, 'isScrolling:', this.isScrolling);
-                }
-            });
+                if (!this.scrollSyncEnabled) return;
+                if (Date.now() < this._ignoreEditorScrollUntil) return;
+                this.debouncedSyncScrollFromEditor();
+            }, { passive: true });
 
-            // Update line mapping when content changes with better debouncing
             editorElement.addEventListener('input', () => {
                 if (this.scrollSyncEnabled) {
-                    // Use longer debounce for line mapping rebuild for performance
                     this.debouncedRebuildLineElementMap();
                 }
             });
+
+            // Sync active block highlight on cursor click or arrow key navigation
+            const handleCursorActivity = () => {
+                if (!this.scrollSyncEnabled) return;
+                this.highlightActiveEditorLineInPreview(editorElement);
+            };
+            editorElement.addEventListener('click', handleCursorActivity);
+            editorElement.addEventListener('keyup', (e) => {
+                if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Enter'].includes(e.key)) {
+                    handleCursorActivity();
+                }
+            });
         }
-        
-        // Initial line mapping with delay
+
+        // Bind WYSIWYG toggle button if present
+        const wysiwygBtn = document.getElementById('wysiwygToggleBtn');
+        if (wysiwygBtn) {
+            wysiwygBtn.addEventListener('click', () => {
+                this.toggleWysiwygMode();
+            });
+        }
+
+        // Double-clicking any block in Preview jumps the Editor cursor to that exact source line
+        if (this.element) {
+            this.element.addEventListener('dblclick', (e) => {
+                if (this.wysiwygEnabled) return; // In WYSIWYG mode, double-click selects text naturally
+                const block = e.target.closest('[data-line]');
+                if (block && editorElement) {
+                    const lineIdx = parseInt(block.dataset.line, 10);
+                    if (!isNaN(lineIdx)) {
+                        this.jumpEditorCursorToLine(editorElement, lineIdx);
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            this.onLayoutResize();
+        });
+
         setTimeout(() => {
-            this.debouncedRebuildLineElementMap();
-        }, 1000);
+            this.rebuildLineElementMap();
+        }, 300);
     }
 
-
-
-    updateScrollSync() {
-        // Call this after content changes to recalculate scroll positions
-        if (this.syncScroll) {
+    onLayoutResize() {
+        this.linePixelOffsets = null;
+        this.rebuildLineElementMap();
+        if (this.syncScroll && this.scrollSyncEnabled) {
             this.syncScrollFromEditor();
         }
     }
-
     debounceUpdate(content) {
         // Check if content has actually changed
         if (this.lastProcessedContent === content && !this.queuedContent) {
@@ -346,9 +334,16 @@ class Preview {
             await this.postProcess();
             console.log('[Preview] Post-processing completed');
 
-            // --- FIX: Use debounced line-element map rebuild for performance ---
-            this.debouncedRebuildLineElementMap();
-
+``            // Rebuild line-element map immediately after render + postProcess so alignment is always current
+            this.lastLineElementMapRebuild = 0;
+            this.rebuildLineElementMap();
+            if (this.wysiwygEnabled) {
+                this.applyWysiwygEditableAttributes();
+            }
+            if (this.syncScroll && this.scrollSyncEnabled) {
+                this.syncScrollFromEditor();
+            }
+``
             // Dispatch update event
             this.dispatchUpdateEvent();
             console.log('[Preview] updatePreview completed successfully');
@@ -992,563 +987,966 @@ class Preview {
         // Internal links are handled by updateInternalLinks
     }
 
-    // Scroll synchronization with robust line-to-element mapping
-    rebuildLineElementMap() {
-        const editorElement = document.getElementById('editor');
-        if (!editorElement) return;
-        
-        // --- PERFORMANCE FIX: Debounce frequent line mapping rebuilds ---
-        const now = Date.now();
-        if (now - this.lastLineElementMapRebuild < 100) {
-            console.log('[Preview] Skipping line-element map rebuild - too frequent');
-            return;
+    // =========================================================================
+    // DETERMINISTIC SOURCE-LINE MAPPING, PIECEWISE-LINEAR SCROLL ALIGNMENT,
+    // AND LIVE WYSIWYG EDITING ENGINE
+    // =========================================================================
+
+    /**
+     * Parse Markdown source into ordered structural block anchors with exact
+     * 0-based [startLine, endLine] intervals.
+     */
+    parseMarkdownBlockAnchors(markdown) {
+        const lines = (markdown || '').split('\n');
+        const totalLines = lines.length;
+        const anchors = [];
+        let i = 0;
+
+        // Skip YAML frontmatter if present at line 0
+        if (lines[0] && lines[0].trim() === '---') {
+            let fmEnd = 1;
+            while (fmEnd < totalLines && lines[fmEnd].trim() !== '---' && lines[fmEnd].trim() !== '...') {
+                fmEnd++;
+            }
+            if (fmEnd < totalLines) {
+                i = fmEnd + 1;
+            }
         }
-        
-        this.lastLineElementMapRebuild = now;
-        
-        this.lineElementMap.clear();
-        const lines = editorElement.value.split('\n');
-        const totalLines = lines.length || 1;
-        
-        // Get ALL preview elements including rendered diagrams and math
-        const previewElements = Array.from(this.element.querySelectorAll(
-            'h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote, pre, table, ' +
+
+        const normalizeText = (str) => {
+            return (str || '')
+                .replace(/`([^`]+)`/g, '$1')
+                .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+                .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+                .replace(/[*_~#>|`]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+        };
+
+        while (i < totalLines) {
+            const rawLine = lines[i];
+            const trimmed = rawLine.trim();
+
+            // Skip blank lines
+            if (!trimmed) {
+                i++;
+                continue;
+            }
+
+            // 1. Fenced code / diagram / math blocks (``` or ~~~)
+            const fenceMatch = rawLine.match(/^[ \t]*(`{3,}|~{3,})([^\r\n]*)$/);
+            if (fenceMatch) {
+                const fenceToken = fenceMatch[1];
+                const fenceChar = fenceToken[0];
+                const fenceLen = fenceToken.length;
+                const info = (fenceMatch[2] || '').trim().toLowerCase();
+                const startLine = i;
+                i++;
+                while (i < totalLines) {
+                    const closeMatch = lines[i].match(new RegExp(`^[ \\t]*${fenceChar}{${fenceLen},}[ \\t]*$`));
+                    if (closeMatch) {
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+                const endLine = Math.min(totalLines - 1, i - 1);
+                const firstBodyLine = startLine + 1 <= endLine ? lines[startLine + 1].trim() : '';
+                anchors.push({
+                    type: 'fence',
+                    lang: info,
+                    startLine,
+                    endLine,
+                    sig: normalizeText(firstBodyLine)
+                });
+                continue;
+            }
+
+            // 2. Display math blocks: $$ ... $$ or \[ ... \] or \begin{...} ... \end{...}
+            if (/^\$\$/.test(trimmed) || /^\\\[/.test(trimmed) || /^\\begin\{(?:align|equation|gather|multline|cases|pmatrix|bmatrix|vmatrix|Vmatrix|matrix|array|split|eqnarray|flalign|alignat)\*?\}/.test(trimmed)) {
+                const startLine = i;
+                const isSingleLineDollar = /^\$\$.+\$\$$/.test(trimmed) && trimmed !== '$$';
+                const isSingleLineBracket = /^\\\[.+\\\]$/.test(trimmed);
+                if (!isSingleLineDollar && !isSingleLineBracket) {
+                    i++;
+                    while (i < totalLines) {
+                        const t = lines[i].trim();
+                        if (t.endsWith('$$') || t.endsWith('\\]') || /\\end\{(?:align|equation|gather|multline|cases|pmatrix|bmatrix|vmatrix|Vmatrix|matrix|array|split|eqnarray|flalign|alignat)\*?\}/.test(t)) {
+                            i++;
+                            break;
+                        }
+                        i++;
+                    }
+                } else {
+                    i++;
+                }
+                const endLine = Math.min(totalLines - 1, i - 1);
+                anchors.push({
+                    type: 'math',
+                    startLine,
+                    endLine,
+                    sig: normalizeText(lines.slice(startLine, endLine + 1).join(' '))
+                });
+                continue;
+            }
+
+            // 3. Custom container: :::info ... :::
+            if (/^:::(?:info|warning|error|success|tip|danger)/i.test(trimmed)) {
+                const startLine = i;
+                i++;
+                while (i < totalLines && !/^:::\s*$/.test(lines[i].trim())) {
+                    i++;
+                }
+                if (i < totalLines) i++;
+                const endLine = Math.min(totalLines - 1, i - 1);
+                anchors.push({
+                    type: 'container',
+                    startLine,
+                    endLine,
+                    sig: normalizeText(lines.slice(startLine, endLine + 1).join(' '))
+                });
+                continue;
+            }
+
+            // 4. ATX Heading: # ...
+            const headingMatch = rawLine.match(/^[ \t]*(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+                anchors.push({
+                    type: 'heading',
+                    level: headingMatch[1].length,
+                    startLine: i,
+                    endLine: i,
+                    sig: normalizeText(headingMatch[2])
+                });
+                i++;
+                continue;
+            }
+
+            // 5. Horizontal Rule
+            if (/^[ \t]*(?:[-*_][ \t]*){3,}$/.test(rawLine)) {
+                anchors.push({
+                    type: 'hr',
+                    startLine: i,
+                    endLine: i,
+                    sig: ''
+                });
+                i++;
+                continue;
+            }
+
+            // 6. Table: consecutive lines starting/containing pipes |
+            if (/^\|/.test(trimmed) || (trimmed.includes('|') && i + 1 < totalLines && /^\s*\|?\s*[:\-]+[\-\|:\s]+$/.test(lines[i + 1]))) {
+                const startLine = i;
+                while (i < totalLines && (lines[i].trim().startsWith('|') || lines[i].includes('|')) && lines[i].trim() !== '') {
+                    i++;
+                }
+                const endLine = Math.min(totalLines - 1, i - 1);
+                anchors.push({
+                    type: 'table',
+                    startLine,
+                    endLine,
+                    sig: normalizeText(lines[startLine])
+                });
+                continue;
+            }
+
+            // 7. Blockquote / Alert: consecutive lines starting with > or [!NOTE]
+            if (/^>/.test(trimmed) || /^\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i.test(trimmed)) {
+                const startLine = i;
+                while (i < totalLines && lines[i].trim() !== '' && (/^>/.test(lines[i].trim()) || !/^(?:#{1,6}\s|```|~~~|\$\$)/.test(lines[i].trim()))) {
+                    if (!/^>/.test(lines[i].trim()) && i > startLine && !/^\[!/.test(lines[startLine].trim())) break;
+                    i++;
+                }
+                const endLine = Math.min(totalLines - 1, i - 1);
+                anchors.push({
+                    type: 'blockquote',
+                    startLine,
+                    endLine,
+                    sig: normalizeText(lines.slice(startLine, endLine + 1).join(' '))
+                });
+                continue;
+            }
+
+            // 8. List item: - / * / + / 1.
+            const listMatch = rawLine.match(/^([ \t]*)(?:[-*+]|\d+\.)\s+(.*)$/);
+            if (listMatch) {
+                const startLine = i;
+                const itemText = listMatch[2];
+                i++;
+                // Include continuation lines of the same list item (indented non-list lines)
+                while (i < totalLines) {
+                    const nextLine = lines[i];
+                    const nextTrim = nextLine.trim();
+                    if (!nextTrim) break;
+                    if (/^[ \t]*(?:[-*+]|\d+\.)\s+/.test(nextLine)) break;
+                    if (/^[ \t]*(?:#{1,6}\s|```|~~~|\$\$|>|\|)/.test(nextLine)) break;
+                    if (/^[ \t]{2,}/.test(nextLine)) {
+                        i++;
+                    } else {
+                        break;
+                    }
+                }
+                const endLine = Math.min(totalLines - 1, i - 1);
+                anchors.push({
+                    type: 'listitem',
+                    startLine,
+                    endLine,
+                    sig: normalizeText(itemText)
+                });
+                continue;
+            }
+
+            // 9. Regular Paragraph (consecutive non-blank, non-special lines)
+            const startLine = i;
+            const paraLines = [trimmed];
+            i++;
+            while (i < totalLines) {
+                const nextLine = lines[i];
+                const nextTrim = nextLine.trim();
+                if (!nextTrim) break;
+                if (/^[ \t]*(?:#{1,6}\s|```|~~~|\$\$|\\\[|\\begin\{|:::(?:info|warning|error|success|tip|danger)|[-*+]\s|\d+\.\s|>|\||(?:[-*_][ \t]*){3,}$)/.test(nextLine)) {
+                    break;
+                }
+                paraLines.push(nextTrim);
+                i++;
+            }
+            const endLine = Math.min(totalLines - 1, i - 1);
+            anchors.push({
+                type: 'paragraph',
+                startLine,
+                endLine,
+                sig: normalizeText(paraLines.join(' '))
+            });
+        }
+
+        return anchors;
+    }
+
+    /**
+     * Collect structural preview DOM elements in document order that correspond
+     * to Markdown block anchors (avoiding double-counting wrapper ul/ol/blockquote
+     * when their inner li/p children are collected, or vice-versa).
+     */
+    collectPreviewBlockElements() {
+        if (!this.element) return [];
+        const candidates = Array.from(this.element.querySelectorAll(
+            'h1, h2, h3, h4, h5, h6, p, li, hr, pre, table, blockquote, ' +
+            '.table-of-contents, .toc, ' +
+            '.markdown-alert, .custom-container, ' +
             '.mermaid-container, .tikz-container, .markmap-inline-container, ' +
-            '.math-display, .math-environment, .plantuml-container, .vega-lite-container, ' +
-            '.graphviz-container, .abc-container, .latex-container, .wavedrom-container'
+            '.math-display, .math-environment, .math-block, ' +
+            '.plantuml-container, .vega-lite-container, .graphviz-container, ' +
+            '.abc-container, .latex-container, .wavedrom-container, .kityminder-container'
         ));
 
-        console.log(`[Preview] Rebuilding line-element map: ${totalLines} lines, ${previewElements.length} elements`);
+        return candidates.filter((el) => {
+            const parent = el.parentElement;
+            if (!parent) return false;
 
-        // Create dense mapping: assign multiple lines to each element
-        let currentLineIndex = 0;
-        const linesPerElement = Math.max(1, Math.floor(totalLines / Math.max(1, previewElements.length)));
-        
-        for (let i = 0; i < previewElements.length && currentLineIndex < totalLines; i++) {
-            const element = previewElements[i];
-            
-            // Assign this element to multiple consecutive lines for dense mapping
-            for (let j = 0; j < linesPerElement && currentLineIndex < totalLines; j++) {
-                if (!this.lineElementMap.has(currentLineIndex)) {
-                    this.lineElementMap.set(currentLineIndex, element);
-                    element.dataset.line = String(currentLineIndex);
-                }
-                currentLineIndex++;
+            // Skip internal elements inside generated table-of-contents
+            if (el.closest('.table-of-contents, .toc') && !el.classList.contains('table-of-contents') && !el.classList.contains('toc')) {
+                return false;
             }
-        }
-        
-        // Handle remaining lines by assigning to the last element
-        if (previewElements.length > 0 && currentLineIndex < totalLines) {
-            const lastElement = previewElements[previewElements.length - 1];
-            for (let i = currentLineIndex; i < totalLines; i++) {
-                if (!this.lineElementMap.has(i)) {
-                    this.lineElementMap.set(i, lastElement);
-                }
-            }
-        }
 
-        // Special handling for rendered diagrams - ensure they have line mappings
-        const renderedDiagrams = this.element.querySelectorAll(
-            '.tikz-rendered, .mermaid-rendered, .markmap-rendered, .plantuml-rendered, ' +
-            '.vega-rendered, .graphviz-rendered, .abc-rendered, .latex-rendered'
-        );
-        
-        renderedDiagrams.forEach(diagram => {
-            if (!diagram.dataset.line) {
-                // Find the closest line that contains diagram-related content
-                const diagramLine = this.findDiagramLine(diagram, lines);
-                if (diagramLine !== -1) {
-                    diagram.dataset.line = String(diagramLine);
-                    // Map several lines around the diagram for better sync
-                    for (let offset = -2; offset <= 2; offset++) {
-                        const lineIdx = diagramLine + offset;
-                        if (lineIdx >= 0 && lineIdx < totalLines && !this.lineElementMap.has(lineIdx)) {
-                            this.lineElementMap.set(lineIdx, diagram);
+            // Do not collect inner <p> inside <li>, <blockquote>, .markdown-alert, .custom-container, or <td>/<th>
+            if (el.tagName === 'P' && el.closest('li, blockquote, .markdown-alert, .custom-container, td, th, .diagram-container, .tikz-placeholder')) {
+                return false;
+            }
+            // Do not collect <pre> that is inside a diagram container/fallback
+            if (el.tagName === 'PRE' && el.closest('.mermaid-container, .tikz-container, .plantuml-container, .graphviz-container, .vega-lite-container, .abc-container, .wavedrom-container, .markmap-inline-container')) {
+                return false;
+            }
+            // Do not collect nested .math-display inside .math-environment or vice-versa
+            if ((el.classList.contains('math-display') || el.classList.contains('math-environment')) &&
+                parent.closest('.math-display, .math-environment, .math-block')) {
+                return false;
+            }
+            return true;
+        });
+    }
+
+    doesAnchorMatchElement(anchor, el) {
+        const tag = el.tagName.toLowerCase();
+        if (anchor.type === 'heading') {
+            return tag === `h${anchor.level}`;
+        }
+        if (anchor.type === 'hr') {
+            return tag === 'hr';
+        }
+        if (anchor.type === 'table') {
+            return tag === 'table';
+        }
+        if (anchor.type === 'listitem') {
+            return tag === 'li';
+        }
+        if (anchor.type === 'blockquote') {
+            return tag === 'blockquote' || el.classList.contains('markdown-alert');
+        }
+        if (anchor.type === 'container') {
+            return el.classList.contains('custom-container');
+        }
+        if (anchor.type === 'math') {
+            return el.classList.contains('math-display') ||
+                   el.classList.contains('math-environment') ||
+                   el.classList.contains('math-block') ||
+                   (tag === 'p' && !!el.querySelector('.math-display, .katex-display, mjx-container'));
+        }
+        if (anchor.type === 'fence') {
+            return tag === 'pre' ||
+                   el.classList.contains('mermaid-container') ||
+                   el.classList.contains('tikz-container') ||
+                   el.classList.contains('markmap-inline-container') ||
+                   el.classList.contains('plantuml-container') ||
+                   el.classList.contains('vega-lite-container') ||
+                   el.classList.contains('graphviz-container') ||
+                   el.classList.contains('abc-container') ||
+                   el.classList.contains('latex-container') ||
+                   el.classList.contains('wavedrom-container') ||
+                   el.classList.contains('kityminder-container') ||
+                   el.classList.contains('math-block');
+        }
+        if (anchor.type === 'paragraph') {
+            return tag === 'p' || tag === 'div';
+        }
+        return false;
+    }
+
+    rebuildLineElementMap() {
+        const editorElement = document.getElementById('editor');
+        if (!editorElement || !this.element) return;
+
+        const now = Date.now();
+        if (now - this.lastLineElementMapRebuild < 60) {
+            return;
+        }
+        this.lastLineElementMapRebuild = now;
+
+        this.lineElementMap.clear();
+        const markdown = editorElement.value || '';
+        const lines = markdown.split('\n');
+        const totalLines = Math.max(1, lines.length);
+
+        const anchors = this.parseMarkdownBlockAnchors(markdown);
+        const previewElements = this.collectPreviewBlockElements();
+
+        // Clear stale dataset.line attributes
+        this.element.querySelectorAll('[data-line]').forEach((el) => {
+            delete el.dataset.line;
+            delete el.dataset.lineEnd;
+        });
+
+        const matchedPairs = [];
+
+        // Check if document has headings to partition into sections
+        const headingAnchors = [];
+        anchors.forEach((a, i) => { if (a.type === 'heading') headingAnchors.push(i); });
+        const headingElements = [];
+        previewElements.forEach((el, i) => { if (/^H[1-6]$/.test(el.tagName)) headingElements.push(i); });
+
+        if (headingAnchors.length > 0 && headingAnchors.length === headingElements.length) {
+            // Section-bounded matching: map headings 1-to-1 and intermediate blocks within each section
+            for (let h = 0; h < headingAnchors.length; h++) {
+                const aStart = headingAnchors[h];
+                const aEnd = (h + 1 < headingAnchors.length) ? headingAnchors[h + 1] : anchors.length;
+                const cStart = headingElements[h];
+                const cEnd = (h + 1 < headingElements.length) ? headingElements[h + 1] : previewElements.length;
+
+                // Match Heading
+                const hAnchor = anchors[aStart];
+                const hEl = previewElements[cStart];
+                hEl.dataset.line = String(hAnchor.startLine);
+                hEl.dataset.lineEnd = String(hAnchor.endLine);
+                matchedPairs.push({ startLine: hAnchor.startLine, endLine: hAnchor.endLine, element: hEl, type: 'heading' });
+                for (let l = hAnchor.startLine; l <= hAnchor.endLine; l++) this.lineElementMap.set(l, hEl);
+
+                // Match intermediate blocks within this section
+                const secAnchors = anchors.slice(aStart + 1, aEnd);
+                const secElements = previewElements.slice(cStart + 1, cEnd);
+
+                let cIdx = 0;
+                for (let saIdx = 0; saIdx < secAnchors.length; saIdx++) {
+                    const anchor = secAnchors[saIdx];
+                    let matchedEl = null;
+
+                    for (let k = cIdx; k < secElements.length; k++) {
+                        if (this.doesAnchorMatchElement(anchor, secElements[k])) {
+                            matchedEl = secElements[k];
+                            cIdx = k + 1;
+                            break;
                         }
+                    }
+
+                    if (!matchedEl && cIdx < secElements.length) {
+                        matchedEl = secElements[cIdx++];
+                    }
+
+                    if (matchedEl) {
+                        matchedEl.dataset.line = String(anchor.startLine);
+                        matchedEl.dataset.lineEnd = String(anchor.endLine);
+                        matchedPairs.push({ startLine: anchor.startLine, endLine: anchor.endLine, element: matchedEl, type: anchor.type });
+                        for (let l = anchor.startLine; l <= anchor.endLine; l++) this.lineElementMap.set(l, matchedEl);
                     }
                 }
             }
-        });
+        } else {
+            // Sequential lookahead matching fallback (for headingless or asymmetric documents)
+            let elIdx = 0;
+            for (let aIdx = 0; aIdx < anchors.length && elIdx < previewElements.length; aIdx++) {
+                const anchor = anchors[aIdx];
+                let matchedElIndex = -1;
+                const maxLookahead = Math.min(previewElements.length, elIdx + 8);
+                for (let k = elIdx; k < maxLookahead; k++) {
+                    if (this.doesAnchorMatchElement(anchor, previewElements[k])) {
+                        matchedElIndex = k;
+                        break;
+                    }
+                }
+                if (matchedElIndex === -1) matchedElIndex = elIdx;
 
-        this.lastEditorLineCount = totalLines;
-        console.log(`[Preview] Built dense line-element map with ${this.lineElementMap.size} mappings for ${totalLines} lines`);
-
-        // Add head/tail anchors for edge cases
-        if (previewElements.length > 0) {
-            const first = previewElements[0];
-            const last = previewElements[previewElements.length - 1];
-            
-            if (first && !first.dataset.line) first.dataset.line = "0";
-            if (last && !last.dataset.line) last.dataset.line = String(totalLines - 1);
-            
-            // Ensure first and last lines are always mapped
-            if (!this.lineElementMap.has(0)) this.lineElementMap.set(0, first);
-            if (!this.lineElementMap.has(totalLines - 1)) this.lineElementMap.set(totalLines - 1, last);
-        }
-    }
-
-    findDiagramLine(diagram, lines) {
-        // Try to find the line that contains the diagram code
-        const diagramCode = diagram.getAttribute('data-tikz-code') || 
-                           diagram.getAttribute('data-mermaid-code') || 
-                           diagram.getAttribute('data-markmap-code') || 
-                           diagram.getAttribute('data-plantuml-code') ||
-                           diagram.getAttribute('data-vega-code') ||
-                           diagram.getAttribute('data-graphviz-code') ||
-                           diagram.getAttribute('data-abc-code') ||
-                           diagram.getAttribute('data-latex-code');
-        
-        if (!diagramCode) return -1;
-        
-        const decodedCode = decodeURIComponent(diagramCode);
-        const firstLine = decodedCode.split('\n')[0].trim().toLowerCase();
-        
-        // Search for the first line of the diagram code in the editor
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim().toLowerCase();
-            if (line.includes(firstLine.substring(0, Math.min(20, firstLine.length))) || 
-                firstLine.includes(line.substring(0, Math.min(20, line.length)))) {
-                return i;
+                const matchedEl = previewElements[matchedElIndex];
+                matchedEl.dataset.line = String(anchor.startLine);
+                matchedEl.dataset.lineEnd = String(anchor.endLine);
+                matchedPairs.push({ startLine: anchor.startLine, endLine: anchor.endLine, element: matchedEl, type: anchor.type });
+                for (let line = anchor.startLine; line <= anchor.endLine; line++) {
+                    this.lineElementMap.set(line, matchedEl);
+                }
+                elIdx = matchedElIndex + 1;
             }
         }
-        
-        return -1;
+
+        // Fill gap lines
+        if (matchedPairs.length > 0) {
+            let currentEl = matchedPairs[0].element;
+            for (let line = 0; line < totalLines; line++) {
+                if (this.lineElementMap.has(line)) {
+                    currentEl = this.lineElementMap.get(line);
+                } else {
+                    this.lineElementMap.set(line, currentEl);
+                }
+            }
+        }
+
+        this.blockAnchors = matchedPairs;
+        this.lastEditorLineCount = totalLines;
+        this.measureEditorLinePixelOffsets(editorElement, lines);
+    }
+
+    /**
+     * Accurately compute the Y pixel offset of every logical line in <textarea id="editor">,
+     * taking wrapped lines (word-wrap) into account via a hidden mirror div or character-wrap math.
+     */
+    measureEditorLinePixelOffsets(editorElement, lines) {
+        if (!editorElement) return;
+        const totalLines = lines.length || 1;
+        const lineHeight = this.getEditorLineHeight(editorElement);
+        const offsets = new Float64Array(totalLines + 1);
+
+        // Check if word-wrap is active and editor has a real layout width
+        const style = window.getComputedStyle(editorElement);
+        const paddingLeft = parseFloat(style.paddingLeft) || 20;
+        const paddingRight = parseFloat(style.paddingRight) || 20;
+        const contentWidth = (editorElement.clientWidth || 0) - paddingLeft - paddingRight;
+        const fontSize = parseFloat(style.fontSize) || 14;
+        // Monospace average character width (~0.6 * fontSize)
+        const charWidth = fontSize * 0.602;
+        const charsPerVisualRow = contentWidth > 60 ? Math.max(10, Math.floor(contentWidth / charWidth)) : 0;
+        const isWrap = style.whiteSpace !== 'pre' && style.whiteSpace !== 'nowrap' && charsPerVisualRow > 0;
+
+        let currentY = 0;
+        for (let i = 0; i < totalLines; i++) {
+            offsets[i] = currentY;
+            const len = lines[i].length;
+            const visualRows = (isWrap && len > charsPerVisualRow)
+                ? Math.ceil(len / charsPerVisualRow)
+                : 1;
+            currentY += visualRows * lineHeight;
+        }
+        offsets[totalLines] = currentY;
+
+        // Scale offsets if the actual scrollHeight of the textarea differs from estimated total height
+        const paddingTop = parseFloat(style.paddingTop) || 20;
+        const paddingBottom = parseFloat(style.paddingBottom) || 20;
+        const actualContentHeight = (editorElement.scrollHeight || 0) - paddingTop - paddingBottom;
+        if (actualContentHeight > lineHeight && currentY > 0) {
+            const scale = actualContentHeight / currentY;
+            // Only apply scale if reasonably close (guards against hidden/unmounted JSDOM elements where scrollHeight === 0)
+            if (scale > 0.5 && scale < 2.5) {
+                for (let i = 0; i <= totalLines; i++) {
+                    offsets[i] *= scale;
+                }
+            }
+        }
+
+        this.linePixelOffsets = offsets;
+    }
+
+    getLineTopInEditor(editorElement, lineIndex) {
+        const lineHeight = this.getEditorLineHeight(editorElement);
+        if (this.linePixelOffsets && lineIndex >= 0 && lineIndex < this.linePixelOffsets.length) {
+            return this.linePixelOffsets[lineIndex];
+        }
+        return Math.max(0, lineIndex) * lineHeight;
     }
 
     getVisibleLineInEditor(editorElement) {
         try {
-            const editorRect = editorElement.getBoundingClientRect();
-            const lineHeight = this.getEditorLineHeight(editorElement);
             const scrollTop = editorElement.scrollTop;
-            const visibleLine = Math.floor(scrollTop / lineHeight);
-            return Math.max(0, visibleLine);
+            if (this.linePixelOffsets && this.linePixelOffsets.length > 1) {
+                // Binary search in this.linePixelOffsets for scrollTop
+                let low = 0;
+                let high = this.linePixelOffsets.length - 2;
+                while (low <= high) {
+                    const mid = (low + high) >>> 1;
+                    const top = this.linePixelOffsets[mid];
+                    const nextTop = this.linePixelOffsets[mid + 1];
+                    if (scrollTop < top) {
+                        high = mid - 1;
+                    } else if (scrollTop >= nextTop) {
+                        low = mid + 1;
+                    } else {
+                        return mid;
+                    }
+                }
+                return Math.max(0, Math.min(this.linePixelOffsets.length - 2, low));
+            }
+            const lineHeight = this.getEditorLineHeight(editorElement);
+            return Math.max(0, Math.floor(scrollTop / lineHeight));
         } catch (error) {
-            console.warn('[Preview] Could not determine visible line:', error);
-            return -1;
+            return 0;
         }
     }
 
     getEditorLineHeight(editorElement) {
-        // Calculate approximate line height
         const style = window.getComputedStyle(editorElement);
-        const fontSize = parseFloat(style.fontSize);
+        const fontSize = parseFloat(style.fontSize) || 14;
         const lineHeight = style.lineHeight;
-        
-        if (lineHeight === 'normal') {
-            return fontSize * 1.2; // Default line height multiplier
+        if (!lineHeight || lineHeight === 'normal') {
+            return fontSize * 1.6;
         } else if (lineHeight.endsWith('px')) {
             return parseFloat(lineHeight);
         } else if (!isNaN(parseFloat(lineHeight))) {
             return fontSize * parseFloat(lineHeight);
-        } else {
-            return fontSize * 1.2; // Fallback
         }
+        return fontSize * 1.6;
     }
 
-    findCorrespondingLine(element, editorElement) {
-        console.log('[Preview] Finding corresponding line for element:', element.tagName);
-        
-        // First check if we have it in our mapping
-        for (const [lineIndex, mappedElement] of this.lineElementMap.entries()) {
-            if (mappedElement === element) {
-                console.log('[Preview] Found in line mapping:', lineIndex);
-                return lineIndex;
-            }
+    getElementOffsetInPreview(element, previewContainer) {
+        if (!element || !previewContainer) return 0;
+        const elRect = element.getBoundingClientRect();
+        const containerRect = previewContainer.getBoundingClientRect();
+        if (elRect.height > 0 || containerRect.height > 0 || elRect.top !== containerRect.top) {
+            // Subtract 20px top padding so the element aligns with the 20px top padding of #editor
+            return Math.max(0, previewContainer.scrollTop + (elRect.top - containerRect.top) - 20);
+        }
+        return Math.max(0, (element.offsetTop || 0) - 20);
+    }
+
+    /**
+     * Build sorted piecewise-linear anchor points [(editorY, previewY), ...]
+     * connecting every matched Markdown block's start and end positions.
+     */
+    buildScrollAnchorCurve(editorElement, previewContainer) {
+        if (!this.blockAnchors || this.blockAnchors.length === 0) {
+            this.rebuildLineElementMap();
         }
 
-        // Enhanced fallback: search by content with better matching
-        const elementText = element.textContent || '';
-        const cleanElementText = elementText.trim().toLowerCase();
-        
-        console.log('[Preview] Element text for matching:', cleanElementText.substring(0, 50));
-        
-        if (cleanElementText.length < 2) {
-            console.log('[Preview] Element text too short for matching');
-            return -1;
-        }
+        const editorMax = Math.max(0, (editorElement.scrollHeight || 0) - (editorElement.clientHeight || 0));
+        const previewMax = Math.max(0, (previewContainer.scrollHeight || 0) - (previewContainer.clientHeight || 0));
 
-        const lines = editorElement.value.split('\n');
-        
-        // Try different matching strategies
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim().toLowerCase();
-            
-            // Strategy 1: Direct substring match
-            if (line.length > 2 && cleanElementText.includes(line)) {
-                console.log('[Preview] Direct match found at line:', i, 'line:', line.substring(0, 30));
-                return i;
+        const points = [{ editorY: 0, previewY: 0, line: 0 }];
+
+        for (const pair of this.blockAnchors) {
+            const el = pair.element;
+            if (!el || !this.element.contains(el)) continue;
+
+            const editorStartY = this.getLineTopInEditor(editorElement, pair.startLine);
+            const previewStartY = this.getElementOffsetInPreview(el, previewContainer);
+
+            const lastPt = points[points.length - 1];
+            if (editorStartY >= lastPt.editorY && previewStartY >= lastPt.previewY) {
+                points.push({
+                    editorY: editorStartY,
+                    previewY: previewStartY,
+                    line: pair.startLine
+                });
             }
-            
-            // Strategy 2: Header matching
-            if (element.tagName.match(/^H[1-6]$/)) {
-                const headerMatch = line.match(/^#+\s*(.+)$/);
-                if (headerMatch) {
-                    const headerText = headerMatch[1].toLowerCase();
-                    if (cleanElementText.includes(headerText) || headerText.includes(cleanElementText.substring(0, 20))) {
-                        console.log('[Preview] Header match found at line:', i);
-                        return i;
-                    }
+
+            // For multi-line blocks (code fences, tables, math blocks, diagrams), also add the bottom of the block
+            if (pair.endLine > pair.startLine) {
+                const editorEndY = this.getLineTopInEditor(editorElement, pair.endLine + 1);
+                const elHeight = el.getBoundingClientRect().height || el.offsetHeight || 0;
+                const previewEndY = previewStartY + elHeight;
+                const prevPt = points[points.length - 1];
+                if (editorEndY > prevPt.editorY && previewEndY >= prevPt.previewY) {
+                    points.push({
+                        editorY: editorEndY,
+                        previewY: previewEndY,
+                        line: pair.endLine
+                    });
                 }
             }
-            
-            // Strategy 3: First words matching
-            const cleanLine = line.replace(/^#+\s*/, '').replace(/^[-*+\d.]\s*/, '').trim();
-            if (cleanLine.length > 5) {
-                const firstWords = cleanLine.substring(0, Math.min(25, cleanLine.length));
-                if (cleanElementText.includes(firstWords)) {
-                    console.log('[Preview] First words match found at line:', i);
-                    return i;
-                }
+        }
+
+        if (editorMax > 0 && previewMax > 0) {
+            const last = points[points.length - 1];
+            if (editorMax > last.editorY || previewMax > last.previewY) {
+                points.push({
+                    editorY: Math.max(last.editorY, editorMax),
+                    previewY: Math.max(last.previewY, previewMax),
+                    line: this.lastEditorLineCount
+                });
             }
         }
 
-        console.log('[Preview] No corresponding line found');
-        return -1;
+        return points;
     }
 
-    findCorrespondingElement(lineIndex, editorElement) {
-        // First check if we have it in our mapping
-        if (this.lineElementMap.has(lineIndex)) {
-            return this.lineElementMap.get(lineIndex);
-        }
-
-        // Fallback: search by content
-        const lines = editorElement.value.split('\n');
-        if (lineIndex >= lines.length) return null;
-
-        const line = lines[lineIndex].trim();
-        const cleanLine = line.replace(/^#+\s*/, '').replace(/^[-*+\d.]\s*/, '').trim().toLowerCase();
-        
-        if (cleanLine.length < 3) return null;
-
-        const previewElements = Array.from(this.element.querySelectorAll(
-            'h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, table, .math-display, .mermaid-container, .tikz-container'
-        ));
-
-        for (const element of previewElements) {
-            const elementText = (element.textContent || '').trim().toLowerCase();
-            if (elementText.includes(cleanLine.substring(0, Math.min(30, cleanLine.length)))) {
-                return element;
-            }
-        }
-
-        return null;
-    }
-
-    scrollEditorToLine(editorElement, lineIndex) {
-        try {
-            const lineHeight = this.getEditorLineHeight(editorElement);
-            const targetScrollTop = lineIndex * lineHeight;
-            
-            // Position line in top third of viewport (not center) for better visibility
-            // This shows more context below the target line
-            const editorHeight = editorElement.clientHeight;
-            const positionedScrollTop = targetScrollTop - (editorHeight / 3);
-            
-            // Clamp to valid scroll range
-            const maxScrollTop = Math.max(0, editorElement.scrollHeight - editorHeight);
-            const finalScrollTop = Math.max(0, Math.min(positionedScrollTop, maxScrollTop));
-            
-            // CRITICAL: Use instant scroll to prevent oscillation from smooth animation
-            // Smooth scrolling triggers multiple events during animation, causing sync loop
-            editorElement.scrollTop = finalScrollTop;
-            
-            // Force reflow to ensure scroll is processed
-            void editorElement.offsetHeight;
-            
-        } catch (error) {
-            console.error('[Preview] Error in scrollEditorToLine:', error);
-            // Fallback to simple scroll
-            const lineHeight = this.getEditorLineHeight(editorElement);
-            editorElement.scrollTop = Math.max(0, lineIndex * lineHeight - editorElement.clientHeight / 3);
-        }
-    }
-
-    scrollPreviewToElement(element) {
-        if (!element || !this.element) {
-            return;
-        }
-        
-        // CRITICAL FIX: Scroll the preview-container, not the preview content div
-        const previewContainer = this.element.parentElement;
-        if (!previewContainer || previewContainer.id !== 'preview-container') {
-            console.error('[Preview] Could not find preview-container for scrolling');
-            return;
-        }
-        
-        try {
-            // CRITICAL: Use instant scroll instead of smooth to prevent oscillation
-            // Smooth scrolling triggers multiple scroll events during animation
-            // which causes the sync to fire repeatedly, creating a feedback loop
-            const elementRect = element.getBoundingClientRect();
-            const containerRect = previewContainer.getBoundingClientRect();
-            const relativeTop = elementRect.top - containerRect.top;
-            
-            // Position element in top third of viewport (not center) for better visibility
-            // This shows more context below the target element
-            const targetScrollTop = previewContainer.scrollTop + relativeTop - (previewContainer.clientHeight / 3);
-            
-            // Clamp to valid range
-            const maxScrollTop = Math.max(0, previewContainer.scrollHeight - previewContainer.clientHeight);
-            const finalScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
-            
-            // Use instant scroll to prevent sync oscillation - scroll the CONTAINER
-            previewContainer.scrollTop = finalScrollTop;
-            
-            // Force reflow to ensure scroll is processed
-            void previewContainer.offsetHeight;
-            
-        } catch (error) {
-            console.error('[Preview] Error in scrollPreviewToElement:', error);
-            // Fallback - also use instant scroll on container with top-third positioning
-            try {
-                const elementRect = element.getBoundingClientRect();
-                const containerRect = previewContainer.getBoundingClientRect();
-                const relativeTop = elementRect.top - containerRect.top;
-                const targetScrollTop = previewContainer.scrollTop + relativeTop - (previewContainer.clientHeight / 3);
-                const maxScrollTop = Math.max(0, previewContainer.scrollHeight - previewContainer.clientHeight);
-                const finalScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
-                previewContainer.scrollTop = finalScrollTop;
-            } catch (fallbackError) {
-                console.error('[Preview] Fallback scroll also failed:', fallbackError);
-            }
-        }
-    }
-    
-    isSignificantMarkdownLine(line) {
-        // Check for headers, list items, code blocks, blockquotes, etc.
-        return /^#{1,6}\s/.test(line) ||           // Headers
-               /^[-*+]\s/.test(line) ||           // Unordered lists
-               /^\d+\.\s/.test(line) ||           // Ordered lists
-               /^>\s/.test(line) ||               // Blockquotes
-               /^```/.test(line) ||               // Code blocks
-               /^\|/.test(line) ||                // Tables
-               /^\$\$/.test(line) ||              // Math blocks
-               (line.length > 10 && !/^[-*+\d\s>|#`]/.test(line)); // Regular paragraphs
-    }
-    
-    doesLineMatchElement(line, element) {
-        if (!element) return false;
-        
-        const elementText = element.textContent || '';
-        const cleanElementText = elementText.trim().toLowerCase();
-        const cleanLine = line.replace(/^#+\s*/, '').replace(/^[-*+\d.]\s*/, '').trim().toLowerCase();
-        
-        // For headers, check if the text matches
-        if (/^#{1,6}\s/.test(line)) {
-            return cleanElementText.includes(cleanLine) || cleanLine.includes(cleanElementText);
-        }
-        
-        // For other elements, check if line content appears in element
-        if (cleanLine.length > 5) {
-            return cleanElementText.includes(cleanLine.substring(0, Math.min(50, cleanLine.length)));
-        }
-        
-        return false;
-    }
-
-    syncScrollToEditor() {
-        const editorElement = document.getElementById('editor');
-        if (!editorElement || !this.scrollSyncEnabled) {
-            return;
-        }
-        
-        try {
-            this.isScrolling = true;
-            
-            // Get the actual scrollable container (not this.element which is #preview)
-            const previewContainer = this.element.parentElement; // #preview-container
-            if (!previewContainer || previewContainer.id !== 'preview-container') {
-                console.error('[Preview] Cannot find preview-container for scroll sync');
-                this.isScrolling = false;
-                return;
-            }
-            
-            // Get preview scroll position from the scrollable container
-            const previewScrollTop = previewContainer.scrollTop;
-            const previewScrollHeight = previewContainer.scrollHeight;
-            const previewClientHeight = previewContainer.clientHeight;
-            
-            console.log('[Preview] Preview container scroll - top:', previewScrollTop, 'height:', previewScrollHeight, 'client:', previewClientHeight);
-            
-            // Find the most visible element in preview
-            const previewRect = previewContainer.getBoundingClientRect();
-            const visibleElements = Array.from(this.element.querySelectorAll(
-                'h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, table, .math-display, .mermaid-container, .tikz-container'
-            )).filter(el => {
-                const rect = el.getBoundingClientRect();
-                const isVisible = rect.bottom > previewRect.top && rect.top < previewRect.bottom;
-                if (isVisible) {
-                    console.log('[Preview] Visible element:', el.tagName, el.textContent.substring(0, 30));
-                }
-                return isVisible;
-            });
-
-            console.log('[Preview] Found', visibleElements.length, 'visible elements');
-
-            if (visibleElements.length > 0) {
-                // Choose element whose midpoint is closest to viewport center for stability
-                const viewportMid = previewRect.top + (previewRect.height / 2);
-                let best = null; let bestDist = Infinity;
-                for (const el of visibleElements) {
-                    const r = el.getBoundingClientRect();
-                    const mid = (r.top + r.bottom) / 2;
-                    const dist = Math.abs(mid - viewportMid);
-                    if (dist < bestDist) { best = el; bestDist = dist; }
-                }
-                if (best) {
-                    let lineFromDataset = -1;
-                    if (best.dataset && best.dataset.line) {
-                        const parsed = parseInt(best.dataset.line, 10);
-                        if (!isNaN(parsed)) lineFromDataset = parsed;
-                    }
-                    let correspondingLine = lineFromDataset;
-                    if (correspondingLine === -1) {
-                        correspondingLine = this.findCorrespondingLine(best, editorElement);
-                    }
-                    if (correspondingLine !== -1) {
-                        console.log('[Preview] Scrolling editor to line:', correspondingLine);
-                        this.scrollEditorToLine(editorElement, correspondingLine);
-                        // Reduced timeout for better responsiveness
-                        setTimeout(() => { this.isScrolling = false; }, 50);
-                        return;
-                    }
-                }
-            }
-            
-            // Fallback: Use proportional scrolling
-            console.log('[Preview] Using proportional scrolling fallback');
-            const previewScrollRatio = previewScrollTop / Math.max(1, previewScrollHeight - previewClientHeight);
-            const editorMaxScroll = Math.max(0, editorElement.scrollHeight - editorElement.clientHeight);
-            const targetScrollTop = Math.round(previewScrollRatio * editorMaxScroll);
-            
-            console.log('[Preview] Proportional sync - ratio:', previewScrollRatio, 'target:', targetScrollTop);
-            
-            editorElement.scrollTop = Math.max(0, Math.min(targetScrollTop, editorMaxScroll));
-            // Reduced timeout for better responsiveness
-            setTimeout(() => { this.isScrolling = false; }, 50);
-            
-        } catch (error) {
-            console.error('[Preview] Error in syncScrollToEditor:', error);
-            this.isScrolling = false;
-        }
-    }
-
+    /**
+     * Editor -> Preview scroll synchronization using piecewise-linear interpolation
+     * across matched block anchors. Top of editor (0px) maps to top of preview (0px)!
+     */
     syncScrollFromEditor() {
         const editorElement = document.getElementById('editor');
         if (!editorElement || !this.scrollSyncEnabled) return;
-        
-        // CRITICAL FIX: Get the actual scrollable container
-        const previewContainer = this.element.parentElement;
-        if (!previewContainer || previewContainer.id !== 'preview-container') {
-            console.error('[Preview] Cannot find preview-container for sync');
-            return;
-        }
-        
+
+        const previewContainer = this.element ? this.element.parentElement : null;
+        if (!previewContainer || previewContainer.id !== 'preview-container') return;
+
         try {
-            this.isScrolling = true;
-            
-            // Get current editor cursor position or visible line
-            const visibleLine = this.getVisibleLineInEditor(editorElement);
-            
-            if (visibleLine !== -1) {
-                // Only log occasionally to avoid spam
-                if (this.lastLoggedLine !== visibleLine && (this.lastLoggedLine === undefined || Math.abs(this.lastLoggedLine - visibleLine) >= 10)) {
-                    console.log('[Preview] Editor sync - visible line:', visibleLine);
-                    this.lastLoggedLine = visibleLine;
-                }
-                
-                // Find corresponding element in preview
-                const correspondingElement = this.findCorrespondingElement(visibleLine, editorElement);
-                
-                if (correspondingElement) {
-                    // Only log when we actually find a corresponding element
-                    if (this.lastScrollLogTime === undefined || Date.now() - this.lastScrollLogTime > 1000) {
-                        console.log('[Preview] Found corresponding element, scrolling preview');
-                        this.lastScrollLogTime = Date.now();
-                    }
-                    this.scrollPreviewToElement(correspondingElement);
-                } else {
-                    // Fallback to proportional sync - FIXED: use previewContainer
-                    const editorScrollRatio = editorElement.scrollTop / (editorElement.scrollHeight - editorElement.clientHeight || 1);
-                    const previewMaxScroll = previewContainer.scrollHeight - previewContainer.clientHeight;
-                    const targetScrollTop = Math.round(editorScrollRatio * previewMaxScroll);
-                    previewContainer.scrollTop = Math.max(0, Math.min(targetScrollTop, previewMaxScroll));
-                }
-            } else {
-                // Fallback to proportional sync - FIXED: use previewContainer
-                const editorScrollRatio = editorElement.scrollTop / (editorElement.scrollHeight - editorElement.clientHeight || 1);
-                const previewMaxScroll = previewContainer.scrollHeight - previewContainer.clientHeight;
-                const targetScrollTop = Math.round(editorScrollRatio * previewMaxScroll);
-                previewContainer.scrollTop = Math.max(0, Math.min(targetScrollTop, previewMaxScroll));
+            const editorScrollTop = editorElement.scrollTop;
+            const editorMaxScroll = Math.max(0, editorElement.scrollHeight - editorElement.clientHeight);
+            const previewMaxScroll = Math.max(0, previewContainer.scrollHeight - previewContainer.clientHeight);
+
+            if (editorScrollTop <= 1) {
+                this._ignorePreviewScrollUntil = Date.now() + 80;
+                previewContainer.scrollTop = 0;
+                return;
             }
-            
-            // Reduced timeout for better responsiveness (was 200ms, now 50ms)
-            setTimeout(() => { this.isScrolling = false; }, 50);
+            if (editorMaxScroll > 0 && editorScrollTop >= editorMaxScroll - 2) {
+                this._ignorePreviewScrollUntil = Date.now() + 80;
+                previewContainer.scrollTop = previewMaxScroll;
+                return;
+            }
+
+            const curve = this.buildScrollAnchorCurve(editorElement, previewContainer);
+            let targetPreviewY = 0;
+
+            if (curve.length >= 2) {
+                // Find interval [k, k+1] containing editorScrollTop
+                let k = 0;
+                while (k < curve.length - 2 && curve[k + 1].editorY <= editorScrollTop) {
+                    k++;
+                }
+                const p0 = curve[k];
+                const p1 = curve[k + 1];
+                const spanEditor = p1.editorY - p0.editorY;
+                const t = spanEditor > 0 ? Math.max(0, Math.min(1, (editorScrollTop - p0.editorY) / spanEditor)) : 0;
+                targetPreviewY = p0.previewY + t * (p1.previewY - p0.previewY);
+            } else {
+                const ratio = editorMaxScroll > 0 ? editorScrollTop / editorMaxScroll : 0;
+                targetPreviewY = ratio * previewMaxScroll;
+            }
+
+            const clampedTop = previewMaxScroll > 0
+                ? Math.max(0, Math.min(Math.round(targetPreviewY), previewMaxScroll))
+                : Math.max(0, Math.round(targetPreviewY));
+
+            this._ignorePreviewScrollUntil = Date.now() + 80;
+            previewContainer.scrollTop = clampedTop;
         } catch (error) {
             console.error('[Preview] Scroll sync from editor error:', error);
-            this.isScrolling = false;
+        }
+    }
+
+    /**
+     * Preview -> Editor scroll synchronization using the exact inverse
+     * piecewise-linear interpolation across the same block anchor curve!
+     */
+    syncScrollToEditor() {
+        const editorElement = document.getElementById('editor');
+        if (!editorElement || !this.scrollSyncEnabled) return;
+
+        const previewContainer = this.element ? this.element.parentElement : null;
+        if (!previewContainer || previewContainer.id !== 'preview-container') return;
+
+        try {
+            const previewScrollTop = previewContainer.scrollTop;
+            const previewMaxScroll = Math.max(0, previewContainer.scrollHeight - previewContainer.clientHeight);
+            const editorMaxScroll = Math.max(0, editorElement.scrollHeight - editorElement.clientHeight);
+
+            if (previewScrollTop <= 1) {
+                this._ignoreEditorScrollUntil = Date.now() + 80;
+                editorElement.scrollTop = 0;
+                return;
+            }
+            if (previewMaxScroll > 0 && previewScrollTop >= previewMaxScroll - 2) {
+                this._ignoreEditorScrollUntil = Date.now() + 80;
+                editorElement.scrollTop = editorMaxScroll;
+                return;
+            }
+
+            const curve = this.buildScrollAnchorCurve(editorElement, previewContainer);
+            let targetEditorY = 0;
+
+            if (curve.length >= 2) {
+                let k = 0;
+                while (k < curve.length - 2 && curve[k + 1].previewY <= previewScrollTop) {
+                    k++;
+                }
+                const p0 = curve[k];
+                const p1 = curve[k + 1];
+                const spanPreview = p1.previewY - p0.previewY;
+                const t = spanPreview > 0 ? Math.max(0, Math.min(1, (previewScrollTop - p0.previewY) / spanPreview)) : 0;
+                targetEditorY = p0.editorY + t * (p1.editorY - p0.editorY);
+            } else {
+                const ratio = previewMaxScroll > 0 ? previewScrollTop / previewMaxScroll : 0;
+                targetEditorY = ratio * editorMaxScroll;
+            }
+
+            const clampedTop = editorMaxScroll > 0
+                ? Math.max(0, Math.min(Math.round(targetEditorY), editorMaxScroll))
+                : Math.max(0, Math.round(targetEditorY));
+
+            this._ignoreEditorScrollUntil = Date.now() + 80;
+            editorElement.scrollTop = clampedTop;
+        } catch (error) {
+            console.error('[Preview] Error in syncScrollToEditor:', error);
+        }
+    }
+
+    findCorrespondingElement(lineIndex, editorElement) {
+        if (!this.lineElementMap || this.lineElementMap.size === 0) {
+            this.rebuildLineElementMap();
+        }
+        if (this.lineElementMap.has(lineIndex)) {
+            return this.lineElementMap.get(lineIndex);
+        }
+        return null;
+    }
+
+    findCorrespondingLine(element, editorElement) {
+        if (!element) return -1;
+        const closestWithLine = element.closest ? element.closest('[data-line]') : null;
+        const target = closestWithLine || element;
+        if (target.dataset && target.dataset.line !== undefined) {
+            const parsed = parseInt(target.dataset.line, 10);
+            if (!isNaN(parsed)) return parsed;
+        }
+        for (const [lineIndex, mappedElement] of this.lineElementMap.entries()) {
+            if (mappedElement === target) return lineIndex;
+        }
+        return -1;
+    }
+
+    scrollEditorToLine(editorElement, lineIndex) {
+        if (!editorElement) return;
+        const targetY = this.getLineTopInEditor(editorElement, lineIndex);
+        const maxScrollTop = Math.max(0, editorElement.scrollHeight - editorElement.clientHeight);
+        this._ignoreEditorScrollUntil = Date.now() + 80;
+        editorElement.scrollTop = maxScrollTop > 0 ? Math.max(0, Math.min(targetY, maxScrollTop)) : Math.max(0, targetY);
+    }
+
+    scrollPreviewToElement(element) {
+        if (!element || !this.element) return;
+        const previewContainer = this.element.parentElement;
+        if (!previewContainer || previewContainer.id !== 'preview-container') return;
+        const targetY = this.getElementOffsetInPreview(element, previewContainer);
+        const maxScrollTop = Math.max(0, previewContainer.scrollHeight - previewContainer.clientHeight);
+        this._ignorePreviewScrollUntil = Date.now() + 80;
+        previewContainer.scrollTop = maxScrollTop > 0 ? Math.max(0, Math.min(targetY, maxScrollTop)) : Math.max(0, targetY);
+    }
+
+    /**
+     * Highlight the preview block corresponding to the current editor cursor line
+     * and keep it aligned with the editor's visual line position.
+     */
+    highlightActiveEditorLineInPreview(editorElement) {
+        if (!editorElement || !this.element) return;
+        const pos = editorElement.selectionStart || 0;
+        const textBefore = (editorElement.value || '').substring(0, pos);
+        const cursorLine = Math.max(0, textBefore.split('\n').length - 1);
+
+        const targetEl = this.findCorrespondingElement(cursorLine, editorElement);
+        this.element.querySelectorAll('.preview-active-block').forEach((el) => {
+            if (el !== targetEl) el.classList.remove('preview-active-block');
+        });
+        if (targetEl) {
+            targetEl.classList.add('preview-active-block');
+        }
+    }
+
+    jumpEditorCursorToLine(editorElement, lineIndex) {
+        if (!editorElement) return;
+        const lines = (editorElement.value || '').split('\n');
+        const clampedLine = Math.max(0, Math.min(lineIndex, lines.length - 1));
+        let charOffset = 0;
+        for (let i = 0; i < clampedLine; i++) {
+            charOffset += lines[i].length + 1;
+        }
+        editorElement.focus();
+        editorElement.setSelectionRange(charOffset, charOffset + lines[clampedLine].length);
+        this.scrollEditorToLine(editorElement, clampedLine);
+        this.highlightActiveEditorLineInPreview(editorElement);
+    }
+
+    // =========================================================================
+    // LIVE WYSIWYG EDITING MODE IN PREVIEW
+    // =========================================================================
+
+    toggleWysiwygMode(forceState) {
+        this.wysiwygEnabled = typeof forceState === 'boolean' ? forceState : !this.wysiwygEnabled;
+        if (this.element) {
+            this.element.classList.toggle('wysiwyg-mode', this.wysiwygEnabled);
+        }
+        const wysiwygBtn = document.getElementById('wysiwygToggleBtn');
+        if (wysiwygBtn) {
+            wysiwygBtn.classList.toggle('active', this.wysiwygEnabled);
+            wysiwygBtn.title = `Direct WYSIWYG Editing (${this.wysiwygEnabled ? 'On' : 'Off'})`;
+        }
+        if (this.wysiwygEnabled) {
+            this.applyWysiwygEditableAttributes();
+        } else {
+            this.removeWysiwygEditableAttributes();
+        }
+        return this.wysiwygEnabled;
+    }
+
+    applyWysiwygEditableAttributes() {
+        if (!this.element) return;
+        this.rebuildLineElementMap();
+
+        const editableBlocks = this.element.querySelectorAll('h1[data-line], h2[data-line], h3[data-line], h4[data-line], h5[data-line], h6[data-line], p[data-line], li[data-line], blockquote[data-line]');
+        editableBlocks.forEach((block) => {
+            // Skip blocks that contain rendered math or diagrams so complex SVG/KaTeX DOM is never corrupted
+            if (block.querySelector('.katex, mjx-container, svg, .mermaid-container, .tikz-container, .plantuml-container, .graphviz-container')) {
+                return;
+            }
+            block.setAttribute('contenteditable', 'true');
+            if (!block._wysiwygBound) {
+                block._wysiwygBound = true;
+                block.addEventListener('input', () => {
+                    this.syncWysiwygBlockToEditor(block);
+                });
+                block.addEventListener('blur', () => {
+                    this.syncWysiwygBlockToEditor(block, true);
+                });
+            }
+        });
+    }
+
+    removeWysiwygEditableAttributes() {
+        if (!this.element) return;
+        this.element.querySelectorAll('[contenteditable="true"]').forEach((el) => {
+            el.removeAttribute('contenteditable');
+        });
+    }
+
+    serializeInlineDomToMarkdown(node) {
+        if (!node) return '';
+        if (node.nodeType === 3) { // TEXT_NODE
+            return node.nodeValue || '';
+        }
+        if (node.nodeType !== 1) return '';
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') return '\n';
+        const inner = Array.from(node.childNodes).map((c) => this.serializeInlineDomToMarkdown(c)).join('');
+        if (tag === 'strong' || tag === 'b') return `**${inner}**`;
+        if (tag === 'em' || tag === 'i') return `*${inner}*`;
+        if (tag === 'del' || tag === 's') return `~~${inner}~~`;
+        if (tag === 'code') return `\`${inner}\``;
+        if (tag === 'a') {
+            const href = node.getAttribute('href') || '';
+            return `[${inner}](${href})`;
+        }
+        return inner;
+    }
+
+    syncWysiwygBlockToEditor(block, triggerFullRender = false) {
+        const editorElement = document.getElementById('editor');
+        if (!editorElement || !block || block.dataset.line === undefined) return;
+
+        const startLine = parseInt(block.dataset.line, 10);
+        const endLine = block.dataset.lineEnd !== undefined ? parseInt(block.dataset.lineEnd, 10) : startLine;
+        if (isNaN(startLine) || isNaN(endLine)) return;
+
+        const lines = (editorElement.value || '').split('\n');
+        if (startLine < 0 || startLine >= lines.length) return;
+
+        const tag = block.tagName.toLowerCase();
+        const inlineMd = this.serializeInlineDomToMarkdown(block).trim();
+        let newMarkdownBlock = inlineMd;
+
+        if (/^h([1-6])$/.test(tag)) {
+            const level = parseInt(tag.substring(1), 10);
+            newMarkdownBlock = `${'#'.repeat(level)} ${inlineMd}`;
+        } else if (tag === 'li') {
+            const origLine = lines[startLine] || '';
+            const prefixMatch = origLine.match(/^([ \t]*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?)/);
+            const prefix = prefixMatch ? prefixMatch[1] : '- ';
+            newMarkdownBlock = `${prefix}${inlineMd}`;
+        } else if (tag === 'blockquote') {
+            newMarkdownBlock = inlineMd.split('\n').map((l) => `> ${l}`).join('\n');
+        }
+
+        const newBlockLines = newMarkdownBlock.split('\n');
+        lines.splice(startLine, endLine - startLine + 1, ...newBlockLines);
+        const updatedMarkdown = lines.join('\n');
+
+        this.lastProcessedContent = updatedMarkdown;
+        editorElement.value = updatedMarkdown;
+        if (window.markddApp && window.markddApp.editor) {
+            window.markddApp.editor.content = updatedMarkdown;
+            window.markddApp.editor.setModified(true);
+            window.markddApp.editor.updateStatus();
+        }
+
+        // Update lineEnd if line count changed
+        const delta = newBlockLines.length - (endLine - startLine + 1);
+        if (delta !== 0 || triggerFullRender) {
+            this.lastLineElementMapRebuild = 0;
+            this.rebuildLineElementMap();
         }
     }
 
     updateScrollSync() {
-        // --- PERFORMANCE FIX: Debounce line-element map rebuilds ---
-        this.debouncedRebuildLineElementMap();
+        this.lastLineElementMapRebuild = 0;
+        this.rebuildLineElementMap();
+        if (this.syncScroll && this.scrollSyncEnabled) {
+            this.syncScrollFromEditor();
+        }
     }
-    
+
     debouncedRebuildLineElementMap() {
-        // Clear existing timeout
         if (this.lineElementMapRebuildDebounceTimeout) {
             clearTimeout(this.lineElementMapRebuildDebounceTimeout);
         }
-        
-        // Set new timeout for debounced rebuild - increased delay for better performance
         this.lineElementMapRebuildDebounceTimeout = setTimeout(() => {
             if (this.syncScroll) {
+                this.lastLineElementMapRebuild = 0;
                 this.rebuildLineElementMap();
             }
-        }, 300); // Increased from 150ms to 300ms to reduce rebuild frequency
+        }, 120);
     }
 
-    // Debounced scroll sync methods for performance
     debouncedSyncScrollFromEditor() {
-        // CRITICAL FIX: Use separate timeout variable for editor→preview direction
         if (this.scrollSyncFromEditorTimeout) {
             clearTimeout(this.scrollSyncFromEditorTimeout);
         }
-        
         this.scrollSyncFromEditorTimeout = setTimeout(() => {
-            if (this.scrollSyncEnabled && !this.isScrolling) {
-                // Let syncScrollFromEditor handle isScrolling flag internally
-                // Do NOT set it here - that creates a race condition with the internal timeout
+            if (this.scrollSyncEnabled && Date.now() >= this._ignoreEditorScrollUntil) {
                 this.syncScrollFromEditor();
             }
         }, this.scrollSyncDelay);
     }
-    
+
     debouncedSyncScrollToEditor() {
-        // PERFORMANCE FIX: Reduce logging frequency and improve debounce logic
-        const now = Date.now();
-        const shouldLog = this.lastLoggedSyncTime === undefined || now - this.lastLoggedSyncTime > 1000;
-        if (shouldLog) {
-            console.log('[Preview] debouncedSyncScrollToEditor called');
-            this.lastLoggedSyncTime = now;
-        }
-        
-        // CRITICAL FIX: Use separate timeout variable for preview→editor direction
         if (this.scrollSyncToEditorTimeout) {
             clearTimeout(this.scrollSyncToEditorTimeout);
         }
-        
         this.scrollSyncToEditorTimeout = setTimeout(() => {
-            if (shouldLog) {
-                console.log('[Preview] debouncedSyncScrollToEditor timeout executing');
-            }
-            if (this.scrollSyncEnabled && !this.isScrolling) {
-                // Don't set isScrolling here - let syncScrollToEditor handle it
+            if (this.scrollSyncEnabled && Date.now() >= this._ignorePreviewScrollUntil) {
                 this.syncScrollToEditor();
-            } else if (shouldLog) {
-                console.log('[Preview] debouncedSyncScrollToEditor skipped - scrollSyncEnabled:', this.scrollSyncEnabled, 'isScrolling:', this.isScrolling);
             }
         }, this.scrollSyncDelay);
     }
