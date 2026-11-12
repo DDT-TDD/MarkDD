@@ -1657,7 +1657,7 @@ ipcMain.handle('get-package-data', async () => {
       success: true,
       data: {
         name: 'MarkDD Editor',
-        version: packageData.version,
+        version: packageData.version, electronVersion: process.versions.electron,
         description: packageData.description,
         author: packageData.author
       }

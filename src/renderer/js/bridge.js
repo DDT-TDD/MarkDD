@@ -542,34 +542,60 @@
                     const previewUrl = `${BASE}/fs/read?path=${encodeURIComponent(data.filePath)}`;
 
                     if (channel === 'preview-cv') {
+                        const openCvFallback = () => {
+                            if (!window._cvPreviewWindow || window._cvPreviewWindow.closed) {
+                                window._cvPreviewWindow = window.open(previewUrl, 'cv-preview', 'width=950,height=900,resizable=yes,scrollbars=yes');
+                            } else {
+                                window._cvPreviewWindow.location.replace(previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+                                window._cvPreviewWindow.focus();
+                            }
+                        };
                         try {
                             let win = await getTauriWindowByLabel('cv-preview');
                             if (win) {
                                 if (typeof win.eval === 'function') {
-                                    const bustedUrl = previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-                                    await win.eval('window.location.replace(' + JSON.stringify(bustedUrl) + ');');
+                                    try {
+                                        const bustedUrl = previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+                                        await win.eval('window.location.replace(' + JSON.stringify(bustedUrl) + ');');
+                                    } catch (_) { /* SSE auto-reload handles refresh if eval is not permitted */ }
                                 }
                                 await win.show();
                                 await win.setFocus();
                             } else {
-                                await createTauriWindow('cv-preview', {
+                                const created = await createTauriWindow('cv-preview', {
                                     url: previewUrl,
                                     title: 'CV Live Preview',
                                     width: 950,
                                     height: 900,
                                     resizable: true
                                 });
+                                if (!created) {
+                                    openCvFallback();
+                                } else if (typeof created.once === 'function') {
+                                    created.once('tauri://error', () => openCvFallback());
+                                }
                             }
                         } catch (e) {
-                            console.warn('[Bridge] cv-preview window failed:', e);
+                            console.warn('[Bridge] cv-preview window failed, opening fallback:', e);
+                            try { openCvFallback(); } catch (_) {}
                         }
                     } else if (channel === 'preview-presentation') {
+                        const openPresFallback = () => {
+                            if (!window._presentationPreviewWindow || window._presentationPreviewWindow.closed) {
+                                window._presentationPreviewWindow = window.open(previewUrl, 'presentation-preview', 'width=1120,height=780,resizable=yes,scrollbars=yes');
+                            } else {
+                                window._presentationPreviewWindow.location.replace(previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+                                window._presentationPreviewWindow.focus();
+                            }
+                        };
                         try {
                             let win = await getTauriWindowByLabel('presentation-preview');
                             if (win) {
                                 if (typeof win.eval === 'function') {
-                                    const bustedUrl = previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-                                    await win.eval('window.location.replace(' + JSON.stringify(bustedUrl) + ');');
+                                    try {
+                                        const bustedUrl = previewUrl + (previewUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+                                        await win.eval('window.location.replace(' + JSON.stringify(bustedUrl) + ');');
+                                    } catch (_) { /* SSE auto-reload handles refresh if eval is not permitted */ }
                                 }
                                 await win.show();
                                 await win.setFocus();
@@ -582,22 +608,14 @@
                                     resizable: true
                                 });
                                 if (!created) {
-                                    if (!window._presentationPreviewWindow || window._presentationPreviewWindow.closed) {
-                                        window._presentationPreviewWindow = window.open(previewUrl, 'presentation-preview', 'width=1120,height=780,resizable=yes,scrollbars=yes');
-                                    } else {
-                                        window._presentationPreviewWindow.focus();
-                                    }
+                                    openPresFallback();
+                                } else if (typeof created.once === 'function') {
+                                    created.once('tauri://error', () => openPresFallback());
                                 }
                             }
                         } catch (e) {
                             console.warn('[Bridge] presentation-preview window failed, opening fallback:', e);
-                            try {
-                                if (!window._presentationPreviewWindow || window._presentationPreviewWindow.closed) {
-                                    window._presentationPreviewWindow = window.open(previewUrl, 'presentation-preview', 'width=1120,height=780,resizable=yes,scrollbars=yes');
-                                } else {
-                                    window._presentationPreviewWindow.focus();
-                                }
-                            } catch (_) {}
+                            try { openPresFallback(); } catch (_) {}
                         }
                     }
                 }
@@ -639,7 +657,7 @@
 
             } catch (err) {
                 console.error(`[Bridge] IPC channel '${channel}' failed:`, err);
-                if (channel === 'get-package-data') return { success: true, data: { name: 'MarkDD Editor', version: '2.4.2', description: 'A fully-featured Markdown editor', author: 'MarkDD Team' } };
+                if (channel === 'get-package-data') return { success: true, data: { name: 'MarkDD Editor', version: '2.4.3', description: 'A fully-featured Markdown editor', author: 'MarkDD Team' } };
                 return { success: false, error: err.message };
             }
         },

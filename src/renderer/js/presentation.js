@@ -426,7 +426,22 @@ ${navItems}
             mermaid.initialize({ 
                 startOnLoad: false, // We'll manually trigger rendering
                 theme: 'default',
-                securityLevel: 'loose'
+                securityLevel: 'loose',
+                themeVariables: {
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                },
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: false,
+                    curve: 'basis'
+                },
+                sequence: {
+                    useMaxWidth: true,
+                    wrap: true
+                },
+                gantt: {
+                    useMaxWidth: true
+                }
             });
         }
     </script>
@@ -488,7 +503,7 @@ ${navItems}
         .slide {
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: safe center;
             width: 100%;
             height: 100%;
             position: absolute;
@@ -500,6 +515,7 @@ ${navItems}
             visibility: hidden;
             pointer-events: none;
             transition: opacity 200ms ease-in-out;
+            box-sizing: border-box;
         }
         
         .slide.active {
@@ -662,6 +678,11 @@ ${navItems}
             justify-content: center;
             align-items: center;
             text-align: center;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            margin-top: 1em;
+            margin-bottom: 1em;
         }
 
         .slide .mermaid svg,
@@ -670,6 +691,24 @@ ${navItems}
         .slide .tikz-container img {
             margin: 0 auto;
             display: block;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 55vh !important;
+        }
+
+        /* Responsive styling for custom containers / callouts in slides */
+        .slide .custom-container {
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .slide .custom-container-content {
+            font-size: 1.25em;
+            line-height: 1.5;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         
         .slide table {
@@ -1337,15 +1376,18 @@ ${navItems}
             if (typeof mermaid !== 'undefined') {
                 const mermaidDiagrams = Array.from(document.querySelectorAll('.mermaid'));
                 if (mermaidDiagrams.length > 0) {
-                    try {
-                        if (typeof mermaid.run === 'function') {
-                            mermaid.run({ nodes: mermaidDiagrams });
-                        } else if (typeof mermaid.init === 'function') {
-                            mermaid.init(undefined, mermaidDiagrams);
+                    const mermaidPromise = (async () => {
+                        try {
+                            if (typeof mermaid.run === 'function') {
+                                await mermaid.run({ nodes: mermaidDiagrams });
+                            } else if (typeof mermaid.init === 'function') {
+                                await mermaid.init(undefined, mermaidDiagrams);
+                            }
+                        } catch (err) {
+                            console.error('Mermaid rendering error:', err);
                         }
-                    } catch (err) {
-                        console.error('Mermaid rendering error:', err);
-                    }
+                    })();
+                    renderingPromises.push(mermaidPromise);
                 }
             }
             

@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, TikZ/CircuiTikZ rendering, Beamer-style presentations, and complete book publishing system",
   "main": "src/main/main.js",
   "homepage": "./",
@@ -49,7 +49,7 @@
       "README.md",
       "THIRD-PARTY-LICENSES.md",
       "third_party/**/*",
-      "resources/**/*"
+      "!resources{,/**/*}"
     ],
     "extraFiles": [
       {
@@ -69,6 +69,19 @@
         "to": "third_party"
       }
     ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createStartMenuShortcut": true,
+      "createDesktopShortcut": "always",
+      "menuCategory": "MarkDD Editor",
+      "shortcutName": "MarkDD Editor",
+      "uninstallDisplayName": "MarkDD Editor (Electron)",
+      "include": "scripts/installer.nsh",
+      "runAfterFinish": true
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icons/icon.ico",

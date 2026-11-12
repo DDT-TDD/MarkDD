@@ -122,7 +122,7 @@ try {
     packageData = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
 } catch (e) {
     // Fallback: version must always match package.json — update both together
-    packageData = { name: "MarkDD Editor", version: "2.4.2", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
+    packageData = { name: "MarkDD Editor", version: "2.4.3", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
 }
 
 const PORT = 3001;
@@ -270,6 +270,20 @@ const server = http.createServer(async (req, res) => {
                     mime = 'text/css; charset=utf-8';
                 } else if (lowerPath.endsWith('.js')) {
                     mime = 'application/javascript; charset=utf-8';
+                } else if (lowerPath.endsWith('.png')) {
+                    mime = 'image/png';
+                } else if (lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
+                    mime = 'image/jpeg';
+                } else if (lowerPath.endsWith('.gif')) {
+                    mime = 'image/gif';
+                } else if (lowerPath.endsWith('.svg')) {
+                    mime = 'image/svg+xml';
+                } else if (lowerPath.endsWith('.webp')) {
+                    mime = 'image/webp';
+                } else if (lowerPath.endsWith('.ico')) {
+                    mime = 'image/x-icon';
+                } else if (lowerPath.endsWith('.bmp')) {
+                    mime = 'image/bmp';
                 }
                 res.setHeader('Content-Type', mime);
                 res.end(data);
@@ -571,7 +585,7 @@ async function handleIpc(channel, payload) {
             try {
                 const serveOptions = {
                     watch: payload.watch,
-                    port: PORT,
+                    // Let BookEngine pick its default port (4500+) to avoid colliding with IPC server PORT
                     ...(payload.options || {})
                 };
                 const result = await bookEngine.serve(payload.rootDir, serveOptions);
@@ -739,6 +753,15 @@ async function handleIpc(channel, payload) {
             
             await pagePres.setViewport({ width: 1920, height: 1080 });
             await pagePres.setContent(pdfHtml, { waitUntil: 'networkidle0' });
+            await pagePres.evaluate(() => new Promise((resolve) => {
+                if (window.presentationRenderStatus === 'complete' || document.body.classList.contains('rendering-complete')) {
+                    resolve(true);
+                    return;
+                }
+                window.addEventListener('presentation-render-complete', () => resolve(true), { once: true });
+                setTimeout(() => resolve(false), 15000);
+            }));
+            await new Promise(resolve => setTimeout(resolve, 300));
             await pagePres.evaluate(() => {
                 if (typeof window.enablePresentationPrintLayout === 'function') {
                     window.enablePresentationPrintLayout();
@@ -863,7 +886,7 @@ async function handleIpc(channel, payload) {
             return { success: true, path: exPath };
 
         case 'get-package-data':
-            return { success: true, data: { name: 'MarkDD Editor', version: packageData.version || '2.4.2', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
+            return { success: true, data: { name: 'MarkDD Editor', version: packageData.version || '2.4.3', tauriVersion: '2.11.3', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
 
         case 'read-license':
             const lic = fs.readFileSync(path.join(__dirname, '../../LICENSE'), 'utf-8');

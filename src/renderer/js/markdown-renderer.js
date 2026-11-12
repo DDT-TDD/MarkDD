@@ -807,10 +807,31 @@ class MarkdownRenderer {
                 </div>`;
             }
             
-            // Regular image rendering
+            // Regular image rendering (resolve local paths for Tauri WebView)
+            let resolvedSrc = href || '';
+            if (typeof window !== 'undefined' && window.MarkDDBridge && window.MarkDDBridge.isTauri && resolvedSrc) {
+                const isRemoteOrData = /^(https?:|data:|blob:|tauri:|asset:)/i.test(resolvedSrc);
+                if (!isRemoteOrData) {
+                    let localPath = resolvedSrc;
+                    if (/^file:\/\//i.test(localPath)) {
+                        localPath = decodeURIComponent(localPath.replace(/^file:\/\/\//i, ''));
+                    } else if (!/^[a-zA-Z]:[\\/]/.test(localPath) && !localPath.startsWith('/')) {
+                        const currentFile = window.app && window.app.editor && window.app.editor.currentFile;
+                        if (currentFile) {
+                            const lastSep = Math.max(currentFile.lastIndexOf('/'), currentFile.lastIndexOf('\\'));
+                            if (lastSep !== -1) {
+                                localPath = currentFile.substring(0, lastSep + 1) + localPath;
+                            }
+                        }
+                    }
+                    if (/^[a-zA-Z]:[\\/]/.test(localPath) || localPath.startsWith('/')) {
+                        resolvedSrc = `http://localhost:3001/fs/read?path=${encodeURIComponent(localPath)}`;
+                    }
+                }
+            }
             const altText = text || '';
             const titleAttr = title ? ` title="${title}"` : '';
-            return `<img src="${href}" alt="${altText}"${titleAttr} />`;
+            return `<img src="${resolvedSrc}" alt="${altText}"${titleAttr} />`;
         };
         
         // Configure marked options (updated for v5 compatibility)
@@ -884,12 +905,12 @@ class MarkdownRenderer {
                 name: 'container',
                 level: 'block',
                 start(src) {
-                    const match = src.match(/^:::(info|warning|error|success|tip|danger)/i);
-                    return match ? match.index : undefined;
+                    const match = src.match(/(?:^|\n):::(info|warning|error|success|tip|danger)/i);
+                    return match ? match.index + (match[0].startsWith('\n') ? 1 : 0) : undefined;
                 },
                 tokenizer(src) {
-                    // Match container blocks with optional title
-                    const rule = /^:::(info|warning|error|success|tip|danger)(?:\s+(.*?))?\n([\s\S]*?)^:::$/im;
+                    // Match container blocks with optional title (support both single-line and multiline :::...:::)
+                    const rule = /^:::(info|warning|error|success|tip|danger)(?:\s+(.*?))?\n([\s\S]*?)\n:::(?:\n|$)/i;
                     const match = rule.exec(src);
                     if (match) {
                         const token = {
@@ -4948,10 +4969,32 @@ class MarkdownRenderer {
         
         // Process containers (:::warning, :::info, etc.)
         processed = processed.replace(/^:::(\w+)(?:\s+(.+))?\n([\s\S]*?)\n:::$/gm, (match, type, title, content) => {
-            const titleHtml = title ? `<div class="custom-block-title">${title}</div>` : '';
-            return `<div class="custom-block custom-block-${type}">
-                ${titleHtml}
-                <div class="custom-block-content">${content}</div>
+            const containerType = type.toLowerCase();
+            const icons = {
+                info: 'ℹ️',
+                warning: '⚠️',
+                error: '❌',
+                success: '✅',
+                tip: '💡',
+                danger: '🚫'
+            };
+            const colors = {
+                info: '#0969da',
+                warning: '#bf8700',
+                error: '#d1242f',
+                success: '#1a7f37',
+                tip: '#8250df',
+                danger: '#d1242f'
+            };
+            const icon = icons[containerType] || 'ℹ️';
+            const color = colors[containerType] || '#0969da';
+            const displayTitle = title ? title.trim() : containerType;
+            return `<div class="custom-container custom-container-${containerType}" style="border: 1px solid ${color}; border-left: 4px solid ${color}; background-color: ${color}08; padding: 16px; margin: 16px 0; border-radius: 6px;">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 24px; margin-right: 10px;">${icon}</span>
+                    <strong style="font-size: 16px; color: ${color}; text-transform: uppercase;">${displayTitle}</strong>
+                </div>
+                <div class="custom-container-content">${content.trim()}</div>
             </div>`;
         });
         

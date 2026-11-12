@@ -1,4 +1,4 @@
-# Release Notes - MarkDD Editor v2.4.2
+# Release Notes 
 
 **Version:** 2.4.2  
 **Date:** November 6, 2026  

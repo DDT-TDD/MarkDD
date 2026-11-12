@@ -733,7 +733,15 @@ class MarkDDApp {
         });
 
         // Ensure the recent files submenu reflects the latest state when the menu initializes
+        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
         this.updateRecentFilesMenu();
+        if (!this._recentBackendReady && window.MarkDDBackendReady) {
+            window.MarkDDBackendReady.then(() => {
+                this._recentBackendReady = true;
+                if (this._recentExistsCache) this._recentExistsCache.clear();
+                this.updateRecentFilesMenu();
+            });
+        }
     }
 
     setupElectronListeners() {
@@ -3385,7 +3393,7 @@ sequenceDiagram
 
 ## Images
 
-![Sample Image](https://picsum.photos/200/300)
+![Sample Image](data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczMjAnIGhlaWdodD0nMjAwJyB2aWV3Qm94PScwIDAgMzIwIDIwMCc+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSdnJyB4MT0nMCcgeTE9JzAnIHgyPScxJyB5Mj0nMSc+PHN0b3Agb2Zmc2V0PScwJScgc3RvcC1jb2xvcj0nIzNiODJmNicvPjxzdG9wIG9mZnNldD0nMTAwJScgc3RvcC1jb2xvcj0nIzFlM2E4YScvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSczMjAnIGhlaWdodD0nMjAwJyByeD0nMTInIGZpbGw9J3VybCgjZyknLz48Y2lyY2xlIGN4PScyNDUnIGN5PSc1OCcgcj0nMjQnIGZpbGw9JyNmZGUwNDcnIG9wYWNpdHk9JzAuOScvPjxwYXRoIGQ9J00wIDE1NSBMOTUgOTUgTDE2NSAxNDAgTDIzNSA4NSBMMzIwIDE1NSBMMzIwIDIwMCBMMCAyMDAgWicgZmlsbD0nIzBmMTcyYScgb3BhY2l0eT0nMC40NScvPjx0ZXh0IHg9JzE2MCcgeT0nMTgyJyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyBmb250LWZhbWlseT0nU2Vnb2UgVUksc2Fucy1zZXJpZicgZm9udC1zaXplPScxNCcgZmlsbD0nI2Y4ZmFmYyc+U2FtcGxlIEltYWdlPC90ZXh0Pjwvc3ZnPg==)
 
 *Caption: Images scale automatically*
 
@@ -8774,7 +8782,15 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
+        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
         this.updateRecentFilesMenu();
+        if (!this._recentBackendReady && window.MarkDDBackendReady) {
+            window.MarkDDBackendReady.then(() => {
+                this._recentBackendReady = true;
+                if (this._recentExistsCache) this._recentExistsCache.clear();
+                this.updateRecentFilesMenu();
+            });
+        }
     }
 
     removeRecentFile(filePath) {
@@ -8794,7 +8810,15 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
+        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
         this.updateRecentFilesMenu();
+        if (!this._recentBackendReady && window.MarkDDBackendReady) {
+            window.MarkDDBackendReady.then(() => {
+                this._recentBackendReady = true;
+                if (this._recentExistsCache) this._recentExistsCache.clear();
+                this.updateRecentFilesMenu();
+            });
+        }
     }
 
     clearRecentFiles() {
@@ -8808,7 +8832,15 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
+        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
         this.updateRecentFilesMenu();
+        if (!this._recentBackendReady && window.MarkDDBackendReady) {
+            window.MarkDDBackendReady.then(() => {
+                this._recentBackendReady = true;
+                if (this._recentExistsCache) this._recentExistsCache.clear();
+                this.updateRecentFilesMenu();
+            });
+        }
     }
 
     updateRecentFilesMenu() {
@@ -8862,7 +8894,7 @@ A passionate junior software engineer with solid foundations in computer science
             
             // Cache file existence check (avoid repeated sync IO on every open)
             let isMissing = false;
-            if (fs && file.path) {
+            if (fs && file.path && (this._recentBackendReady || (window.MarkDDBridge && window.MarkDDBridge.isElectron))) {
                 if (existsCache.has(file.path)) {
                     isMissing = !existsCache.get(file.path);
                 } else {
@@ -8872,7 +8904,7 @@ A passionate junior software engineer with solid foundations in computer science
                     } catch (error) {
                         exists = false;
                     }
-                    existsCache.set(file.path, exists);
+                    if (exists) { existsCache.set(file.path, true); }
                     isMissing = !exists;
                 }
             }
@@ -9142,7 +9174,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.4.2', // Fallback, will be replaced by main process
+            version: '2.4.3', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9179,18 +9211,18 @@ A passionate junior software engineer with solid foundations in computer science
         libs = libs.map(lib => {
             if (lib.name && lib.name.includes('Application Shell')) {
                 if (isTauri) {
-                    return { name: 'Application Shell (Tauri 2.0)', version: packageData.version || '2.4.2' };
+                    return { name: 'Application Shell (Tauri 2)', version: packageData.tauriVersion || '2.11.3' };
                 } else if (isElectron) {
-                    return { name: 'Application Shell (Electron)', version: packageData.version || '2.4.2' };
+                    return { name: 'Application Shell (Electron)', version: packageData.electronVersion || ((typeof process !== 'undefined' && process.versions && process.versions.electron) ? process.versions.electron : '38.8.6') };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.2' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.3' };
                 }
             }
             return lib;
         });
 
         const appTitle = (packageData.name === 'markdd-editor' || !packageData.name) ? 'MarkDD Editor' : packageData.name;
-        const appVer = packageData.version || '2.4.2';
+        const appVer = packageData.version || '2.4.3';
         let html = `<h2>${appTitle} v${appVer}</h2>
         <p>${packageData.description}</p>
         <p><strong>Author:</strong> ${packageData.author}</p>
@@ -9294,12 +9326,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = 'v2.4.2';
+            versionElement.textContent = 'v2.4.3';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = 'v2.4.2';
+                versionElement.textContent = 'v2.4.3';
             }
         }
     }

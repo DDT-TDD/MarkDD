@@ -5019,3 +5019,17 @@ figcaption {
 }
 
 
+
+
+/* Custom Containers / Callout Boxes */
+.custom-container {
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.custom-container-content {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
