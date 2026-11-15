@@ -467,23 +467,20 @@ class MarkdownRenderer {
             }
         }
         
-        // KaTeX is optional - wait briefly but don't fail if not available
+        // KaTeX is optional - don't stall init() with a 3s polling loop if not yet loaded
         if (typeof this.katex !== 'object' || this.katex === null) {
-            console.log('[MarkdownRenderer] KaTeX not available yet, waiting...');
-            for (let i = 0; i < 30; i++) { // Wait up to 3 seconds
-                await new Promise(r => setTimeout(r, 100));
+            if (typeof window !== 'undefined' && typeof window.katex === 'object' && window.katex !== null) {
                 this.katex = window.katex;
-                if (typeof this.katex === 'object' && this.katex !== null) {
-                    console.log('[MarkdownRenderer] KaTeX now available');
-                    break;
-                }
-            }
-            
-            if (typeof this.katex !== 'object' || this.katex === null) {
-                console.warn('[MarkdownRenderer] KaTeX not available - math rendering may be limited');
-                // Create a stub that returns an error message
+            } else {
+                console.warn('[MarkdownRenderer] KaTeX not available at init - using fallback until window.katex loads');
                 this.katex = {
-                    renderToString: (tex) => `<span class="katex-error" title="${tex}">[Math: ${tex}]</span>`
+                    renderToString: (tex) => {
+                        if (typeof window !== 'undefined' && typeof window.katex === 'object' && window.katex !== null) {
+                            this.katex = window.katex;
+                            return this.katex.renderToString(tex);
+                        }
+                        return `<span class="katex-error" title="${tex}">[Math: ${tex}]</span>`;
+                    }
                 };
             }
         }
@@ -807,27 +804,11 @@ class MarkdownRenderer {
                 </div>`;
             }
             
-            // Regular image rendering (resolve local paths for Tauri WebView)
+            // Regular image rendering (resolve local/relative paths consistently in Electron and Tauri)
             let resolvedSrc = href || '';
-            if (typeof window !== 'undefined' && window.MarkDDBridge && window.MarkDDBridge.isTauri && resolvedSrc) {
-                const isRemoteOrData = /^(https?:|data:|blob:|tauri:|asset:)/i.test(resolvedSrc);
-                if (!isRemoteOrData) {
-                    let localPath = resolvedSrc;
-                    if (/^file:\/\//i.test(localPath)) {
-                        localPath = decodeURIComponent(localPath.replace(/^file:\/\/\//i, ''));
-                    } else if (!/^[a-zA-Z]:[\\/]/.test(localPath) && !localPath.startsWith('/')) {
-                        const currentFile = window.app && window.app.editor && window.app.editor.currentFile;
-                        if (currentFile) {
-                            const lastSep = Math.max(currentFile.lastIndexOf('/'), currentFile.lastIndexOf('\\'));
-                            if (lastSep !== -1) {
-                                localPath = currentFile.substring(0, lastSep + 1) + localPath;
-                            }
-                        }
-                    }
-                    if (/^[a-zA-Z]:[\\/]/.test(localPath) || localPath.startsWith('/')) {
-                        resolvedSrc = `http://localhost:3001/fs/read?path=${encodeURIComponent(localPath)}`;
-                    }
-                }
+            if (resolvedSrc && typeof window !== 'undefined' && window.MarkDDBridge && typeof window.MarkDDBridge.resolveImageUrl === 'function') {
+                const currentFile = window.app && window.app.editor && window.app.editor.currentFile;
+                resolvedSrc = window.MarkDDBridge.resolveImageUrl(resolvedSrc, currentFile);
             }
             const altText = text || '';
             const titleAttr = title ? ` title="${title}"` : '';
@@ -1435,13 +1416,23 @@ class MarkdownRenderer {
             console.log('[MarkdownRenderer] 🔍 Test result:', testNode);
             console.log('[MarkdownRenderer] 🔍 Test result outerHTML:', testNode ? testNode.outerHTML : 'null outerHTML');
             
-            if (testNode && testNode.outerHTML) {
+            const testHtml = typeof testNode === 'string'
+                ? testNode
+                : (testNode && typeof testNode.outerHTML === 'string'
+                    ? testNode.outerHTML
+                    : (testNode && testNode.node && window.MathJax.startup && window.MathJax.startup.adaptor
+                        ? window.MathJax.startup.adaptor.outerHTML(testNode.node)
+                        : ''));
+            if (testHtml && (testHtml.includes('<svg') || testHtml.includes('mjx-container'))) {
                 console.log('[MarkdownRenderer] ✅ MathJax test successful - ready for use');
                 
                 // Also test chemistry support
                 try {
                     const testChemistry = window.MathJax.tex2svg('\\ce{H2O}', {display: false});
-                    if (testChemistry && testChemistry.outerHTML) {
+                    const chemHtml = typeof testChemistry === 'string'
+                        ? testChemistry
+                        : (testChemistry && testChemistry.outerHTML ? testChemistry.outerHTML : '');
+                    if (chemHtml && !/<merror|data-mml-node=["']merror["']|Undefined control sequence/i.test(chemHtml)) {
                         console.log('[MarkdownRenderer] 🧪 Chemistry test successful - mhchem is working');
                     }
                 } catch (chemError) {
@@ -1679,6 +1670,25 @@ class MarkdownRenderer {
         return { content, mindmapDataMap };
     }
 
+    sanitizeHTML(html) {
+        if (!html || typeof html !== 'string') return html || '';
+        return html
+            .replace(/<script\b(?![^>]*\btype\s*=\s*["']text\/tikz["'])[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<(object|embed|applet)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+            .replace(/\son([a-z]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi, (match, evt, dq, sq, uq) => {
+                const val = (dq !== undefined ? dq : (sq !== undefined ? sq : (uq || ''))).trim();
+                if (evt.toLowerCase() === 'onclick' && (
+                    val.startsWith('window.markdownRenderer.') ||
+                    val.startsWith('this.closest(') ||
+                    val.includes('navigator.clipboard.writeText')
+                )) {
+                    return match;
+                }
+                return '';
+            })
+            .replace(/(href|src|xlink:href|action|formaction)\s*=\s*(["'])\s*(?:javascript:|vbscript:|data:text\/html)[^"']*\2/gi, '$1=$2#$2');
+    }
+
     async render(markdown, options = {}) {
         // Always sync late-loaded math libraries from window before rendering
         if (!this.katex && typeof window !== 'undefined' && window.katex) {
@@ -1856,6 +1866,7 @@ class MarkdownRenderer {
 
         // Step 7: Create container for post-processing
         const tempDiv = document.createElement('div');
+        html = this.sanitizeHTML(html);
         tempDiv.innerHTML = html;
 
         // Step 8: Restore LaTeX environments and process with KaTeX
@@ -1903,20 +1914,13 @@ class MarkdownRenderer {
             });
         }
 
-        // Step 10: Post-process diagrams and special content
+        // Step 10: Post-process diagrams and special content (includes multimedia embeds)
         console.log('[MarkdownRenderer] About to call postProcess...');
         html = await this.postProcess(tempDiv.innerHTML);
         console.log('[MarkdownRenderer] postProcess completed, continuing...');
         tempDiv.innerHTML = html;
 
-        // Step 11: Process multimedia embeds
-        console.log('[MarkdownRenderer] Processing multimedia embeds...');
-        if (typeof this.processMultimediaEmbeds === 'function') {
-            this.processMultimediaEmbeds(tempDiv);
-            console.log('[MarkdownRenderer] Multimedia embeds completed');
-        } else {
-            console.log('[MarkdownRenderer] processMultimediaEmbeds method not available');
-        }
+        // Step 11: Multimedia embeds already processed inside postProcess()
 
         // Step 12: Process enhanced task lists
         console.log('[MarkdownRenderer] Processing task lists...');
@@ -2832,7 +2836,7 @@ class MarkdownRenderer {
             const isAsciiMath = placeholderData.type === 'asciimath';
             
             // Check if content contains chemistry formulas that require MathJax with mhchem
-            const hasChemistry = /\\ce\{/.test(mathContent);
+            const hasChemistry = /\\(ce|pu)\b/.test(mathContent);
             
             // Check if content contains complex LaTeX environments that need MathJax
             const hasComplexEnvironment = /\\begin\{(align\*?|equation\*?|gather\*?|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array|cases|alignat\*?|flalign\*?)\}/.test(mathContent);
@@ -2875,7 +2879,7 @@ class MarkdownRenderer {
             // Use MathJax as primary, KaTeX as fallback (force MathJax for chemistry, complex environments, and AsciiMath)
             let rendered;
             let engineUsed = 'none';
-            if (this.mathjax && (this.mathEngine === 'mathjax' || hasChemistry || hasComplexEnvironment || isAsciiMath)) {
+            if (this.mathjax && !(hasChemistry && this.katex) && (this.mathEngine === 'mathjax' || hasChemistry || hasComplexEnvironment || isAsciiMath)) {
                 const readySync = this.isMathJaxReadySync();
                 if (readySync) {
                     try {
@@ -2917,7 +2921,7 @@ class MarkdownRenderer {
 
                         // Detect MathJax error output (merror / Unknown environment) and if present,
                         // prefer KaTeX fallback to avoid exporting raw error messages or merror tags.
-                        const mjErrorDetected = /<merror|Unknown environment/i.test(rendered);
+                        const mjErrorDetected = /<merror|data-mml-node=["']merror["']|data-mjx-error|Unknown environment|Undefined control sequence/i.test(rendered);
                         if (mjErrorDetected && this.katex) {
                             console.warn('[MarkdownRenderer] MathJax produced merror output; using KaTeX fallback for safety');
                             try {
@@ -3474,13 +3478,18 @@ class MarkdownRenderer {
                     if (processor.selector && !container.querySelector(processor.selector)) {
                         continue;
                     }
-                    const timeoutPromise = new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error(`${processor.name} processing timeout`)), 10000)
-                    );
-                    await Promise.race([
-                        this[processor.method](container),
-                        timeoutPromise
-                    ]);
+                    let timeoutId;
+                    const timeoutPromise = new Promise((_, reject) => {
+                        timeoutId = setTimeout(() => reject(new Error(`${processor.name} processing timeout`)), 10000);
+                    });
+                    try {
+                        await Promise.race([
+                            this[processor.method](container),
+                            timeoutPromise
+                        ]);
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
                 }
             } catch (error) {
                 console.warn(`[MarkdownRenderer] ${processor.name} processing error:`, error);
@@ -4186,6 +4195,18 @@ class MarkdownRenderer {
             const isCircuit = element.getAttribute('data-is-circuit') === 'true';
             
             try {
+                // Lazy-load legacy obsidian-tikzjax.js only if needed and not yet loaded
+                if ((!window.tikzjax || !window.tikzjax.process) && typeof document !== 'undefined' && !window.__obsidianTikzjaxLoading) {
+                    window.__obsidianTikzjaxLoading = new Promise((resolve) => {
+                        const s = document.createElement('script');
+                        s.src = 'js/obsidian-tikzjax.js';
+                        s.onload = () => resolve(true);
+                        s.onerror = () => resolve(false);
+                        document.head.appendChild(s);
+                    });
+                    await window.__obsidianTikzjaxLoading;
+                }
+
                 // Check if TikZJax is available
                 if (window.tikzjax && window.tikzjax.process) {
                     // Create script element for TikZJax processing

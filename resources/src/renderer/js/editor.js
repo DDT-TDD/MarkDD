@@ -1335,80 +1335,93 @@ All source implementations are available in the \`References/\` directory:
     async loadComprehensiveShowcase() {
         console.log('[Editor] ⚡ loadComprehensiveShowcase() STARTED');
         try {
-            // Wait for Node.js backend before any fs operations in Tauri mode
             if (window.MarkDDBackendReady) {
                 await window.MarkDDBackendReady;
             }
+            const bridge = window.MarkDDBridge;
+            const fs = bridge?.fs || (typeof require !== 'undefined' ? require('fs') : null);
+            const path = bridge?.path || (typeof require !== 'undefined' ? require('path') : null);
 
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Resolve cwd via IPC (works in both Electron and Tauri)
+            // Primary: resolve bundled examples path via IPC (works identically in Electron ASAR & Tauri)
+            if (bridge && typeof bridge.invoke === 'function' && path) {
+                try {
+                    const ex = await bridge.invoke('get-examples-path');
+                    if (ex && ex.success && ex.path) {
+                        const fullPath = path.join(ex.path, 'COMPREHENSIVE-FEATURES-SHOWCASE.md');
+                        const res = await bridge.invoke('read-file', fullPath);
+                        const content = typeof res === 'string' ? res : (res && res.success ? res.content : null);
+                        if (typeof content === 'string') {
+                            this.currentFile = fullPath;
+                            this.setContent(content);
+                            this.isModified = false;
+                            this.updateStatus();
+                            this.setupAutosave();
+                            setTimeout(() => this.triggerContentChange(), 100);
+                            console.log('✅ [Editor] Loaded showcase file via examples-path:', fullPath);
+                            return;
+                        }
+                    }
+                } catch (_) {}
+            }
+
             let cwdPath = '';
             try {
-                const cwdResult = await window.MarkDDBridge.invoke('get-cwd');
+                const cwdResult = await bridge?.invoke('get-cwd');
                 if (cwdResult && cwdResult.success) cwdPath = cwdResult.cwd;
             } catch (_) {}
 
-            // Try multiple possible locations for the showcase file
-            const possiblePaths = [
+            const baseDir = typeof __dirname !== 'undefined' ? __dirname : '';
+            const possiblePaths = path ? [
                 cwdPath && path.join(cwdPath, 'examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
                 cwdPath && path.join(cwdPath, 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
-                path.join(__dirname, '../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
-                path.join(__dirname, '../../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
-                path.join(__dirname, '../../../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
-            ].filter(Boolean);
-            
-            for (let i = 0; i < possiblePaths.length; i++) {
-                const showcaseFilePath = possiblePaths[i];
-                if (fs.existsSync(showcaseFilePath)) {
-                    const content = fs.readFileSync(showcaseFilePath, 'utf8');
-                    this.currentFile = showcaseFilePath;
-                    this.setContent(content);
-                    this.isModified = false;
-                    this.updateStatus();
-                    this.setupAutosave();
-                    setTimeout(() => this.triggerContentChange(), 100);
-                    console.log('✅ [Editor] Loaded showcase file from disk:', showcaseFilePath);
-                    return;
+                baseDir && path.join(baseDir, '../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
+                baseDir && path.join(baseDir, '../../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md'),
+                baseDir && path.join(baseDir, '../../../../examples', 'COMPREHENSIVE-FEATURES-SHOWCASE.md')
+            ].filter(Boolean) : [];
+
+            if (fs && typeof fs.existsSync === 'function') {
+                for (const showcaseFilePath of possiblePaths) {
+                    if (fs.existsSync(showcaseFilePath)) {
+                        const content = fs.readFileSync(showcaseFilePath, 'utf8');
+                        this.currentFile = showcaseFilePath;
+                        this.setContent(content);
+                        this.isModified = false;
+                        this.updateStatus();
+                        this.setupAutosave();
+                        setTimeout(() => this.triggerContentChange(), 100);
+                        console.log('✅ [Editor] Loaded showcase file from disk:', showcaseFilePath);
+                        return;
+                    }
                 }
             }
-            
-            // No file on disk — try to create it in cwd
+
             console.log('[Editor] Showcase file not found, using inline content.');
             await this.createShowcaseFile();
-            
         } catch (error) {
             console.error('[Editor] ERROR in loadComprehensiveShowcase:', error);
-            // Fallback to hardcoded content — never show an error for this
             this.setContent(this.getCleanComprehensiveExample());
         }
     }
 
     async createShowcaseFile() {
+        const showcaseContent = this.getCleanComprehensiveExample();
+        this.setContent(showcaseContent);
+        this.isModified = false;
+        this.updateStatus();
         try {
             const fs = window.MarkDDBridge?.fs || (typeof require !== 'undefined' ? require('fs') : null);
             const path = window.MarkDDBridge?.path || (typeof require !== 'undefined' ? require('path') : null);
-            if (!fs || !path) {
-                this.setContent(this.getCleanComprehensiveExample());
-                return;
+            const cwd = (typeof process !== 'undefined' && typeof process.cwd === 'function') ? process.cwd() : null;
+            if (fs && path && cwd) {
+                const showcaseFilePath = path.join(cwd, 'COMPREHENSIVE-FEATURES-SHOWCASE.md');
+                fs.writeFileSync(showcaseFilePath, showcaseContent, 'utf8');
+                this.currentFile = showcaseFilePath;
+                this.updateStatus();
+                this.setupAutosave();
+                console.log('✅ Created and loaded new showcase file:', showcaseFilePath);
             }
-            const showcaseContent = this.getCleanComprehensiveExample();
-            const showcaseFilePath = path.join(process.cwd(), 'COMPREHENSIVE-FEATURES-SHOWCASE.md');
-            
-            fs.writeFileSync(showcaseFilePath, showcaseContent, 'utf8');
-            
-            this.currentFile = showcaseFilePath;
-            this.setContent(showcaseContent);
-            this.isModified = false;
-            this.updateStatus();
-            this.setupAutosave();
-            
-            console.log('✅ Created and loaded new showcase file:', showcaseFilePath);
         } catch (error) {
-            console.error('❌ Failed to create showcase file:', error);
-            // Fallback to memory-only content
-            this.setContent(this.getCleanComprehensiveExample());
+            console.warn('⚠️ Could not persist showcase file to disk (using in-memory):', error.message);
         }
     }
 
@@ -1630,7 +1643,7 @@ Press [[Ctrl+S]] to save, [[Ctrl+O]] to open, and [[Ctrl+N]] to create a new fil
 
 *This showcase demonstrates the comprehensive capabilities of MarkDD Editor. Every feature shown here is fully functional and ready to use!*
 
-**Version**: 2.4.3  
+**Version**: 2.5.0  
 **Last Updated**: 2026-10-26  
 **License**: MIT`;
     }

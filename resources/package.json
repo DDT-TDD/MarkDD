@@ -1,6 +1,6 @@
 {
   "name": "markdd-editor",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "description": "A fully-featured Markdown editor with MarkText features, VS Code MPE capabilities, markmap integration, TikZ/CircuiTikZ rendering, Beamer-style presentations, and complete book publishing system",
   "main": "src/main/main.js",
   "homepage": "./",
@@ -49,7 +49,10 @@
       "README.md",
       "THIRD-PARTY-LICENSES.md",
       "third_party/**/*",
-      "!resources{,/**/*}"
+      "!resources{,/**/*}",
+      "!**/*.map",
+      "!**/*.d.ts",
+      "!**/*.log"
     ],
     "extraFiles": [
       {
@@ -140,13 +143,13 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",
     "archiver": "^5.3.2",
-    "electron": "^38.0.0",
+    "electron": "^39.8.10",
     "electron-builder": "^26.18.0",
     "jsdom": "^27.0.0"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.1.0",
     "@aduh95/viz.js": "^3.7.0",
+    "@tauri-apps/api": "^2.1.0",
     "abcjs": "^6.5.2",
     "chokidar": "^3.5.3",
     "codemirror": "^5.65.2",
@@ -161,12 +164,12 @@
     "katex": "^0.19.1",
     "latex.js": "^0.12.6",
     "lunr": "^2.3.9",
-    "marked": "^16.3.0",
     "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^8.6.7",
     "markdown-it-attrs": "^4.3.1",
     "markdown-it-texmath": "^1.0.0",
     "markdown-it-toc-done-right": "^4.2.0",
+    "marked": "^16.3.0",
     "markmap-lib": "^0.15.0",
     "markmap-view": "^0.15.0",
     "mathjax": "^4.0.0",

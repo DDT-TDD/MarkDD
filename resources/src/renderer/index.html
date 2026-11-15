@@ -725,7 +725,7 @@
                             </div>
                             <div class="setting-group version-info">
                                 <label>Version:</label>
-                                <span id="app-version">v2.4.3</span>
+                                <span id="app-version">v2.5.0</span>
                             </div>
                         </div>
                     </div>
@@ -943,6 +943,7 @@
     <!-- Scripts -->
     <script src="js/bridge.js"></script>
     <!-- Core local vendor libraries loaded synchronously for zero-latency startup in Electron & Tauri -->
+    <script src="vendor/purify.min.js"></script>
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/katex.min.js"></script>
     <script src="vendor/mhchem.min.js"></script>
@@ -958,7 +959,7 @@
     <script src="js/tikzjax-loader.js"></script>
     <script src="js/obsidian-tikzjax-enhanced.js"></script>
     <script src="js/node-tikzjax-integration.js"></script>
-    <script src="js/obsidian-tikzjax.js"></script>
+    <!-- obsidian-tikzjax.js (7 MB) is lazy-loaded on demand in markdown-renderer.js -->
     <script src="js/tikz-integration.js"></script>
     <script src="js/markdown-renderer.js"></script>
     <script src="js/tabs.js"></script>

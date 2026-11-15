@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-11-15
+
+### Fixed & Hardened (Cross-Platform Parity, Performance, Offline Assets & Security)
+- **Preview Pipeline Performance & Responsiveness**:
+  - Removed the `30 x 100 ms` KaTeX startup polling stall in `MarkdownRenderer.init()`, eliminated duplicate `processMultimediaEmbeds` execution, added lazy on-demand loading for `obsidian-tikzjax.js`, debounced `book-chapter-editor` live preview (`250 ms`), and gated background CV/Presentation preview refreshes on active open panels.
+  - Added incremental DOM update (`window.__markddUpdatePresentation`) for Electron's Presentation preview window instead of full `loadURL` reloads on every keystroke.
+  - Replaced hardcoded `3000 ms` render wait in `BookEngine.exportWithElectronBrowserWindow` with deterministic `document.fonts.ready` + `MathJax.startup.promise` readiness checks.
+- **100% Offline Local Vendor Assets**:
+  - Bundled `highlight-github.min.css`, `highlight-github-dark.min.css`, `lunr.min.js`, `mathjax-tex-svg.js`, `markmap-lib.min.js`, `markmap-view.min.js`, and `purify.min.js` locally in `src/renderer/vendor/` (copied to `assets/vendor/` for book builds), removing external CDN dependencies and `picsum.photos` placeholder URLs.
+- **Electron & Tauri Parity (Images, TikZ, Book Engine & Single Instance)**:
+  - Extracted shared `src/common/tikz-helper.js` resolving paths from `appRoot` instead of `process.cwd()`, fixing Tauri's TikZ server-side rendering (`renderTikzServerSide`) and thesis title-page preview (`render-thesis-title-page`).
+  - Unified local/relative/`file://` image resolution across `bridge.js`, `markdown-renderer.js`, `presentation.js`, and `cv.js` for both Electron and Tauri.
+  - Consolidated recent-files initialization in `app.js` (`refreshRecentFilesWhenReady()`), removed blind `taskkill`/`reg add` hacks in Tauri, and added dynamic backend discovery (`get_backend_config` + `MARKDD_SERVER_READY`) with ephemeral port fallback.
+- **Security Hardening**:
+  - Enabled `contextIsolation: true`, `nodeIntegration: false`, `enableRemoteModule: false`, and `webSecurity: true` in Electron via `src/main/preload.js`, and enforced `isSafeElectronPath` containment on Electron file IPC handlers.
+  - Added `DOMPurify` HTML sanitization in `markdown-renderer.js` and `presentation.js`, plus HTML escaping & URL scheme validation in `cv.js`.
+  - Secured Tauri's local HTTP bridge with a per-session `SESSION_TOKEN` (`X-MarkDD-Token` / `?token=`), strict CORS, `isSafeUserPath` checks, and `rundll32.exe` external URL handling; upgraded Electron devDependency to `39.8.10`.
+
+---
+
 ## [2.4.2] - 2026-11-06
 
 ### Fixed & Enhanced (Splitter Durability, Editor/Preview Alignment & Live WYSIWYG)

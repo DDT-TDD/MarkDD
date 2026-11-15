@@ -515,6 +515,10 @@ colors:
 
 
     console.log('\nALL CV FEATURE TESTS PASSED SUCCESSFULLY!');
+    if (typeof dom !== 'undefined' && dom.window && typeof dom.window.close === 'function') {
+        dom.window.close();
+    }
+    process.exit(0);
 }
 
 run().catch(err => {

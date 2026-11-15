@@ -270,6 +270,18 @@ ${navItems}
     }
 
     /**
+     * Resolve local vendor asset URL for offline presentation rendering
+     */
+    getVendorAssetUrl(file) {
+        if (typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:')) {
+            try {
+                return new URL('vendor/' + file, window.location.href).href;
+            } catch (e) {}
+        }
+        return 'vendor/' + file;
+    }
+
+    /**
      * Convert slides to HTML presentation
      */
     async generateHTML(options = {}) {
@@ -408,18 +420,18 @@ ${navItems}
             }
         };
     </script>
-    <script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@4/es5/tex-chtml.js"></script>
+    <script id="MathJax-script" defer src="${this.getVendorAssetUrl('mathjax-tex-svg.js')}"></script>
     
     <!-- KaTeX styles for pre-rendered math -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+    <link rel="stylesheet" href="${this.getVendorAssetUrl('katex.min.css')}">
+    <script defer src="${this.getVendorAssetUrl('katex.min.js')}"></script>
+    <script defer src="${this.getVendorAssetUrl('mhchem.min.js')}"></script>
 
     <!-- Marked.js for markdown rendering (including tables) -->
-    <script src="https://cdn.jsdelivr.net/npm/marked@16/marked.min.js"></script>
+    <script src="${this.getVendorAssetUrl('marked.min.js')}"></script>
     
     <!-- Mermaid for diagrams -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="${this.getVendorAssetUrl('mermaid.min.js')}"></script>
     <script>
         // Wait for Mermaid to load before initializing
         if (typeof mermaid !== 'undefined' && mermaid && typeof mermaid.initialize === 'function') {
@@ -446,27 +458,19 @@ ${navItems}
         }
     </script>
     
-    <!-- Highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+    <!-- Highlight.js styles for code syntax highlighting -->
+    <link rel="stylesheet" href="${this.getVendorAssetUrl('highlight-github.min.css')}">
     
     <!-- PlantUML for UML diagrams -->
-    <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js" defer></script>
+    <script src="${this.getVendorAssetUrl('plantuml-encoder.min.js')}" defer></script>
     
     <!-- Vega and Vega-Lite for data visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/vega@5" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6" defer></script>
+    <script src="${this.getVendorAssetUrl('vega.min.js')}" defer></script>
+    <script src="${this.getVendorAssetUrl('vega-lite.min.js')}" defer></script>
+    <script src="${this.getVendorAssetUrl('vega-embed.min.js')}" defer></script>
     
     <!-- D3.js for markmap and visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/d3@7" defer></script>
-    
-    <!-- Viz.js for GraphViz diagrams -->
-    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js" defer></script>
-    
-    <!-- TikZJax for LaTeX diagrams -->
-    <link rel="stylesheet" type="text/css" href="https://tikzjax.com/v1/fonts.css">
-    <script src="https://tikzjax.com/v1/tikzjax.js" defer></script>
+    <script src="${this.getVendorAssetUrl('d3.min.js')}" defer></script>
     
     <style>
         /* Hide MathJax assistive MML raw text */
@@ -1406,7 +1410,7 @@ ${navItems}
                         container.innerHTML = '';
                         container.appendChild(img);
                     } catch (err) {
-                        container.innerHTML = '<div class="plantuml-error">Error rendering PlantUML: ' + err.message + '</div>';
+                        container.innerHTML = '<div class="plantuml-error">Error rendering PlantUML: ' + '${this.escapeHTML ? "" : ""}' + (typeof err?.message === 'string' ? err.message.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Unknown error') + '</div>';
                     }
                 }
             });
@@ -1426,11 +1430,11 @@ ${navItems}
                         container.appendChild(vegaDiv);
                         const embedPromise = vegaEmbed('#' + id, spec, { actions: false });
                         renderingPromises.push(embedPromise.catch(err => {
-                            container.innerHTML = '<div class="vega-error">Error rendering Vega: ' + err.message + '</div>';
+                            container.innerHTML = '<div class="vega-error">Error rendering Vega: ' + (err && err.message ? String(err.message).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Unknown error') + '</div>';
                             return null;
                         }));
                     } catch (err) {
-                        container.innerHTML = '<div class="vega-error">Error rendering Vega: ' + err.message + '</div>';
+                        container.innerHTML = '<div class="vega-error">Error rendering Vega: ' + (err && err.message ? String(err.message).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Unknown error') + '</div>';
                     }
                 }
             });
@@ -1471,7 +1475,7 @@ ${navItems}
                                 throw new Error('No compatible Viz.js API found');
                             }
                         } catch (err) {
-                            container.innerHTML = '<div class="graphviz-error">Error rendering GraphViz: ' + err.message + '</div>';
+                            container.innerHTML = '<div class="graphviz-error">Error rendering GraphViz: ' + (err && err.message ? String(err.message).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Unknown error') + '</div>';
                         }
                     })();
                     renderingPromises.push(graphvizPromise);
@@ -1492,7 +1496,7 @@ ${navItems}
                         container.innerHTML = '';
                         container.appendChild(script);
                     } catch (err) {
-                        container.innerHTML = '<div class="tikz-error">Error rendering TikZ: ' + err.message + '</div>';
+                        container.innerHTML = '<div class="tikz-error">Error rendering TikZ: ' + (err && err.message ? String(err.message).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : 'Unknown error') + '</div>';
                     }
                 }
             });
@@ -1577,6 +1581,33 @@ ${navItems}
             });
         }
         
+        // Expose fast incremental update hook for Electron BrowserWindow reuse
+        window.__markddUpdatePresentation = function(slidesHtml, newTitle) {
+            const container = document.getElementById('presentation-container');
+            if (!container) return false;
+            const prevSlides = Array.from(container.querySelectorAll('.slide'));
+            let activeIndex = prevSlides.findIndex(s => s.classList.contains('active'));
+            if (activeIndex < 0) activeIndex = 0;
+
+            if (newTitle) {
+                document.title = newTitle;
+            }
+            container.innerHTML = slidesHtml;
+            const nextSlides = Array.from(container.querySelectorAll('.slide'));
+            const clampedIndex = nextSlides.length > 0 ? Math.min(activeIndex, nextSlides.length - 1) : 0;
+            nextSlides.forEach((s, idx) => s.classList.toggle('active', idx === clampedIndex));
+
+            const totalEl = document.getElementById('total-slides');
+            if (totalEl) totalEl.textContent = String(nextSlides.length);
+            const curEl = document.getElementById('current-slide');
+            if (curEl) curEl.textContent = String(nextSlides.length > 0 ? clampedIndex + 1 : 0);
+            if (typeof window.currentSlide !== 'undefined') {
+                window.currentSlide = clampedIndex;
+            }
+            initializeRendering();
+            return true;
+        };
+
         // Call immediately if DOM is already loaded, otherwise wait for DOMContentLoaded
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeRendering);
@@ -2018,6 +2049,15 @@ ${navItems}
                     htmlContent = typeof result === 'string' ? result : String(result);
                 } else {
                     htmlContent = this.simpleMarkdownToHTML(content);
+                }
+
+                // Resolve local/relative/file:// image URLs consistently across Electron and Tauri
+                if (typeof window !== 'undefined' && window.MarkDDBridge && typeof window.MarkDDBridge.resolveImageUrl === 'function') {
+                    const currentFile = (window.app && window.app.editor && window.app.editor.currentFile) || null;
+                    htmlContent = htmlContent.replace(/<img\b([^>]*?)\bsrc=(["'])([^"']+)\2([^>]*)>/gi, (m, pre, q, srcVal, post) => {
+                        const resolved = window.MarkDDBridge.resolveImageUrl(srcVal, currentFile);
+                        return `<img${pre}src=${q}${resolved}${q}${post}>`;
+                    });
                 }
             } catch (error) {
                 console.error('[Presentation] Marked parsing error:', error);
@@ -5026,6 +5066,9 @@ ${navItems}
         const html = await this.generateHTML({ theme: this.currentTheme });
         
         // Use bridge for cross-platform compatibility (Electron + web/Tauri modes)
+        if (typeof window !== 'undefined') {
+            window.__markddPresentationPreviewOpen = true;
+        }
         const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
         if (bridge) {
             const result = await bridge.invoke('preview-presentation', {

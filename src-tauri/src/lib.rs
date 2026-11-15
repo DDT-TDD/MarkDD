@@ -1,24 +1,31 @@
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::process::Child;
 use tauri::Manager;
 
 static NODE_CHILD: Mutex<Option<Child>> = Mutex::new(None);
 
+struct BackendConfig {
+    port: Mutex<u16>,
+    token: Mutex<String>,
+}
+
+#[tauri::command]
+fn get_backend_config(state: tauri::State<'_, BackendConfig>) -> serde_json::Value {
+    let port = *state.port.lock().unwrap_or_else(|e| e.into_inner());
+    let token = state.token.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    serde_json::json!({ "port": port, "token": token })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .manage(BackendConfig {
+            port: Mutex::new(3001),
+            token: Mutex::new(String::new()),
+        })
+        .invoke_handler(tauri::generate_handler![get_backend_config])
         .setup(|app| {
-            #[cfg(target_os = "windows")]
-            {
-                println!("[Tauri Rust] Killing any zombie backend processes on port 3001...");
-                use std::os::windows::process::CommandExt;
-                let _ = Command::new("cmd")
-                    .args(&["/C", "for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :3001 ^| findstr LISTENING') do taskkill /f /pid %a"])
-                    .creation_flags(0x08000000) // CREATE_NO_WINDOW
-                    .status();
-            }
-
             println!("[Tauri Rust] Resolving backend path...");
 
             // Resolution order:
@@ -83,6 +90,7 @@ pub fn run() {
 
             let mut cmd = Command::new("node");
             cmd.arg(&resolved_path);
+            cmd.stdout(Stdio::piped());
             
             // Forward CLI arguments (e.g. double-clicked file path from file association) to Node.js backend
             for arg in std::env::args().skip(1) {
@@ -100,8 +108,32 @@ pub fn run() {
             }
 
             match cmd.spawn() {
-                Ok(child) => {
+                Ok(mut child) => {
                     println!("[Tauri Rust] Node.js backend spawned asynchronously. Tauri window loading.");
+                    if let Some(stdout) = child.stdout.take() {
+                        let app_handle = app.handle().clone();
+                        std::thread::spawn(move || {
+                            let reader = BufReader::new(stdout);
+                            for line in reader.lines().map_while(Result::ok) {
+                                println!("[Node Backend] {}", line);
+                                if let Some(json_str) = line.strip_prefix("MARKDD_SERVER_READY ") {
+                                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                        let state = app_handle.state::<BackendConfig>();
+                                        if let Some(p) = val.get("port").and_then(|v| v.as_u64()) {
+                                            if let Ok(mut guard) = state.port.lock() {
+                                                *guard = p as u16;
+                                            }
+                                        }
+                                        if let Some(t) = val.get("token").and_then(|v| v.as_str()) {
+                                            if let Ok(mut guard) = state.token.lock() {
+                                                *guard = t.to_string();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
                     if let Ok(mut guard) = NODE_CHILD.lock() {
                         *guard = Some(child);
                     }
@@ -142,14 +174,19 @@ pub fn run() {
 
             if let Some(file_path) = target_file {
                 println!("[Tauri Single Instance] Forwarding file path to backend: {}", file_path);
+                let state = app.state::<BackendConfig>();
+                let port = *state.port.lock().unwrap_or_else(|e| e.into_inner());
+                let token = state.token.lock().unwrap_or_else(|e| e.into_inner()).clone();
                 let payload = serde_json::json!({ "filePath": file_path });
                 let payload_str = payload.to_string();
                 let req = format!(
-                    "POST /open-file-instance HTTP/1.1\r\nHost: localhost:3001\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    "POST /open-file-instance HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nX-MarkDD-Token: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    port,
+                    token,
                     payload_str.len(),
                     payload_str
                 );
-                if let Ok(mut stream) = std::net::TcpStream::connect("127.0.0.1:3001") {
+                if let Ok(mut stream) = std::net::TcpStream::connect(format!("127.0.0.1:{}", port)) {
                     use std::io::Write;
                     let _ = stream.write_all(req.as_bytes());
                 }

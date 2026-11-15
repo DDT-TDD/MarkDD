@@ -733,15 +733,7 @@ class MarkDDApp {
         });
 
         // Ensure the recent files submenu reflects the latest state when the menu initializes
-        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
-        this.updateRecentFilesMenu();
-        if (!this._recentBackendReady && window.MarkDDBackendReady) {
-            window.MarkDDBackendReady.then(() => {
-                this._recentBackendReady = true;
-                if (this._recentExistsCache) this._recentExistsCache.clear();
-                this.updateRecentFilesMenu();
-            });
-        }
+        this.refreshRecentFilesWhenReady();
     }
 
     setupElectronListeners() {
@@ -1652,11 +1644,16 @@ class MarkDDApp {
             });
         }
 
-        // Initialize book editor with live preview
+        // Initialize book editor with live preview (debounced)
         const bookEditor = document.getElementById('book-chapter-editor');
         if (bookEditor) {
             bookEditor.addEventListener('input', () => {
-                this.updateBookChapterPreview();
+                if (this._bookChapterDebounceTimer) {
+                    clearTimeout(this._bookChapterDebounceTimer);
+                }
+                this._bookChapterDebounceTimer = setTimeout(() => {
+                    this.updateBookChapterPreview();
+                }, 250);
             });
         }
 
@@ -2417,14 +2414,11 @@ class MarkDDApp {
 
         const content = editor.value;
         const currentFile = editor.dataset.currentFile || '';
-        const path = require('path');
-        const fileName = path.basename(currentFile).toLowerCase();
+        const fileName = (currentFile.split(/[\\/]/).pop() || '').toLowerCase();
 
         try {
             if (isThesis && fileName === 'title.md') {
-                const { BookEngine } = require(path.join(process.cwd(), 'src/common/book-engine.js'));
-                const engine = new BookEngine();
-                const coverHtml = engine.renderThesisTitlePage({
+                const coverConfig = {
                     title: config.title || 'Academic Thesis',
                     author: config.author || 'Author Name',
                     degree: config.degree || 'Doctor of Philosophy',
@@ -2434,7 +2428,17 @@ class MarkDDApp {
                     university: config.university || 'standard',
                     year: config.year || new Date().getFullYear().toString(),
                     month: config.month || new Date().toLocaleString('default', { month: 'long' })
-                });
+                };
+                let coverHtml = '';
+                if (window.MarkDDBridge && typeof window.MarkDDBridge.invoke === 'function') {
+                    const res = await window.MarkDDBridge.invoke('render-thesis-title-page', coverConfig);
+                    if (res && res.success && res.html) coverHtml = res.html;
+                }
+                if (!coverHtml && typeof require !== 'undefined') {
+                    const path = require('path');
+                    const { BookEngine } = require(path.join(__dirname, '..', 'common', 'book-engine.js'));
+                    coverHtml = new BookEngine().renderThesisTitlePage(coverConfig);
+                }
                 preview.innerHTML = `<div class="book-page-sheet">${coverHtml}</div>`;
                 return;
             }
@@ -6860,7 +6864,7 @@ theme: forty-seconds
 paperSize: a4
 name: Jane Doe
 subtitle: Senior Software Architect
-photo: "https://picsum.photos/200"
+photo: "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20width%3D%22200%22%20height%3D%22200%22%20rx%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%2278%22%20r%3D%2236%22%20fill%3D%22%2364748b%22%2F%3E%3Cpath%20d%3D%22M40%20176c8-34%2032-52%2060-52s52%2018%2060%2052%22%20fill%3D%22%2364748b%22%2F%3E%3C%2Fsvg%3E"
 photoShape: round
 email: jane.doe@email.com
 phone: +1 (555) 019-2834
@@ -6919,7 +6923,7 @@ theme: twenty-seconds
 paperSize: a4
 name: Jane Doe
 subtitle: Senior Software Architect
-photo: "https://picsum.photos/200"
+photo: "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20width%3D%22200%22%20height%3D%22200%22%20rx%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%2278%22%20r%3D%2236%22%20fill%3D%22%2364748b%22%2F%3E%3Cpath%20d%3D%22M40%20176c8-34%2032-52%2060-52s52%2018%2060%2052%22%20fill%3D%22%2364748b%22%2F%3E%3C%2Fsvg%3E"
 photoShape: round
 email: jane.doe@email.com
 phone: +1 (555) 019-2834
@@ -6978,7 +6982,7 @@ theme: hipster
 paperSize: a4
 name: Jane Doe
 subtitle: Senior Software Architect
-photo: "https://picsum.photos/200"
+photo: "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20width%3D%22200%22%20height%3D%22200%22%20rx%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%2278%22%20r%3D%2236%22%20fill%3D%22%2364748b%22%2F%3E%3Cpath%20d%3D%22M40%20176c8-34%2032-52%2060-52s52%2018%2060%2052%22%20fill%3D%22%2364748b%22%2F%3E%3C%2Fsvg%3E"
 photoShape: round
 email: jane.doe@email.com
 phone: +1 (555) 019-2834
@@ -7415,22 +7419,32 @@ A passionate junior software engineer with solid foundations in computer science
      */
     async refreshCVPreview(focus = false) {
         try {
+            if (!focus && !window.__markddCVPreviewOpen) {
+                return;
+            }
+            const markdown = this.editor.getContent();
+            if (!focus && !/cv:\s*true/i.test(markdown)) {
+                return;
+            }
             const bridge = window.MarkDDBridge;
-            const isOpen = await bridge.invoke('is-cv-preview-open');
-            if (isOpen) {
-                const markdown = this.editor.getContent();
-                if (/cv:\s*true/i.test(markdown)) {
-                    if (!this.cvManager) {
-                        this.cvManager = new CVManager();
-                    }
-                    const html = await this.cvManager.generateHTML({
-                        theme: this.cvManager.parseMarkdown(markdown).theme,
-                        paperSize: this.cvManager.parseMarkdown(markdown).paperSize,
-                        markdown: markdown,
-                        currentFilePath: this.editor.currentFile
-                    });
-                    await bridge.invoke('preview-cv', { html: html, focus: focus });
+            const isOpen = focus ? true : await bridge.invoke('is-cv-preview-open');
+            if (!isOpen) {
+                window.__markddCVPreviewOpen = false;
+                return;
+            }
+            if (/cv:\s*true/i.test(markdown)) {
+                if (!this.cvManager) {
+                    this.cvManager = new CVManager();
                 }
+                const parsed = this.cvManager.parseMarkdown(markdown);
+                const html = await this.cvManager.generateHTML({
+                    theme: parsed.theme,
+                    paperSize: parsed.paperSize,
+                    markdown: markdown,
+                    currentFilePath: this.editor.currentFile
+                });
+                window.__markddCVPreviewOpen = true;
+                await bridge.invoke('preview-cv', { html: html, focus: focus });
             }
         } catch (e) {
             console.error('[App] Failed to background refresh CV preview:', e);
@@ -7442,15 +7456,21 @@ A passionate junior software engineer with solid foundations in computer science
      */
     async refreshPresentationPreview(focus = false) {
         try {
+            if (!focus && !window.__markddPresentationPreviewOpen) {
+                return;
+            }
             const bridge = window.MarkDDBridge;
-            const isOpen = await bridge.invoke('is-presentation-preview-open');
-            if (isOpen) {
-                const markdown = this.editor.getContent();
-                if (this.presentationManager) {
-                    this.presentationManager.parseMarkdown(markdown);
-                    const html = await this.presentationManager.generateHTML({ theme: this.presentationManager.currentTheme });
-                    await bridge.invoke('preview-presentation', { html: html, focus: focus });
-                }
+            const isOpen = focus ? true : await bridge.invoke('is-presentation-preview-open');
+            if (!isOpen) {
+                window.__markddPresentationPreviewOpen = false;
+                return;
+            }
+            const markdown = this.editor.getContent();
+            if (this.presentationManager) {
+                this.presentationManager.parseMarkdown(markdown);
+                const html = await this.presentationManager.generateHTML({ theme: this.presentationManager.currentTheme });
+                window.__markddPresentationPreviewOpen = true;
+                await bridge.invoke('preview-presentation', { html: html, focus: focus });
             }
         } catch (e) {
             console.error('[App] Failed to background refresh presentation preview:', e);
@@ -7652,14 +7672,18 @@ A passionate junior software engineer with solid foundations in computer science
         // Update UI based on content changes
         this.updateUI();
 
-        // Debounced refresh of CV and Presentation previews
-        if (this.isLivePreview) {
+        // Debounced refresh of CV and Presentation previews (only when active)
+        if (this.isLivePreview && (window.__markddCVPreviewOpen || window.__markddPresentationPreviewOpen)) {
             if (this._livePreviewDebounceTimer) {
                 clearTimeout(this._livePreviewDebounceTimer);
             }
             this._livePreviewDebounceTimer = setTimeout(() => {
-                this.refreshCVPreview(false);
-                this.refreshPresentationPreview(false);
+                if (window.__markddCVPreviewOpen) {
+                    this.refreshCVPreview(false);
+                }
+                if (window.__markddPresentationPreviewOpen) {
+                    this.refreshPresentationPreview(false);
+                }
             }, 300); // 300ms debounce
         }
     }
@@ -8782,15 +8806,7 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
-        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
-        this.updateRecentFilesMenu();
-        if (!this._recentBackendReady && window.MarkDDBackendReady) {
-            window.MarkDDBackendReady.then(() => {
-                this._recentBackendReady = true;
-                if (this._recentExistsCache) this._recentExistsCache.clear();
-                this.updateRecentFilesMenu();
-            });
-        }
+        this.refreshRecentFilesWhenReady();
     }
 
     removeRecentFile(filePath) {
@@ -8810,15 +8826,7 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
-        this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
-        this.updateRecentFilesMenu();
-        if (!this._recentBackendReady && window.MarkDDBackendReady) {
-            window.MarkDDBackendReady.then(() => {
-                this._recentBackendReady = true;
-                if (this._recentExistsCache) this._recentExistsCache.clear();
-                this.updateRecentFilesMenu();
-            });
-        }
+        this.refreshRecentFilesWhenReady();
     }
 
     clearRecentFiles() {
@@ -8832,9 +8840,14 @@ A passionate junior software engineer with solid foundations in computer science
             this.fileBrowser.loadRecentFiles();
         }
 
+        this.refreshRecentFilesWhenReady();
+    }
+
+    refreshRecentFilesWhenReady() {
         this._recentBackendReady = !!(window.MarkDDBridge && window.MarkDDBridge.isElectron);
         this.updateRecentFilesMenu();
-        if (!this._recentBackendReady && window.MarkDDBackendReady) {
+        if (!this._recentBackendReady && window.MarkDDBackendReady && !this._recentReadyHooked) {
+            this._recentReadyHooked = true;
             window.MarkDDBackendReady.then(() => {
                 this._recentBackendReady = true;
                 if (this._recentExistsCache) this._recentExistsCache.clear();
@@ -9174,7 +9187,7 @@ A passionate junior software engineer with solid foundations in computer science
         // Get package data dynamically from main process
         let packageData = {
             name: 'MarkDD Editor',
-            version: '2.4.3', // Fallback, will be replaced by main process
+            version: '2.5.0', // Fallback, will be replaced by main process
             description: 'A fully-featured Markdown editor',
             author: 'MarkDD Team'
         };
@@ -9215,14 +9228,14 @@ A passionate junior software engineer with solid foundations in computer science
                 } else if (isElectron) {
                     return { name: 'Application Shell (Electron)', version: packageData.electronVersion || ((typeof process !== 'undefined' && process.versions && process.versions.electron) ? process.versions.electron : '38.8.6') };
                 } else {
-                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.4.3' };
+                    return { name: 'Application Shell (Web Mode)', version: packageData.version || '2.5.0' };
                 }
             }
             return lib;
         });
 
         const appTitle = (packageData.name === 'markdd-editor' || !packageData.name) ? 'MarkDD Editor' : packageData.name;
-        const appVer = packageData.version || '2.4.3';
+        const appVer = packageData.version || '2.5.0';
         let html = `<h2>${appTitle} v${appVer}</h2>
         <p>${packageData.description}</p>
         <p><strong>Author:</strong> ${packageData.author}</p>
@@ -9326,12 +9339,12 @@ A passionate junior software engineer with solid foundations in computer science
             }
             
             // Fallback: keep the "Loading..." text or set a default
-            versionElement.textContent = 'v2.4.3';
+            versionElement.textContent = 'v2.5.0';
         } catch (error) {
             console.error('Failed to populate version info:', error);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
-                versionElement.textContent = 'v2.4.3';
+                versionElement.textContent = 'v2.5.0';
             }
         }
     }

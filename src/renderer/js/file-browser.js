@@ -1318,7 +1318,7 @@ class FileBrowser {
         } catch (e) {
             console.warn('[FileBrowser] updateAppVersion failed:', e);
         }
-        versionElement.textContent = 'v2.4.3';
+        versionElement.textContent = 'v2.5.0';
     }
 
     // Bookmark Management

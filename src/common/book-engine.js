@@ -3200,8 +3200,19 @@ class BookEngine {
             this.logger.info(`[BookEngine] BrowserWindow loading print-ready book from ${fileUrl}`);
             await pdfWindow.loadURL(fileUrl);
             
-            // Wait for rendering to complete (Wait for MathJax / fonts - similar to Puppeteer's timeout)
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Wait deterministically for fonts and MathJax/diagram rendering (bounded safety timeout)
+            await pdfWindow.webContents.executeJavaScript(`
+                Promise.race([
+                    (async () => {
+                        if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+                        if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
+                            try { await window.MathJax.startup.promise; } catch (e) {}
+                        }
+                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    })(),
+                    new Promise(r => setTimeout(r, 8000))
+                ])
+            `).catch(() => {});
             
             const pdfBuffer = await pdfWindow.webContents.printToPDF({
                 margins: {
@@ -3274,8 +3285,8 @@ class BookEngine {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${this.escapeHtml(metadata.title)}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <link rel="stylesheet" href="file:///${path.join(__dirname, '..', 'renderer', 'vendor', 'highlight-github.min.css').replace(/\\/g, '/')}">
+    <link rel="stylesheet" href="file:///${path.join(__dirname, '..', 'renderer', 'vendor', 'katex.min.css').replace(/\\/g, '/')}">
     <style>
         /* Print-optimized book styles */
         @page {
@@ -4245,7 +4256,9 @@ class BookEngine {
     wrapDocument(metadata, sidebar, content) {
         const safeStyle = metadata.bookStyle || 'dark';
         const highlightTheme = metadata.highlightTheme || 'github-dark';
-        const highlightCss = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${highlightTheme}.min.css`;
+        const highlightCss = highlightTheme.includes('dark')
+            ? './assets/vendor/highlight-github-dark.min.css'
+            : './assets/vendor/highlight-github.min.css';
 
         const isMathJax = (metadata.mathEngine || 'mathjax') === 'mathjax';
         const mathHead = isMathJax ? `
@@ -4265,12 +4278,12 @@ class BookEngine {
         }
     };
     </script>
-    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>` : `
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">`;
+    <script async src="./assets/vendor/mathjax-tex-svg.js"></script>` : `
+    <link rel="stylesheet" href="./assets/vendor/katex.min.css">`;
 
         const mathBody = isMathJax ? '' : `
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>`;
+    <script defer src="./assets/vendor/katex.min.js"></script>
+    <script defer src="./assets/vendor/auto-render.min.js"></script>`;
 
         if (metadata.type === 'thesis') {
             const fontLink = this._getPrintUniversityFontLink(metadata);
@@ -4394,10 +4407,9 @@ class BookEngine {
     <main class="book-main">
         ${content}
     </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>${mathBody}
-    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
+${mathBody}
+    <script defer src="./assets/vendor/mermaid.min.js"></script>
+    <script defer src="./assets/vendor/lunr.min.js"></script>
     <script defer src="./assets/book.js"></script>
 </body>
 </html>`;
@@ -4431,10 +4443,9 @@ class BookEngine {
     <main class="book-main">
         ${content}
     </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>${mathBody}
-    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
+${mathBody}
+    <script defer src="./assets/vendor/mermaid.min.js"></script>
+    <script defer src="./assets/vendor/lunr.min.js"></script>
     <script defer src="./assets/book.js"></script>
 </body>
 </html>`;
@@ -4554,6 +4565,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const assetsDir = path.join(outputDir, 'assets');
         await fse.ensureDir(assetsDir);
         await fse.writeFile(path.join(assetsDir, 'book.js'), script, 'utf-8');
+        // Copy local vendor assets for offline book preview & export
+        const localVendorSrc = path.join(__dirname, '..', 'renderer', 'vendor');
+        const localVendorDest = path.join(assetsDir, 'vendor');
+        if (fs.existsSync(localVendorSrc)) {
+            await fse.copy(localVendorSrc, localVendorDest, { overwrite: true });
+        }
     }
 
     buildMetadata(config, stylePreset = this.resolveBookStyle(config.bookStyle)) {
@@ -5056,4 +5073,3 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 
 module.exports = { BookEngine };
-

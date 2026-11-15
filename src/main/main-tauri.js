@@ -2,6 +2,9 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const SESSION_TOKEN = process.env.MARKDD_BACKEND_TOKEN || crypto.randomBytes(32).toString('hex');
+
 
 let startupFilePath = null;
 function parseCliStartupFile(argv) {
@@ -27,46 +30,6 @@ if (startupFilePath) {
     console.log('[Main-Tauri] Detected CLI startup file:', startupFilePath);
 }
 
-function getAppExecutablePath() {
-    if (process.env.PORTABLE_EXECUTABLE_FILE && fs.existsSync(process.env.PORTABLE_EXECUTABLE_FILE)) {
-        return process.env.PORTABLE_EXECUTABLE_FILE;
-    }
-    const localAppData = process.env.LOCALAPPDATA || ('C:\\Users\\' + (process.env.USERNAME || '') + '\\AppData\\Local');
-    const candidates = [
-        path.join(localAppData, 'Programs', 'markdd-editor', 'markdd-editor.exe'),
-        path.join(localAppData, 'Programs', 'MarkDD Editor', 'markdd-editor.exe'),
-        path.join(process.cwd(), 'src-tauri', 'target', 'release', 'markdd-editor.exe'),
-        path.join(process.cwd(), 'markdd-editor.exe')
-    ];
-    for (const cand of candidates) {
-        if (cand && fs.existsSync(cand)) {
-            return cand;
-        }
-    }
-    return null;
-}
-
-// Auto-register file associations on startup for Windows (only if markdd-editor.exe exists)
-if (process.platform === 'win32') {
-    try {
-        const targetExe = getAppExecutablePath();
-        if (targetExe) {
-            const exec = require('child_process').exec;
-            const cmd = `reg add "HKCU\\Software\\Classes\\MarkDD.MarkdownFile" /ve /d "Markdown Document" /f && ` +
-                        `reg add "HKCU\\Software\\Classes\\MarkDD.MarkdownFile\\shell\\open\\command" /ve /d "\\"${targetExe}\\" \\"%1\\"" /f && ` +
-                        `reg add "HKCU\\Software\\Classes\\.md" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                        `reg add "HKCU\\Software\\Classes\\.markdown" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                        `reg add "HKCU\\Software\\Classes\\.mdown" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                        `reg add "HKCU\\Software\\Classes\\.mdwn" /ve /d "MarkDD.MarkdownFile" /f`;
-            exec(cmd, (err) => {
-                if (err) console.warn('[Main-Tauri] Registry association warning:', err.message);
-                else console.log('[Main-Tauri] File associations registered for:', targetExe);
-            });
-        }
-    } catch (e) {
-        console.warn('[Main-Tauri] Failed to execute registry association:', e.message);
-    }
-}
 const url = require('url');
 const { BookEngine } = require('../common/book-engine');
 const { getVersion } = require('../version');
@@ -122,7 +85,7 @@ try {
     packageData = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
 } catch (e) {
     // Fallback: version must always match package.json — update both together
-    packageData = { name: "MarkDD Editor", version: "2.4.3", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
+    packageData = { name: "MarkDD Editor", version: "2.5.0", description: "A fully-featured Markdown editor", author: "MarkDD Team" };
 }
 
 const PORT = 3001;
@@ -141,27 +104,48 @@ function percentDecode(s) {
     return result;
 }
 
+function isSafeUserPath(targetPath) {
+    if (!targetPath || typeof targetPath !== 'string' || targetPath.includes('\0')) return false;
+    const resolved = path.resolve(targetPath);
+    const lower = resolved.toLowerCase().replace(/\\/g, '/');
+    const blocked = [
+        'c:/windows/',
+        'c:/program files/',
+        'c:/program files (x86)/',
+        '/.ssh/',
+        '/.gnupg/',
+        '/.aws/'
+    ];
+    if (blocked.some(b => lower.includes(b))) return false;
+    return true;
+}
+
+function isAuthorizedRequest(req, parsedUrl) {
+    const hdrToken = req.headers['x-markdd-token'];
+    const qryToken = parsedUrl.searchParams.get('token');
+    return hdrToken === SESSION_TOKEN || qryToken === SESSION_TOKEN;
+}
+
 const server = http.createServer(async (req, res) => {
-    // Restrict CORS to trusted local origins (Tauri app / loopback)
+    // Restrict CORS strictly to trusted Tauri / loopback origins (reject null and wildcards)
     const reqOrigin = req.headers.origin;
-    const isAllowedOrigin = !reqOrigin || 
-        reqOrigin === 'null' || 
-        reqOrigin.startsWith('tauri://') || 
-        reqOrigin.startsWith('asset://') || 
-        /^https?:\/\/(?:[a-z0-9-]+\.)?localhost(?::\d+)?$/i.test(reqOrigin) || 
+    const isAllowedOrigin = !reqOrigin ||
+        reqOrigin.startsWith('tauri://') ||
+        reqOrigin.startsWith('asset://') ||
+        /^https?:\/\/tauri\.localhost(?::\d+)?$/i.test(reqOrigin) ||
+        /^https?:\/\/localhost(?::\d+)?$/i.test(reqOrigin) ||
         /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(reqOrigin);
 
-    if (reqOrigin) {
+    if (reqOrigin && isAllowedOrigin) {
         res.setHeader('Access-Control-Allow-Origin', reqOrigin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-MarkDD-Token');
 
     if (req.method === 'OPTIONS') {
-        res.statusCode = 200;
+        res.statusCode = isAllowedOrigin ? 200 : 403;
         res.end();
         return;
     }
@@ -201,9 +185,11 @@ const server = http.createServer(async (req, res) => {
 
     // 0b. Health check endpoint
     if (pathname === '/health') {
+        const addr = server.address();
+        const activePort = (addr && typeof addr === 'object') ? addr.port : PORT;
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true }));
+        res.end(JSON.stringify({ ok: true, status: 'ok', port: activePort, token: SESSION_TOKEN }));
         return;
     }
 
@@ -213,7 +199,7 @@ const server = http.createServer(async (req, res) => {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': (reqOrigin && isAllowedOrigin ? reqOrigin : 'http://127.0.0.1')
         });
         res.write(`data: ${cvPreviewVersion}\n\n`);
         cvSseClients.add(res);
@@ -225,7 +211,7 @@ const server = http.createServer(async (req, res) => {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': (reqOrigin && isAllowedOrigin ? reqOrigin : 'http://127.0.0.1')
         });
         res.write(`data: ${presentationPreviewVersion}\n\n`);
         presentationSseClients.add(res);
@@ -249,6 +235,12 @@ const server = http.createServer(async (req, res) => {
     // 1. Direct synchronous file system endpoints (accessed by bridge.js fsMock)
     if (pathname.startsWith('/fs/')) {
         const queryPath = percentDecode(parsedUrl.searchParams.get('path') || '');
+        if (queryPath && !isSafeUserPath(queryPath)) {
+            res.statusCode = 403;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Forbidden: Unsafe path' }));
+            return;
+        }
         
         if (pathname === '/fs/exists') {
             const exists = fs.existsSync(queryPath);
@@ -790,41 +782,24 @@ async function handleIpc(channel, payload) {
         }
 
         case 'associate-file-extensions': {
-            if (process.platform === 'win32') {
-                const targetExe = getAppExecutablePath();
-                if (!targetExe) return { success: false, error: 'markdd-editor.exe not found on system' };
-                const exec = require('child_process').exec;
-                const cmd = `reg add "HKCU\\Software\\Classes\\MarkDD.MarkdownFile" /ve /d "Markdown Document" /f && ` +
-                            `reg add "HKCU\\Software\\Classes\\MarkDD.MarkdownFile\\shell\\open\\command" /ve /d "\\"${targetExe}\\" \\"%1\\"" /f && ` +
-                            `reg add "HKCU\\Software\\Classes\\.md" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                            `reg add "HKCU\\Software\\Classes\\.markdown" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                            `reg add "HKCU\\Software\\Classes\\.mdown" /ve /d "MarkDD.MarkdownFile" /f && ` +
-                            `reg add "HKCU\\Software\\Classes\\.mdwn" /ve /d "MarkDD.MarkdownFile" /f`;
-                exec(cmd, (err) => {
-                    if (err) console.warn('[Main] Failed to associate file extensions:', err);
-                    else console.log('[Main] File extensions successfully associated for:', targetExe);
-                });
-                return { success: true };
-            }
-            return { success: false, error: 'Not supported on this platform' };
+            return { success: true, note: 'File associations are managed by the NSIS installer.' };
         }
 
-        // TikZJax Server-side Compilation
-        case 'render-tikz-server-side':
-            let tikzjax;
-            try {
-                tikzjax = require('node-tikzjax');
-            } catch (err) {
-                // Try from local References path fallback
-                const localPath = path.join(process.cwd(), 'References', 'node-tikzjax-main', 'dist', 'index.js');
-                if (fs.existsSync(localPath)) {
-                    tikzjax = require(localPath);
-                } else {
-                    throw err;
-                }
-            }
-            const svg = await tikzjax.pdf(payload.tikzCode);
-            return { success: true, svg };
+        // TikZJax Server-side Compilation (shared helper for Electron parity)
+        case 'render-tikz-server-side': {
+            const { renderTikzServerSide } = require(path.join(__dirname, '..', 'common', 'tikz-helper'));
+            const appRoot = path.join(__dirname, '..', '..');
+            return await renderTikzServerSide(appRoot, {
+                tikzCode: payload.tikzCode,
+                isCircuit: !!payload.isCircuit
+            });
+        }
+
+        case 'render-thesis-title-page': {
+            const { BookEngine } = require(path.join(__dirname, '..', 'common', 'book-engine.js'));
+            const engine = new BookEngine();
+            return { success: true, html: engine.renderThesisTitlePage(payload || {}) };
+        }
 
         // General PDF Generation via Puppeteer
         case 'export-pdf': {
@@ -886,7 +861,7 @@ async function handleIpc(channel, payload) {
             return { success: true, path: exPath };
 
         case 'get-package-data':
-            return { success: true, data: { name: 'MarkDD Editor', version: packageData.version || '2.4.3', tauriVersion: '2.11.3', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
+            return { success: true, data: { name: 'MarkDD Editor', version: packageData.version || '2.5.0', tauriVersion: '2.11.3', description: packageData.description || 'A fully-featured Markdown editor', author: packageData.author || 'MarkDD Team' } };
 
         case 'read-license':
             const lic = fs.readFileSync(path.join(__dirname, '../../LICENSE'), 'utf-8');
@@ -910,12 +885,13 @@ async function handleIpc(channel, payload) {
                     return { success: false, error: 'Malformed or dangerous hostname' };
                 }
                 const { spawn, execFile } = require('child_process');
+                if (/[\r\n\0]/.test(parsedUrl.href)) {
+                    return { success: false, error: 'Malformed URL characters' };
+                }
                 if (process.platform === 'win32') {
-                    spawn('cmd.exe', ['/c', 'start', '""', parsedUrl.href], {
-                        windowsHide: true,
-                        detached: true,
-                        stdio: 'ignore'
-                    }).unref();
+                    execFile('rundll32.exe', ['url.dll,FileProtocolHandler', parsedUrl.href], {
+                        windowsHide: true
+                    });
                 } else if (process.platform === 'darwin') {
                     execFile('open', [parsedUrl.href]);
                 } else {
@@ -953,7 +929,8 @@ async function handleIpc(channel, payload) {
                 const base64 = data.toString('base64');
                 const dataUri = `data:${mime};base64,${base64}`;
                 // Also provide the HTTP URL alternative
-                const httpUrl = `http://localhost:3001/fs/serve-image?path=${encodeURIComponent(imgPath)}`;
+                const addr = server.address(); const activePort = (addr && typeof addr === 'object') ? addr.port : PORT;
+                const httpUrl = `http://127.0.0.1:${activePort}/fs/serve-image?path=${encodeURIComponent(imgPath)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
                 return { success: true, dataUri, httpUrl, mime };
             } catch (err) {
                 return { success: false, error: err.message };
@@ -968,35 +945,20 @@ async function handleIpc(channel, payload) {
     }
 }
 
+function announceServerReady() {
+    const addr = server.address();
+    const actualPort = (addr && typeof addr === 'object') ? addr.port : PORT;
+    console.log(`[Headless Backend] Listening on http://127.0.0.1:${actualPort}`);
+    console.log(`MARKDD_SERVER_READY ${JSON.stringify({ port: actualPort, token: SESSION_TOKEN })}`);
+}
+
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-        if (startupFilePath) {
-            console.log('[Headless Backend] Instance already running on port 3001. Forwarding startup file:', startupFilePath);
-            const reqData = JSON.stringify({ filePath: startupFilePath });
-            const req = http.request({
-                hostname: 'localhost',
-                port: PORT,
-                path: '/open-file-instance',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(reqData)
-                }
-            }, () => {
-                process.exit(0);
-            });
-            req.on('error', () => process.exit(0));
-            req.write(reqData);
-            req.end();
-        } else {
-            console.log('[Headless Backend] Primary instance already running on port 3001. Exiting secondary process.');
-            process.exit(0);
-        }
+        console.warn(`[Headless Backend] Port ${PORT} is already in use; falling back to ephemeral port.`);
+        server.listen(0, '127.0.0.1', announceServerReady);
     } else {
         console.error('[Headless Backend] Server error:', err);
     }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-    console.log(`[Headless Backend] Listening on http://127.0.0.1:${PORT}`);
-});
+server.listen(PORT, '127.0.0.1', announceServerReady);

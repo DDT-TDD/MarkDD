@@ -608,7 +608,7 @@ class Preview {
                     // Load Vega first
                     if (!window.vega) {
                         await window.libraryLoader?.loadScript(
-                            'https://cdn.jsdelivr.net/npm/vega@5.33.0/build/vega.min.js',
+                            'vendor/vega.min.js',
                             'Vega',
                             () => window.vega !== undefined && typeof window.vega.parse === 'function'
                         );
@@ -617,7 +617,7 @@ class Preview {
                     // Load Vega-Lite with compile function
                     if (!window.vegaLite || !window.vegaLite.compile) {
                         await window.libraryLoader?.loadScript(
-                            'https://cdn.jsdelivr.net/npm/vega-lite@5.23.0/build/vega-lite.min.js',
+                            'vendor/vega-lite.min.js',
                             'VegaLite',
                             () => window.vegaLite !== undefined && typeof window.vegaLite.compile === 'function'
                         );
@@ -626,7 +626,7 @@ class Preview {
                     // Load Vega-Embed
                     if (!window.vegaEmbed) {
                         await window.libraryLoader?.loadScript(
-                            'https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/build/vega-embed.min.js',
+                            'vendor/vega-embed.min.js',
                             'VegaEmbed',
                             () => window.vegaEmbed !== undefined && typeof window.vegaEmbed === 'function'
                         );
@@ -704,10 +704,8 @@ class Preview {
                 // Load Viz.js library - try @viz-js/viz v3.x first, then fallback to v2.x
                 if (!window.Viz) {
                     const cdnUrls = [
-                        'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.4.0/lib/viz-standalone.js',
-                        'https://unpkg.com/@viz-js/viz@3.4.0/lib/viz-standalone.js',
-                        'https://unpkg.com/viz.js@2.1.2/viz.js',
-                        'https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js'
+                        'vendor/viz-standalone.js',
+                        'vendor/viz.js'
                     ];
                     
                     let loaded = false;
@@ -2187,23 +2185,26 @@ class Preview {
     // debugExportSample removed - use manual exportAsHTML() or the UI export workflow
 
     createHTMLDocument(content, title) {
+        const vUrl = (file) => (typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:'))
+            ? new URL('vendor/' + file, window.location.href).href
+            : ('vendor/' + file);
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.css">
+    <link rel="stylesheet" href="${vUrl('highlight-github.min.css')}">
+    <link rel="stylesheet" href="${vUrl('katex.min.css')}">
     
-    <!-- MathJax Configuration and Scripts -->
+    <!-- MathJax Configuration and Scripts (local vendor) -->
     <script>
         window.MathJax = {
             tex: {
                 // Export requirement: DO NOT process inline math in exported HTML.
                 // Leave inlineMath empty so only display math is handled during export.
                 inlineMath: [],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                displayMath: [['$', '$'], ['\\[', '\\]']],
                 processEscapes: true,
                 processEnvironments: true,
                 packages: ['base', 'ams', 'noerrors', 'noundefined', 'mhchem']
@@ -2215,26 +2216,20 @@ class Preview {
                 ignoreHtmlClass: 'tex2jax_ignore',
                 processHtmlClass: 'tex2jax_process'
             },
-            chtml: {
-                scale: 1.0,
-                minScale: 0.5,
-                matchFontHeight: false,
-                displayAlign: 'center',
-                displayIndent: '0em'
+            svg: {
+                fontCache: 'global'
             },
             loader: {
                 load: ['[tex]/mhchem']
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/es5/tex-chtml.js"></script>
+    <script id="MathJax-script" async src="${vUrl('mathjax-tex-svg.js')}"></script>
     
-    <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
-    <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
-    <script src="https://unpkg.com/markmap-lib@0.15.0/dist/browser/index.min.js"></script>
-    <script src="https://unpkg.com/markmap-view@0.15.0/dist/browser/index.min.js"></script>
-    <script src="https://tikzjax.com/v1/tikzjax.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="${vUrl('mermaid.min.js')}"></script>
+    <script src="${vUrl('d3.min.js')}"></script>
+    <script src="${vUrl('markmap-lib.min.js')}"></script>
+    <script src="${vUrl('markmap-view.min.js')}"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -2704,7 +2699,7 @@ class Preview {
                 // Try to load LaTeX.js dynamically if missing
                 if (!window.LaTeX) {
                     const loaded = await window.libraryLoader?.loadScript(
-                        'https://cdn.jsdelivr.net/npm/latex.js@0.12.4/dist/latex.min.js',
+                        'vendor/latex.min.js',
                         'LaTeX',
                         () => window.LaTeX !== undefined
                     );

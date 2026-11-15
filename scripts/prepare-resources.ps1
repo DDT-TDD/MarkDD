@@ -1,4 +1,4 @@
-# Prepare production Node.js resources for Tauri 2.0 bundle
+﻿# Prepare production Node.js resources for Tauri 2.0 bundle
 # This script is called automatically by tauri.conf.json beforeBuildCommand
 # and can also be run manually before 'cargo tauri build'.
 #
@@ -63,6 +63,11 @@ if ($LASTEXITCODE -ne 0) {
 # Clean up the lockfile npm creates in the resources dir
 $lockFile = "$resourcesDir\package-lock.json"
 if (Test-Path $lockFile) { Remove-Item $lockFile -Force }
+
+# Prune build bloat (.map, .d.ts, .log) from bundled node_modules
+if (Test-Path "$resourcesDir\node_modules") {
+    Get-ChildItem -Path "$resourcesDir\node_modules" -Include *.map,*.d.ts,*.log -Recurse -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+}
 
 # Clean environment
 $env:PUPPETEER_SKIP_DOWNLOAD = $null

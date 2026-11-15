@@ -356,12 +356,12 @@ class LibraryLoader {
         
         // Load KaTeX CSS from local node_modules with CDN fallback (crucial for Tauri Webview context)
         this.loadLocalCSS(
-            '../../node_modules/katex/dist/katex.min.css',
+            'vendor/katex.min.css',
             'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css'
         );
         // Load Highlight.js CSS with fallback to CDN
         this.loadLocalCSS(
-            '../../node_modules/highlight.js/styles/github.min.css',
+            'vendor/highlight-github.min.css',
             'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css'
         );
         
@@ -392,7 +392,7 @@ class LibraryLoader {
                     console.log('[LibraryLoader] Marked.requireModule() returning false');
                     return false;
                 },
-                localUrl: '../../node_modules/marked/lib/marked.umd.js',
+                localUrl: 'vendor/marked.min.js',
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js',
                 check: () => {
                     const result = typeof window.marked === 'object' && typeof window.marked.parse === 'function';
@@ -521,13 +521,13 @@ class LibraryLoader {
             },
             {
                 name: 'MarkmapLib',
-                localUrl: null, // Skip local due to ES module issues
+                localUrl: 'vendor/markmap-lib.min.js', // Skip local due to ES module issues
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/markmap-lib@0.15.0/dist/browser/index.min.js',
                 check: () => typeof window.markmap !== 'undefined' || (window.Markmap && window.markmap)
             },
             {
                 name: 'MarkmapView',
-                localUrl: null, // Skip local due to ES module issues
+                localUrl: 'vendor/markmap-view.min.js', // Skip local due to ES module issues
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/markmap-view@0.15.0/dist/browser/index.min.js',
                 check: () => typeof window.Markmap !== 'undefined' || (window.markmap && window.markmap.Markmap)
             },
@@ -553,7 +553,7 @@ class LibraryLoader {
             // Enhanced: Add improved LaTeX rendering with MathJax fallback
             {
                 name: 'MathJax',
-                localUrl: '../../node_modules/mathjax/tex-mml-svg.js', // Use local MathJax v4 for reliability  
+                localUrl: 'vendor/mathjax-tex-svg.js', // Use local MathJax v4 for reliability  
                 cdnUrl: 'https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-svg.js',
                 check: () => {
                 // Enhanced check: MathJax exists AND tex2svg is available

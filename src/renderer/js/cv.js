@@ -1741,45 +1741,41 @@ class CVManager {
         // Compile CSS
         const themeCSS = this.getThemeCSS(theme, colors);
 
-        // Header sections based on metadata
-        const name = this.metadata.name || 'Your Name';
-        const subtitle = this.metadata.subtitle || '';
-        const email = this.metadata.email || '';
-        const phone = this.metadata.phone || '';
-        const location = this.metadata.location || '';
-        const website = this.metadata.website || '';
-        const github = this.metadata.github || '';
-        const linkedin = this.metadata.linkedin || '';
+        // Header sections based on metadata (HTML-escaped to prevent XSS)
+        const esc = (v) => String(v || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        const name = esc(this.metadata.name || 'Your Name');
+        const subtitle = esc(this.metadata.subtitle || '');
+        const email = String(this.metadata.email || '');
+        const phone = String(this.metadata.phone || '');
+        const location = String(this.metadata.location || '');
+        const website = String(this.metadata.website || '');
+        const github = String(this.metadata.github || '');
+        const linkedin = String(this.metadata.linkedin || '');
 
-        // Handle profile photo path resolution
+        // Handle profile photo path resolution (cross-platform Electron & Tauri)
         const currentFilePath = options.currentFilePath || null;
         let photo = this.metadata.photo || '';
         if (photo && !photo.startsWith('http://') && !photo.startsWith('https://') && !photo.startsWith('data:')) {
-            if (typeof require !== 'undefined') {
-                try {
-                    const path = require('path');
-                    // Resolve relative paths relative to current file path's directory
-                    if (!path.isAbsolute(photo) && currentFilePath) {
-                        const baseDir = path.dirname(currentFilePath);
-                        photo = path.resolve(baseDir, photo);
-                    }
-                    
-                    // Normalize for local file URI
-                    let normalizedPhoto = photo.replace(/\\/g, '/');
-                    if (typeof window !== 'undefined' && window.MarkDDBridge && typeof window.MarkDDBridge.getImageUrl === 'function' && window.MarkDDBridge.isTauri) {
-                        photo = window.MarkDDBridge.getImageUrl(photo);
-                    } else if (!normalizedPhoto.startsWith('file:///')) {
-                        if (normalizedPhoto.startsWith('/')) {
-                            photo = 'file://' + normalizedPhoto;
-                        } else {
-                            photo = 'file:///' + normalizedPhoto;
+            try {
+                if (typeof window !== 'undefined' && window.MarkDDBridge && typeof window.MarkDDBridge.resolveImageUrl === 'function') {
+                    photo = window.MarkDDBridge.resolveImageUrl(photo, currentFilePath);
+                } else {
+                    let resolvedPhoto = photo;
+                    if (!/^[a-zA-Z]:[\\/]/.test(resolvedPhoto) && !resolvedPhoto.startsWith('/') && !resolvedPhoto.startsWith('file://') && currentFilePath) {
+                        const lastSep = Math.max(currentFilePath.lastIndexOf('/'), currentFilePath.lastIndexOf('\\'));
+                        if (lastSep !== -1) {
+                            resolvedPhoto = currentFilePath.substring(0, lastSep + 1) + resolvedPhoto;
                         }
+                    }
+                    const normalizedPhoto = resolvedPhoto.replace(/\\/g, '/');
+                    if (!normalizedPhoto.startsWith('file:///')) {
+                        photo = normalizedPhoto.startsWith('/') ? ('file://' + normalizedPhoto) : ('file:///' + normalizedPhoto);
                     } else {
                         photo = normalizedPhoto;
                     }
-                } catch (e) {
-                    console.error('[CVManager] Failed to resolve photo path:', e);
                 }
+            } catch (e) {
+                console.error('[CVManager] Failed to resolve photo path:', e);
             }
         }
 
@@ -1953,14 +1949,11 @@ class CVManager {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CV - ${name}</title>
     
-    <!-- KaTeX for math expressions -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <!-- KaTeX for math expressions (local vendor) -->
+    <link rel="stylesheet" href="${typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:') ? new URL('vendor/katex.min.css', window.location.href).href : 'vendor/katex.min.css'}">
     
-    <!-- FontAwesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <!-- Code syntax highlighting (local vendor) -->
+    <link rel="stylesheet" href="${typeof window !== 'undefined' && window.location && window.location.href && !window.location.href.startsWith('about:') ? new URL('vendor/highlight-github.min.css', window.location.href).href : 'vendor/highlight-github.min.css'}">
     
     <style id="theme-css">
         ${themeCSS}
@@ -1986,6 +1979,9 @@ class CVManager {
             currentFilePath: currentFilePath
         });
 
+        if (typeof window !== 'undefined') {
+            window.__markddCVPreviewOpen = true;
+        }
         const bridge = (typeof window !== 'undefined' && window.MarkDDBridge) ? window.MarkDDBridge : null;
         if (bridge) {
             return await bridge.invoke('preview-cv', { html: html });
@@ -2079,19 +2075,22 @@ class CVManager {
             twitter: 'Twitter'
         };
 
-        const iconHtml = useIcons ? `<span class="cv-contact-icon">${icons[key] || ''}</span>` : `<span class="cv-contact-label">${labels[key] || key}:</span>`;
+        const esc = (v) => String(v || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        const safeVal = esc(value);
+        const iconHtml = useIcons ? `<span class="cv-contact-icon">${icons[key] || ''}</span>` : `<span class="cv-contact-label">${labels[key] || esc(key)}:</span>`;
         
-        let content = value;
+        let content = safeVal;
         if (key === 'email') {
-            content = `<a href="mailto:${value}">${value}</a>`;
+            content = `<a href="mailto:${encodeURIComponent(value)}">${safeVal}</a>`;
         } else if (key === 'website') {
-            content = `<a href="${value.startsWith('http') ? value : 'https://' + value}" target="_blank">${value.replace(/^https?:\/\//, '')}</a>`;
+            const rawUrl = /^https?:\/\//i.test(value) ? value : (/^[a-z]+:/i.test(value) ? '' : 'https://' + value);
+            content = rawUrl ? `<a href="${esc(rawUrl)}" target="_blank" rel="noopener noreferrer">${esc(value.replace(/^https?:\/\//i, ''))}</a>` : safeVal;
         } else if (key === 'github') {
-            content = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
+            content = `<a href="https://github.com/${encodeURIComponent(value)}" target="_blank" rel="noopener noreferrer">${safeVal}</a>`;
         } else if (key === 'linkedin') {
-            content = `<a href="https://linkedin.com/in/${value}" target="_blank">${value}</a>`;
+            content = `<a href="https://linkedin.com/in/${encodeURIComponent(value)}" target="_blank" rel="noopener noreferrer">${safeVal}</a>`;
         } else if (key === 'twitter') {
-            content = `<a href="https://twitter.com/${value}" target="_blank">@${value}</a>`;
+            content = `<a href="https://twitter.com/${encodeURIComponent(value)}" target="_blank" rel="noopener noreferrer">@${safeVal}</a>`;
         }
 
         return `<span class="cv-contact-item">${iconHtml} <span class="cv-contact-value">${content}</span></span>`;

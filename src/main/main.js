@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, globalShortcut, Menu, session } = require('electron');
 const path = require('path');
 const url = require('url');
 const fs = require('fs');
@@ -93,10 +93,12 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      enableRemoteModule: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      sandbox: false,
       webSecurity: false,
+      preload: path.join(__dirname, 'preload.js'),
       spellcheck: true  // Enable spellcheck for context menu corrections
     },
     icon: path.join(__dirname, '../assets/icons/icon.png'),
@@ -412,6 +414,19 @@ function handleFileOpen(filePath) {
 // App event handlers
 app.whenReady().then(() => {
   console.log('[Main] App is ready, creating window...');
+  try {
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
+      (details, callback) => {
+        const headers = Object.assign({}, details.requestHeaders);
+        const ref = headers.Referer || headers.referer || '';
+        if (!ref || ref.startsWith('file://') || ref.startsWith('data:')) {
+          headers.Referer = 'https://www.youtube-nocookie.com/';
+        }
+        callback({ requestHeaders: headers });
+      }
+    );
+  } catch (e) { console.warn('[Main] YouTube header hook warning:', e.message); }
   console.log('[Main] Command line arguments:', process.argv);
   
   // Register global shortcuts for DevTools (works even if window loses focus)
@@ -880,10 +895,22 @@ ipcMain.handle('toggle-devtools', async () => {
   return { success: false, error: 'No main window' };
 });
 
+function isSafeElectronPath(targetPath) {
+  if (!targetPath || typeof targetPath !== 'string' || targetPath.includes('\0')) return false;
+  const normalized = path.resolve(targetPath).replace(/\\/g, '/').toLowerCase();
+  const allowedRoots = [app && typeof app.getAppPath === 'function' ? app.getAppPath() : null, process.resourcesPath]
+    .filter(Boolean).map(r => path.resolve(r).replace(/\\/g, '/').toLowerCase());
+  if (allowedRoots.some(r => normalized === r || normalized.startsWith(r + '/'))) return true;
+  const forbidden = ['/windows/', '/program files/', '/program files (x86)/', '/.ssh/', '/.gnupg/', '/.aws/'];
+  return !forbidden.some(prefix => normalized.includes(prefix));
+}
 // IPC handlers
 ipcMain.handle('save-file', async (event, { filePath, content }) => {
   try {
     if (filePath) {
+      if (!isSafeElectronPath(filePath)) {
+        return { success: false, error: 'Access denied: restricted system or credential path' };
+      }
       fs.writeFileSync(filePath, content, 'utf-8');
       currentFile = filePath;
       return { success: true, filePath };
@@ -1238,92 +1265,15 @@ ipcMain.handle('export-pdf', async (event, { fileName, html, devAutoSavePath }) 
   }
 });
 
-// TikZ server-side rendering handler - STRICT LOCAL ONLY
+// TikZ server-side rendering handler - STRICT LOCAL ONLY (shared helper)
 ipcMain.handle('render-tikz-server-side', async (event, { tikzCode, isCircuit = false }) => {
   try {
     logInfo('TikZ', `Rendering TikZ diagram, isCircuit: ${isCircuit}`);
-
-    // STRICT LOCAL ONLY: Use local node-tikzjax-main repository or require from node_modules
-    const localTikZJaxPath = path.join(process.cwd(), 'References', 'node-tikzjax-main', 'dist', 'index.js');
-    let tikzjax = null;
-
-    if (fs.existsSync(localTikZJaxPath)) {
-      tikzjax = require(localTikZJaxPath);
-      logInfo('TikZ', `Using local node-tikzjax from: ${localTikZJaxPath}`);
-    } else {
-      try {
-        tikzjax = require('node-tikzjax');
-        logInfo('TikZ', 'Using node-tikzjax from node_modules');
-      } catch (requireErr) {
-        logError('TikZ', `Local node-tikzjax not found at: ${localTikZJaxPath} and node_modules require failed: ${requireErr.message}`);
-        return {
-          success: false,
-          error: `node-tikzjax could not be loaded. Local repository missing at ${localTikZJaxPath} and node_modules require failed: ${requireErr.message}`,
-          method: 'local-missing'
-        };
-      }
-    }
-
-    // Helper function to clean up TikZ source code (minimal processing to preserve structure)
-    function tidyTikzSource(code) {
-        // Only trim trailing whitespace from each line, preserve empty lines and indentation
-        return code.split('\n').map(line => line.trimEnd()).join('\n');
-    }
-
-    const finalCode = tidyTikzSource(tikzCode);
-
-    logInfo('TikZ', `Final TikZ code to render: ${finalCode.substring(0, 100)}...`);
-
-    // CRITICAL FIX v3: node-tikzjax format requirements (see demo/input/sample*.tex)
-    // 1. NO \documentclass (added internally by node-tikzjax)
-    // 2. Optional \usepackage commands
-    // 3. \begin{document} ... \end{document}
-    // 4. NO empty lines in document structure (causes LaTeX input errors)
-    let wrappedCode;
-    if (finalCode.includes('\\begin{document}')) {
-      // Code already has \begin{document}
-      // Check if it has \documentclass - if so, remove it
-      if (finalCode.includes('\\documentclass')) {
-        // Remove \documentclass line (node-tikzjax adds it automatically)
-        wrappedCode = finalCode.replace(/\\documentclass(\[.*?\])?\{.*?\}\s*/g, '');
-        logInfo('TikZ', 'Removed \\documentclass from user input (node-tikzjax adds it automatically)');
-      } else {
-        wrappedCode = finalCode;
-      }
-    } else {
-      // Wrap raw TikZ code with packages and document environment
-      const packages = isCircuit ? 
-        '\\usepackage{tikz}\n\\usepackage{circuitikz}' : 
-        '\\usepackage{tikz}';
-      
-      // Detect if code is already wrapped in tikzpicture/circuitikz environment
-      if (finalCode.trim().startsWith('\\begin{tikzpicture}') || 
-          finalCode.trim().startsWith('\\begin{circuitikz}')) {
-        wrappedCode = `${packages}\n\\begin{document}\n${finalCode}\n\\end{document}`;
-      } else {
-        // Raw TikZ commands - wrap in tikzpicture environment
-        const environment = isCircuit ? 'circuitikz' : 'tikzpicture';
-        wrappedCode = `${packages}\n\\begin{document}\n\\begin{${environment}}\n${finalCode}\n\\end{${environment}}\n\\end{document}`;
-      }
-    }
-
-    logInfo('TikZ', `Wrapped LaTeX document (first 200 chars): ${wrappedCode.substring(0, 200)}...`);
-
-    // Configure options for node-tikzjax (no texPackages needed since we handle packages manually)
-    const options = {
-      showConsole: true
-    };
-
-    // Render with local node-tikzjax ONLY
-    const svgResult = await tikzjax.default(wrappedCode, options);
-
+    const { renderTikzServerSide } = require(path.join(__dirname, '..', 'common', 'tikz-helper'));
+    const appRoot = app.getAppPath();
+    const result = await renderTikzServerSide(appRoot, { tikzCode, isCircuit });
     logInfo('TikZ', 'Local node-tikzjax rendering successful');
-    return {
-      success: true,
-      svg: svgResult,
-      method: 'local-node-tikzjax'
-    };
-
+    return result;
   } catch (error) {
     logError('TikZ', `Local node-tikzjax failed: ${error.message}`);
     return {
@@ -1463,6 +1413,9 @@ ipcMain.handle('read-file', async (event, payload) => {
       return { success: false, error: 'No file path provided to read-file' };
     }
     const cleanPath = targetPath.trim().replace(/^["']|["']$/g, '');
+    if (!isSafeElectronPath(cleanPath)) {
+      return { success: false, error: 'Access denied: restricted system or credential path' };
+    }
     const content = fs.readFileSync(cleanPath, 'utf8');
     return { success: true, content, filePath: cleanPath };
   } catch (error) {
@@ -1482,6 +1435,9 @@ ipcMain.handle('fs-read-file', async (event, payload) => {
       throw new Error('No file path provided to fs-read-file');
     }
     const cleanPath = targetPath.trim().replace(/^["']|["']$/g, '');
+    if (!isSafeElectronPath(cleanPath)) {
+      throw new Error('Access denied: restricted system or credential path');
+    }
     return fs.readFileSync(cleanPath, 'utf8');
   } catch (error) {
     throw new Error(`Failed to read file: ${error.message}`);
@@ -1491,6 +1447,9 @@ ipcMain.handle('fs-read-file', async (event, payload) => {
 ipcMain.handle('create-file', async (event, parentPath, fileName) => {
   try {
     const filePath = path.join(parentPath, fileName);
+    if (!isSafeElectronPath(filePath)) {
+      throw new Error('Access denied: restricted system or credential path');
+    }
     fs.writeFileSync(filePath, '');
     return { success: true, filePath };
   } catch (error) {
@@ -1501,6 +1460,9 @@ ipcMain.handle('create-file', async (event, parentPath, fileName) => {
 ipcMain.handle('create-folder', async (event, parentPath, folderName) => {
   try {
     const folderPath = path.join(parentPath, folderName);
+    if (!isSafeElectronPath(folderPath)) {
+      throw new Error('Access denied: restricted system or credential path');
+    }
     fs.mkdirSync(folderPath);
     return { success: true, folderPath };
   } catch (error) {
@@ -1801,7 +1763,7 @@ ipcMain.handle('get-available-plugins', async () => {
 
   try {
     // Check which plugins are already installed
-    const packageJsonPath = path.join(process.cwd(), 'package.json');
+    const packageJsonPath = path.join(app.getAppPath(), 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     const installedDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
     
@@ -1818,71 +1780,24 @@ ipcMain.handle('get-available-plugins', async () => {
 
 const NPM_PKG_REGEX = /^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/i;
 
-ipcMain.handle('install-plugin', async (event, pluginName) => {
-  const { execFile } = require('child_process');
-  
-  return new Promise((resolve) => {
-    if (!pluginName || typeof pluginName !== 'string' || !NPM_PKG_REGEX.test(pluginName.trim())) {
-      logError('Plugin Install', `Invalid plugin package name: ${pluginName}`);
-      resolve({ success: false, error: 'Invalid plugin package name format' });
-      return;
-    }
-    const safeName = pluginName.trim();
-    logInfo('Plugin Install', `Installing ${safeName}...`);
-    
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    execFile(npmCmd, ['install', safeName], { cwd: process.cwd() }, (error, stdout, stderr) => {
-      if (error) {
-        logError('Plugin Install', error);
-        resolve({
-          success: false,
-          error: error.message,
-          stderr: stderr
-        });
-      } else {
-        logInfo('Plugin Install', `Successfully installed ${safeName}`);
-        resolve({
-          success: true,
-          stdout: stdout
-        });
-      }
-    });
-  });
+ipcMain.handle('install-plugin', async () => {
+  return { success: false, error: 'Runtime npm plugin installation is disabled for security.' };
 });
 
-ipcMain.handle('uninstall-plugin', async (event, pluginName) => {
-  const { execFile } = require('child_process');
-  
-  return new Promise((resolve) => {
-    if (!pluginName || typeof pluginName !== 'string' || !NPM_PKG_REGEX.test(pluginName.trim())) {
-      logError('Plugin Uninstall', `Invalid plugin package name: ${pluginName}`);
-      resolve({ success: false, error: 'Invalid plugin package name format' });
-      return;
-    }
-    const safeName = pluginName.trim();
-    logInfo('Plugin Uninstall', `Uninstalling ${safeName}...`);
-    
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    execFile(npmCmd, ['uninstall', safeName], { cwd: process.cwd() }, (error, stdout, stderr) => {
-      if (error) {
-        logError('Plugin Uninstall', error);
-        resolve({
-          success: false,
-          error: error.message,
-          stderr: stderr
-        });
-      } else {
-        logInfo('Plugin Uninstall', `Successfully uninstalled ${safeName}`);
-        resolve({
-          success: true,
-          stdout: stdout
-        });
-      }
-    });
-  });
+ipcMain.handle('uninstall-plugin', async () => {
+  return { success: false, error: 'Runtime npm plugin uninstallation is disabled for security.' };
 });
 
-// App control handlers
+ipcMain.handle('render-thesis-title-page', async (event, payload) => {
+  try {
+    const { BookEngine } = require(path.join(__dirname, '..', 'common', 'book-engine.js'));
+    const engine = new BookEngine();
+    return { success: true, html: engine.renderThesisTitlePage(payload || {}) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('app-quit', async () => {
   try {
     app.quit();
@@ -2019,8 +1934,7 @@ ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => 
       throw new Error('Failed to initialise preview window');
     }
 
-    // Stop any in-flight navigation before loading fresh content
-    presentationWindow.webContents.stop();
+    const wasAlreadyLoaded = !presentationWindow.webContents.isLoading() && presentationWindow.webContents.getURL() !== '';
 
     // Clean up previous temp file if it exists
     if (tempPreviewPath && fs.existsSync(tempPreviewPath)) {
@@ -2031,9 +1945,30 @@ ipcMain.handle('preview-presentation', async (event, { html, focus = true }) => 
 
     tempPreviewPath = path.join(app.getPath('temp'), `markdd-presentation-preview-${Date.now()}.html`);
     await fs.promises.writeFile(tempPreviewPath, html, 'utf-8');
-
     const fileUrl = url.pathToFileURL(tempPreviewPath).href;
-    await presentationWindow.loadURL(fileUrl);
+
+    let updatedDynamically = false;
+    if (wasAlreadyLoaded) {
+      try {
+        const containerMatch = html.match(/<div id="presentation-container">([\s\S]*?)<\/div>\s*<div id="progress-bar">/);
+        const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/);
+        if (containerMatch) {
+          const slidesHtml = containerMatch[1];
+          const title = titleMatch ? titleMatch[1].trim() : 'Presentation Preview';
+          const canDynamicUpdate = await presentationWindow.webContents.executeJavaScript(
+            `typeof window.__markddUpdatePresentation === 'function' ? (window.__markddUpdatePresentation(${JSON.stringify(slidesHtml)}, ${JSON.stringify(title)}), true) : false`
+          );
+          updatedDynamically = Boolean(canDynamicUpdate);
+        }
+      } catch (dynErr) {
+        logInfo('PreviewPresentation', 'Dynamic update fallback to loadURL: ' + dynErr.message);
+      }
+    }
+
+    if (!updatedDynamically) {
+      presentationWindow.webContents.stop();
+      await presentationWindow.loadURL(fileUrl);
+    }
 
     if (!presentationWindow.isVisible()) {
       presentationWindow.show();

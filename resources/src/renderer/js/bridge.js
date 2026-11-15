@@ -1,7 +1,8 @@
 // Platform-agnostic bridge for MarkDD Editor (Electron / Tauri 2.0 / Web)
 // Provides a unified interface for IPC, fs, and path across all runtimes.
 (() => {
-    const isElectron = (
+    const hasElectronPreload = !!(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron);
+    const isElectron = hasElectronPreload || (
         typeof require !== 'undefined' &&
         typeof process !== 'undefined' &&
         process.versions &&
@@ -108,7 +109,20 @@
     }
 
     // ─── fs mock — synchronous (XHR) + async (fetch) ─────────────────────────
-    const BASE = 'http://localhost:3001';
+    let BASE = 'http://127.0.0.1:3001';
+    let AUTH_TOKEN = '';
+    function authHeaders(extra = {}) {
+        return AUTH_TOKEN ? Object.assign({}, extra, { 'X-MarkDD-Token': AUTH_TOKEN }) : extra;
+    }
+    function setXhrAuth(xhr) {
+        if (AUTH_TOKEN) {
+            try { xhr.setRequestHeader('X-MarkDD-Token', AUTH_TOKEN); } catch (_) {}
+        }
+    }
+    function appendToken(urlStr) {
+        if (!AUTH_TOKEN) return urlStr;
+        return urlStr + (urlStr.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(AUTH_TOKEN);
+    }
 
     // Track backend readiness — resolves when Node server responds
     let _backendReady = false;
@@ -128,9 +142,35 @@
 
     // Poll /health in Tauri/Web mode until the Node backend is up
     if (!isElectron) {
-        (function pollHealth() {
+        (async function pollHealth() {
+            try {
+                const invokeTauri = (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) || (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke);
+                if (typeof invokeTauri === 'function') {
+                    const cfg = await invokeTauri('get_backend_config');
+                    if (cfg && cfg.port) BASE = `http://127.0.0.1:${cfg.port}`;
+                    if (cfg && cfg.token) AUTH_TOKEN = cfg.token;
+                }
+            } catch (_) {}
             fetch(`${BASE}/health`, { method: 'GET' })
-                .then(r => r.ok ? _markBackendReady() : setTimeout(pollHealth, 250))
+                .then(async (r) => {
+                    if (!r.ok) { setTimeout(pollHealth, 250); return; }
+                    try {
+                        const data = await r.json();
+                        if (data && data.port) BASE = `http://127.0.0.1:${data.port}`;
+                        if (data && data.token && !AUTH_TOKEN) AUTH_TOKEN = data.token;
+                    } catch (_) {}
+                    if (!AUTH_TOKEN) {
+                        try {
+                            const invokeTauri = (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) || (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke);
+                            if (typeof invokeTauri === 'function') {
+                                const cfg = await invokeTauri('get_backend_config');
+                                if (cfg && cfg.port) BASE = `http://127.0.0.1:${cfg.port}`;
+                                if (cfg && cfg.token) AUTH_TOKEN = cfg.token;
+                            }
+                        } catch (_) {}
+                    }
+                    _markBackendReady();
+                })
                 .catch(() => setTimeout(pollHealth, 250));
         })();
     } else {
@@ -143,6 +183,7 @@
             try {
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', `${BASE}/fs/exists?path=${encodeURIComponent(filePath)}`, false);
+                setXhrAuth(xhr);
                 xhr.send();
                 if (xhr.status === 200) return JSON.parse(xhr.responseText).exists;
             } catch (e) {
@@ -154,6 +195,7 @@
         readFileSync: (filePath, encoding) => {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${BASE}/fs/read?path=${encodeURIComponent(filePath)}`, false);
+                setXhrAuth(xhr);
             if (!encoding || encoding === 'binary') {
                 xhr.overrideMimeType('text/plain; charset=x-user-defined');
             }
@@ -179,6 +221,7 @@
         writeFileSync: (filePath, content) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', `${BASE}/fs/write?path=${encodeURIComponent(filePath)}`, false);
+                setXhrAuth(xhr);
             xhr.setRequestHeader('Content-Type', 'text/plain; charset=utf-8');
             xhr.send(content);
             if (xhr.status !== 200) {
@@ -186,14 +229,23 @@
             }
         },
 
-        readdirSync: (filePath) => {
+        readdirSync: (filePath, opts) => {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${BASE}/fs/readdir?path=${encodeURIComponent(filePath)}`, false);
+            setXhrAuth(xhr);
             xhr.send();
             if (xhr.status !== 200) {
                 throw new Error(`Failed to read directory ${filePath}: ${xhr.statusText}`);
             }
-            return JSON.parse(xhr.responseText);
+            const names = JSON.parse(xhr.responseText);
+            if (opts && opts.withFileTypes) {
+                return names.map(name => ({
+                    name,
+                    isDirectory: () => { try { return fsMock.statSync(filePath + '/' + name).isDirectory(); } catch (_) { return false; } },
+                    isFile: () => true
+                }));
+            }
+            return names;
         },
 
         mkdirSync: (dirPath, opts) => {
@@ -201,6 +253,7 @@
             const xhr = new XMLHttpRequest();
             const recursive = (opts && opts.recursive) ? 'true' : 'false';
             xhr.open('POST', `${BASE}/fs/mkdir?path=${encodeURIComponent(dirPath)}&recursive=${recursive}`, false);
+                setXhrAuth(xhr);
             xhr.send();
             // Ignore errors for now (directory may already exist)
         },
@@ -208,6 +261,7 @@
         statSync: (filePath) => {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${BASE}/fs/stat?path=${encodeURIComponent(filePath)}`, false);
+                setXhrAuth(xhr);
             xhr.send();
             if (xhr.status !== 200) throw new Error(`stat failed for ${filePath}`);
             const info = JSON.parse(xhr.responseText);
@@ -223,7 +277,7 @@
         promises: {
             readFile: async (filePath, encoding) => {
                 const enc = (encoding && typeof encoding === 'object') ? encoding.encoding : encoding;
-                const res = await fetch(`${BASE}/fs/read?path=${encodeURIComponent(filePath)}`);
+                const res = await fetch(`${BASE}/fs/read?path=${encodeURIComponent(filePath)}`, { headers: authHeaders() });
                 if (!res.ok) throw new Error(`Failed to read file ${filePath}: ${res.status}`);
                 if (enc === 'utf-8' || enc === 'utf8') return res.text();
                 const buf = await res.arrayBuffer();
@@ -236,14 +290,14 @@
                     : (typeof content === 'string' ? content : JSON.stringify(content));
                 const res = await fetch(`${BASE}/fs/write?path=${encodeURIComponent(filePath)}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                    headers: authHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }),
                     body
                 });
                 if (!res.ok) throw new Error(`Failed to write file ${filePath}: ${res.status}`);
             },
 
             readdir: async (dirPath, opts) => {
-                const res = await fetch(`${BASE}/fs/readdir?path=${encodeURIComponent(dirPath)}`);
+                const res = await fetch(`${BASE}/fs/readdir?path=${encodeURIComponent(dirPath)}`, { headers: authHeaders() });
                 if (!res.ok) throw new Error(`Failed to readdir ${dirPath}: ${res.status}`);
                 const names = await res.json();
                 if (opts && opts.withFileTypes) {
@@ -260,7 +314,7 @@
 
             mkdir: async (dirPath, opts) => {
                 const recursive = (opts && opts.recursive) ? 'true' : 'false';
-                const res = await fetch(`${BASE}/fs/mkdir?path=${encodeURIComponent(dirPath)}&recursive=${recursive}`, {
+                const res = await fetch(`${BASE}/fs/mkdir?path=${encodeURIComponent(dirPath)}&recursive=${recursive}`, { headers: authHeaders(),
                     method: 'POST'
                 });
                 // Ignore 409/already-exists
@@ -270,21 +324,21 @@
             },
 
             access: async (filePath) => {
-                const res = await fetch(`${BASE}/fs/exists?path=${encodeURIComponent(filePath)}`);
+                const res = await fetch(`${BASE}/fs/exists?path=${encodeURIComponent(filePath)}`, { headers: authHeaders() });
                 if (!res.ok) throw new Error(`access denied for ${filePath}`);
                 const { exists } = await res.json();
                 if (!exists) throw new Error(`ENOENT: no such file or directory '${filePath}'`);
             },
 
             unlink: async (filePath) => {
-                const res = await fetch(`${BASE}/fs/unlink?path=${encodeURIComponent(filePath)}`, {
+                const res = await fetch(`${BASE}/fs/unlink?path=${encodeURIComponent(filePath)}`, { headers: authHeaders(),
                     method: 'DELETE'
                 });
                 if (!res.ok) throw new Error(`Failed to unlink ${filePath}: ${res.status}`);
             },
 
             stat: async (filePath) => {
-                const res = await fetch(`${BASE}/fs/stat?path=${encodeURIComponent(filePath)}`);
+                const res = await fetch(`${BASE}/fs/stat?path=${encodeURIComponent(filePath)}`, { headers: authHeaders() });
                 if (!res.ok) throw new Error(`stat failed for ${filePath}: ${res.status}`);
                 const info = await res.json();
                 return {
@@ -301,8 +355,8 @@
     window.MarkDDBridge = {
         isElectron,
         isTauri,
-        fs: isElectron ? require('fs') : fsMock,
-        path: isElectron ? require('path') : pathMock,
+        fs: hasElectronPreload ? window.electronAPI.fs : (isElectron ? require('fs') : fsMock),
+        path: hasElectronPreload ? window.electronAPI.path : (isElectron ? require('path') : pathMock),
 
         /**
          * Convert an absolute local file path to a URL that the webview can load.
@@ -312,9 +366,43 @@
         getImageUrl: (absolutePath) => {
             if (!absolutePath) return '';
             if (isElectron) {
-                return 'file://' + absolutePath.replace(/\\/g, '/');
+                const norm = absolutePath.replace(/\\/g, '/');
+                if (/^file:\/\//i.test(norm)) return norm;
+                return norm.startsWith('/') ? ('file://' + encodeURI(norm)) : ('file:///' + encodeURI(norm));
             }
-            return `${BASE}/fs/serve-image?path=${encodeURIComponent(absolutePath)}`;
+            return appendToken(`${BASE}/fs/serve-image?path=${encodeURIComponent(absolutePath)}`);
+        },
+
+        /**
+         * Resolve a raw Markdown/CV/Presentation image src (relative, file://, or Windows path)
+         * against the current document file path for BOTH Electron and Tauri.
+         */
+        resolveImageUrl: (rawSrc, currentFilePath = null) => {
+            if (!rawSrc || typeof rawSrc !== 'string') return rawSrc || '';
+            const trimmed = rawSrc.trim();
+            if (/^(https?:|data:|blob:|tauri:|asset:|#)/i.test(trimmed)) {
+                return trimmed;
+            }
+            let localPath = trimmed;
+            if (/^file:\/\//i.test(localPath)) {
+                localPath = decodeURIComponent(localPath.replace(/^file:\/\/\//i, '').replace(/^file:\/\//i, ''));
+                if (/^\/[a-zA-Z]:[\\/]/.test(localPath)) {
+                    localPath = localPath.slice(1);
+                }
+            } else if (!/^[a-zA-Z]:[\\/]/.test(localPath) && !localPath.startsWith('/')) {
+                const docPath = currentFilePath || (typeof window !== 'undefined' && window.app && window.app.editor && window.app.editor.currentFile) || '';
+                if (docPath) {
+                    const lastSep = Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\'));
+                    if (lastSep !== -1) {
+                        const baseDir = docPath.substring(0, lastSep);
+                        localPath = pathMock.resolve(baseDir, localPath);
+                    }
+                }
+            }
+            if (/^[a-zA-Z]:[\\/]/.test(localPath) || localPath.startsWith('/')) {
+                return window.MarkDDBridge.getImageUrl(localPath);
+            }
+            return trimmed;
         },
 
         /** Async version that also fetches via IPC for data-URI embedding */
@@ -326,11 +414,15 @@
             }
         },
 
-        invoke: async (channel, payload = {}) => {
+        invoke: async (channel, ...args) => {
+            const payload = args[0] !== undefined ? args[0] : {};
             // ── Electron: native IPC ──────────────────────────────────────────
+            if (hasElectronPreload) {
+                return window.electronAPI.ipcRenderer.invoke(channel, ...args);
+            }
             if (isElectron) {
                 const { ipcRenderer } = require('electron');
-                return ipcRenderer.invoke(channel, payload);
+                return ipcRenderer.invoke(channel, ...args);
             }
 
             // ── Tauri: intercept dialog channels ─────────────────────────────
@@ -532,14 +624,14 @@
             try {
                 const res = await fetch(`${BASE}/ipc/${channel}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
 
                 // Handle secondary preview windows in Tauri mode
                 if (isTauri && data && data.success && data.filePath) {
-                    const previewUrl = `${BASE}/fs/read?path=${encodeURIComponent(data.filePath)}`;
+                    const previewUrl = appendToken(`${BASE}/fs/read?path=${encodeURIComponent(data.filePath)}`);
 
                     if (channel === 'preview-cv') {
                         const openCvFallback = () => {
@@ -624,7 +716,7 @@
                 // The SSE script injected by the server handles auto-reload;
                 // here we open/focus the window the first time.
                 if (!isTauri && !isElectron && data && data.success && data.filePath) {
-                    const previewUrl = `${BASE}/fs/read?path=${encodeURIComponent(data.filePath)}`;
+                    const previewUrl = appendToken(`${BASE}/fs/read?path=${encodeURIComponent(data.filePath)}`);
 
                     if (channel === 'preview-cv') {
                         try {
@@ -657,7 +749,7 @@
 
             } catch (err) {
                 console.error(`[Bridge] IPC channel '${channel}' failed:`, err);
-                if (channel === 'get-package-data') return { success: true, data: { name: 'MarkDD Editor', version: '2.4.3', description: 'A fully-featured Markdown editor', author: 'MarkDD Team' } };
+                if (channel === 'get-package-data') return { success: true, data: { name: 'MarkDD Editor', version: '2.5.0', description: 'A fully-featured Markdown editor', author: 'MarkDD Team' } };
                 return { success: false, error: err.message };
             }
         },
@@ -665,7 +757,9 @@
         // ── ipcRenderer shim: allows renderer code written for Electron to work unchanged ──
         ipcRenderer: {
             on: (channel, callback) => {
-                if (isElectron) {
+                if (hasElectronPreload) {
+                    window.electronAPI.ipcRenderer.on(channel, callback);
+                } else if (isElectron) {
                     require('electron').ipcRenderer.on(channel, callback);
                 } else if (isTauri && window.__TAURI__ && window.__TAURI__.event) {
                     window.__TAURI__.event.listen(channel, (event) => {
@@ -676,17 +770,21 @@
                 // because the Node backend doesn't push events — they're driven by the HTML UI.
             },
             send: (channel, data) => {
-                if (isElectron) {
+                if (hasElectronPreload) {
+                    window.electronAPI.ipcRenderer.send(channel, data);
+                } else if (isElectron) {
                     require('electron').ipcRenderer.send(channel, data);
                 } else if (isTauri && window.__TAURI__ && window.__TAURI__.event) {
                     window.__TAURI__.event.emit(channel, data);
                 }
             },
-            invoke: async (channel, payload) => {
-                return window.MarkDDBridge.invoke(channel, payload);
+            invoke: async (channel, ...args) => {
+                return window.MarkDDBridge.invoke(channel, ...args);
             },
             removeAllListeners: (channel) => {
-                if (isElectron) {
+                if (hasElectronPreload) {
+                    window.electronAPI.ipcRenderer.removeAllListeners(channel);
+                } else if (isElectron) {
                     require('electron').ipcRenderer.removeAllListeners(channel);
                 }
                 // In Tauri/Web there is nothing to remove — listeners were never registered
@@ -697,7 +795,18 @@
     // ─── Global require() shim for Tauri / Web context ───────────────────────
     // Only installed when the native Node require is absent (i.e. in Tauri/WebView).
     // Electron already has a real require, so we must not override it there.
-    if (!isElectron) {
+    if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
+        window.process = {
+            cwd: () => (hasElectronPreload && typeof window.electronAPI.cwd === 'function' ? window.electronAPI.cwd() : '.'),
+            env: {},
+            platform: 'win32',
+            versions: (hasElectronPreload && window.electronAPI.versions) || {}
+        };
+        if (typeof globalThis !== 'undefined' && typeof globalThis.process === 'undefined') {
+            globalThis.process = window.process;
+        }
+    }
+    if (typeof window !== 'undefined' && typeof window.require === 'undefined') {
         const shimRequire = (moduleName) => {
             switch (moduleName) {
                 case 'electron':
@@ -708,9 +817,13 @@
                         }
                     };
                 case 'fs':
-                    return fsMock;
+                    return hasElectronPreload ? window.electronAPI.fs : fsMock;
                 case 'path':
-                    return pathMock;
+                    return hasElectronPreload ? window.electronAPI.path : pathMock;
+                case 'marked': return window.marked;
+                case 'katex': return window.katex;
+                case 'katex/contrib/mhchem': return window.katex;
+                case 'dompurify': return window.DOMPurify;
                 case 'js-yaml':
                     return window.jsyaml;
                 case 'jszip':
